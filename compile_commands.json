@@ -1,0 +1,26 @@
+[
+    {
+        "command": "gcc -o test_json_parser.o -c -Wall -Wextra -I tree-sitter/lib/include -I tree-sitter/lib/src test_json_parser.c",
+        "directory": "D:\\Repos\\Estragon",
+        "file": "test_json_parser.c",
+        "output": "test_json_parser.o"
+    },
+    {
+        "command": "gcc -o tree-sitter\\lib\\src\\lib.o -c -Wall -Wextra -I tree-sitter/lib/include -I tree-sitter/lib/src tree-sitter\\lib\\src\\lib.c",
+        "directory": "D:\\Repos\\Estragon",
+        "file": "tree-sitter\\lib\\src\\lib.c",
+        "output": "tree-sitter\\lib\\src\\lib.o"
+    },
+    {
+        "command": "gcc -o tree-sitter-json\\src\\parser.o -c -Wall -Wextra -I tree-sitter/lib/include -I tree-sitter/lib/src tree-sitter-json\\src\\parser.c",
+        "directory": "D:\\Repos\\Estragon",
+        "file": "tree-sitter-json\\src\\parser.c",
+        "output": "tree-sitter-json\\src\\parser.o"
+    },
+    {
+        "command": "gcc -o arg_parser.o -c -Wall -Wextra -I tree-sitter/lib/include -I tree-sitter/lib/src arg_parser.c",
+        "directory": "D:\\Repos\\Estragon",
+        "file": "arg_parser.c",
+        "output": "arg_parser.o"
+    }
+]
