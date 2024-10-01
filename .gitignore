@@ -3,3 +3,4 @@
 *.exe
 .cache
 .sconsign.dblite
+compile_commands.json
