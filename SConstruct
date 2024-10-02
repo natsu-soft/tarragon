@@ -9,6 +9,7 @@ env = Environment(tools=['mingw'], CCFLAGS=[
     "-Wall", "-Wextra",
     "-I", "tree-sitter/lib/include",
     "-I", "tree-sitter/lib/src",
+    "-I", "src",
 ])
 env.Tool('compilation_db')
 
