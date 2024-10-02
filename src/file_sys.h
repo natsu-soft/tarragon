@@ -7,12 +7,12 @@ typedef struct _iobuf FILE;
 typedef struct _IO_FILE FILE;
 #endif
 
-typedef struct file_context {
+typedef struct filep_context {
 	FILE* file;
 	char* dir;
-} file_context;
+} filep_context;
 
-int find_upward(const char* name, char* dir, file_context* res);
+int find_upward(const char* name, char* dir, filep_context* res);
 
 char* dirname(const char* name);
 

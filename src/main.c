@@ -5,91 +5,9 @@
 #include <stdlib.h>
 #include "file_sys.h"
 #include "tarragon.h"
+// #include "tarragon.h"
 
 #define CONFIG_JSON "tarragon.json"
-
-
-void print_usage(void);
-
-void print_version(void);
-
-int generate_tarragon_json(char* dest, char* ext_api_path);
-
-/*
- * IDEALIZED USER OPTIONS
- * -v
- *   prints version
- * -h
- *   prints usage
- * -g <path/to/extension_api.json>
- *   generates a tarragon.json configuration file
- */
-int main(int argc, char** argv) {
-	char cwd[PATH_MAX];
-	if (getcwd(cwd, PATH_MAX) == NULL)
-	{
-		perror("Failed to get current working directory!");
-		return 1;
-	}
-	for (int i = 1; i < argc && *argv[i] == '-'; i++) {
-		switch (argv[i][1]) {
-		case 'v':
-			print_version();
-			return 0;
-		case 'h':
-			print_usage();
-			return 0;
-		case 'g':
-			if (argc == i + 1)
-			{
-				print_usage();
-				fprintf(stderr, "INSUFFICIENT ARGUMENTS FOR '-g' OPTION!\n");
-				perror("MUST PASS IN PATH TO extension_api.json TO USE FOR PROJECT!\n");
-				return 1;
-			}
-			char* dest = join_path(cwd, CONFIG_JSON);
-			int gen_res = generate_tarragon_json(dest, argv[i + 1]);
-			free(dest);
-			return gen_res;
-		default:
-			fprintf(stderr, "UNRECOGNIZED OPTION: '-%c'\n", argv[i][1]);
-			print_usage();
-			return 1;
-		}
-	}
-	file_context context = {};
-	if (find_upward(CONFIG_JSON, cwd, &context))
-	{
-		/* tarragon_t tarragon = {.project_root = cwd}; */
-		/* init(context.file, &tarragon); */
-		printf("Found %s in %s!\n", CONFIG_JSON, context.dir);
-		char s[1024];
-		while (fgets(s, sizeof(s), context.file) != NULL)
-		{
-			printf("%s", s);
-		}
-		fclose(context.file);
-		free(context.dir);
-		return 0;
-	}
-	perror("DID NOT FIND tarragon.json IN FILE HIEARCHY\n");
-	/* printf("argv[0]: %s\n", argv[0]); */
-	/* find_file_t res = { .file=NULL, .dir=NULL }; */
-	/* char* dir = dirname(argv[0]); */
-	/* FILE* f = find_upward("foo.txt", dir); */
-	/* if (find_upward(CONFIG_JSON, dir, &res)) */
-	/* { */
-	/* 	printf("FOUND FILE in %s!", res.dir); */
-	/* 	fclose(res.file); */
-	/* 	free(res.dir); */
-	/* } */
-	/* else */
-	/* { */
-	/* 	fprintf(stderr, "did not find %s :(", CONFIG_JSON); */
-	/* } */
-	/* free(dir); */
-	return 1;
-}
 
 void print_usage(void)
 {
@@ -127,3 +45,75 @@ int generate_tarragon_json(char* dest, char* ext_api_path)
 	fclose(file);
 	return 0;
 }
+
+/*
+ * IDEALIZED USER OPTIONS
+ * -v
+ *   prints version
+ * -h
+ *   prints usage
+ * -g <path/to/extension_api.json>
+ *   generates a tarragon.json configuration file
+ */
+int main(int argc, char** argv) {
+	char cwd[PATH_MAX];
+	if (getcwd(cwd, PATH_MAX) == NULL)
+	{
+		perror("Failed to get current working directory!");
+		exit(EXIT_FAILURE);
+	}
+	for (int i = 1; i < argc && *argv[i] == '-'; i++) {
+		switch (argv[i][1]) {
+		case 'v':
+			print_version();
+			return 0;
+		case 'h':
+			print_usage();
+			return 0;
+		case 'g':
+			if (argc == i + 1)
+			{
+				print_usage();
+				fprintf(stderr, "INSUFFICIENT ARGUMENTS FOR '-g' OPTION!\n");
+				perror("MUST PASS IN PATH TO extension_api.json TO USE FOR PROJECT!\n");
+				exit(EXIT_FAILURE);
+			}
+			char* dest = join_path(cwd, CONFIG_JSON);
+			int gen_res = generate_tarragon_json(dest, argv[i + 1]);
+			free(dest);
+			return gen_res;
+		default:
+			fprintf(stderr, "UNRECOGNIZED OPTION: '-%c'\n", argv[i][1]);
+			print_usage();
+			exit(EXIT_FAILURE);
+		}
+	}
+	filep_context context = {};
+	if (find_upward(CONFIG_JSON, cwd, &context))
+	{
+		tarragon_t tarragon = {.project_root = cwd};
+		/* init(context.file, &tarragon); */
+		printf("Found %s in %s!\n", CONFIG_JSON, context.dir);
+		init(context.file, &tarragon);
+		// free(context.dir); // WHY? Because it lives on the stack
+		exit(EXIT_SUCCESS);
+	}
+	perror("DID NOT FIND tarragon.json IN FILE HIEARCHY\n");
+	exit(EXIT_FAILURE);
+	/* printf("argv[0]: %s\n", argv[0]); */
+	/* find_file_t res = { .file=NULL, .dir=NULL }; */
+	/* char* dir = dirname(argv[0]); */
+	/* FILE* f = find_upward("foo.txt", dir); */
+	/* if (find_upward(CONFIG_JSON, dir, &res)) */
+	/* { */
+	/* 	printf("FOUND FILE in %s!", res.dir); */
+	/* 	fclose(res.file); */
+	/* 	free(res.dir); */
+	/* } */
+	/* else */
+	/* { */
+	/* 	fprintf(stderr, "did not find %s :(", CONFIG_JSON); */
+	/* } */
+	/* free(dir); */
+}
+

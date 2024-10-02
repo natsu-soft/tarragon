@@ -18,8 +18,8 @@ typedef struct tarragon_t {
 	/* TODO: add as needed */
 } tarragon_t;
 
-int init(FILE* config_fp, tarragon_t* t);
+void init(FILE* config_fp, tarragon_t* t);
 
-int scan(tarragon_t* t);
+void scan(tarragon_t* t);
 
 #endif

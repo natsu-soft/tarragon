@@ -13,7 +13,7 @@
 
 int path_eq(const char*  path0, const char*  path1);
 
-int find_upward(const char* name, char* dir, file_context* res)
+int find_upward(const char* name, char* dir, filep_context* res)
 {
 	char* temp = join_path(dir, name);
 	FILE* file = fopen(temp, "r");

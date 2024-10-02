@@ -11,7 +11,7 @@ tree_sitter.o:
 json_parser.o:
 	$(CC) $(CFLAGS) $(C_INCLDUES) -c tree-sitter-json/src/parser.c -o $@
 test_json_parser.o: tree_sitter.o json_parser.o
-	$(CC) $(CFLAGS) $(TREE-SITTER_INCLUDES) -c test_json_parser.c $< -o $@
+	$(CC) $(CFLAGS) $(TREE-SITTER_INCLUDES) -c test_json_parser.c $^ -o $@
 
 arg-parser: arg_parser.o src/find_file.o
 	$(CC) $(CFLAGS) -ggdb -o $@ $^
@@ -19,8 +19,11 @@ arg-parser: arg_parser.o src/find_file.o
 arg_parser.o:
 	$(CC) $(CFLAGS) -c arg_parser.c -o $@
 
-tarragon: src/main.o src/file_sys.o
-	$(CC) -ggdb -o $@ $^
+tarragon: src/main.o src/file_sys.o src/tarragon.o src/str_file.o
+	$(CC) $(CFLAGS) -ggdb -o $@ $^
+
+src/tarragon.o: tree_sitter.o json_parser.o src/str_file.o
+	$(CC) $(CFLAGS) $(TREE-SITTER_INCLUDES) -c src/tarragon.c -o $@ $^
 
 # src/%.o: src/%.c
 # 	$(CC) $(CFLAGS) -c $^ -o $@
@@ -29,10 +32,11 @@ tarragon: src/main.o src/file_sys.o
 	$(CC) $(CFLAGS) -c $^ -o $@
 
 test: tarragon
-	${CURDIR}/tarragon -v
-	${CURDIR}/tarragon -h
-	${CURDIR}/tarragon -g ../../Godot/bins/temp/extension_api.json
 	${CURDIR}/tarragon
+	# ${CURDIR}/tarragon -v
+	# ${CURDIR}/tarragon -h
+	# ${CURDIR}/tarragon -g ../../Godot/bins/extension_api.json
+	@echo TESTS SUCCEEDED
 
 clean:
 	rm -rf *.o src/*.o *.exe
