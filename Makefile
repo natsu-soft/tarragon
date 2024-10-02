@@ -43,4 +43,6 @@ compile_commands:
 	make --always-make --dry-run all \
 	| rg -w "gcc" \
 	| rg -w '\-[co]' \
-	| jq -nR '[inputs|{command:., directory:"${CURDIR}", file: match("\\-c [\\w\\-/]+\\.c").string[3:], output: match("\\-o [\\w\\-/]+\\.o").string[3:]}]' > compile_commands.json
+	| jq -nR '[inputs|{command:., directory:".", file: match("\\-c [\\w\\-/]+\\.c").string[3:], output: match("\\-o [\\w\\-/]+\\.o").string[3:]}]' > compile_commands.json
+
+# | jq -nR '[inputs|{command:., directory:"${CURDIR}", file: match("\\-c [\\w\\-/]+\\.c").string[3:], output: match("\\-o [\\w\\-/]+\\.o").string[3:]}]' > compile_commands.json
