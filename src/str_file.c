@@ -2,6 +2,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+typedef struct str_ll {
+	struct str_ll* next;
+	char str[STR_SIZE];
+} str_ll;
+
 void rec_free(str_ll* node)
 {
 	if (node->next != NULL)
