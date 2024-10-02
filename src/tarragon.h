@@ -7,7 +7,11 @@
  * https://beej.us/guide/bgc/html/#setting-up-exit-handlers-with-atexit for cleanup
  */
 
+#ifdef _WIN32
 typedef struct _iobuf FILE;
+#else
+typedef struct _IO_FILE FILE;
+#endif
 
 typedef struct tarragon_t {
 	char* project_root;

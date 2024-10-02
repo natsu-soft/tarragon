@@ -1,7 +1,11 @@
 #ifndef FILE_SYS_H
 #define FILE_SYS_H
 
+#ifdef _WIN32
 typedef struct _iobuf FILE;
+#else
+typedef struct _IO_FILE FILE;
+#endif
 
 typedef struct file_context {
 	FILE* file;
