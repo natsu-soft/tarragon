@@ -3,7 +3,8 @@
 A GDScript LSP that uses IO instead of ports.
 
 ## LEARN YE C
-- [[https://beej.us/guide/bgc/html/][Beej's Guide to C Programming]]
+- [[https://beej.us/guide/bgc/html/split-wide/][Beej's Guide to C Programming]]
+- [[https://beej.us/guide/bgclr/html/split-wide/][Beej's C Library Reference]]
 - [[https://en.cppreference.com/w/c][C reference]]
 - [[https://floooh.github.io/2019/09/27/modern-c-for-cpp-peeps.html][C for C++ catechites]]
 
