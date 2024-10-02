@@ -29,6 +29,7 @@ tarragon: src/main.o src/file_sys.o
 	$(CC) $(CFLAGS) -c $^ -o $@
 
 test: tarragon
+	${CURDIR}/tarragon -v
 	${CURDIR}/tarragon -h
 	${CURDIR}/tarragon -g ../../Godot/bins/temp/extension_api.json
 	${CURDIR}/tarragon
