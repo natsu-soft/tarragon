@@ -110,7 +110,7 @@ void print_usage(void)
 
 void print_version(void)
 {
-	printf("0.0.0-BRUH");
+	printf("0.0.0-BRUH\n");
 }
 
 int generate_tarragon_json(char* dest, char* ext_api_path)
