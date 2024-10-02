@@ -11,10 +11,14 @@
 
 void print_usage(void);
 
+void print_version(void);
+
 int generate_tarragon_json(char* dest, char* ext_api_path);
 
 /*
  * IDEALIZED USER OPTIONS
+ * -v
+ *   prints version
  * -h
  *   prints usage
  * -g <path/to/extension_api.json>
@@ -29,6 +33,9 @@ int main(int argc, char** argv) {
 	}
 	for (int i = 1; i < argc && *argv[i] == '-'; i++) {
 		switch (argv[i][1]) {
+		case 'v':
+			print_version();
+			return 0;
 		case 'h':
 			print_usage();
 			return 0;
@@ -84,21 +91,6 @@ int main(int argc, char** argv) {
 	return 1;
 }
 
-int generate_tarragon_json(char* dest, char* ext_api_path)
-{
-	FILE* file = fopen(dest, "w");
-	if (!file)
-	{
-		fprintf(stderr, "FAILED TO OPEN FILE '%s' FOR WRITING\n", dest);
-		print_usage();
-		return 1;
-	}
-	fprintf(file, "{\n\t\"extension_api\": \"%s\",\n", ext_api_path);
-	fputs("\t\"warnings\": [],\n\t\"ignored_dirs\": [],\n}", file);
-	fclose(file);
-	return 0;
-}
-
 void print_usage(void)
 {
 	printf("tarragon blahblahblah GDScript LSP that uses standard IO instead of ports\n\n");
@@ -113,4 +105,25 @@ void print_usage(void)
 	printf("                         for a project.\n");
 	printf("                         Call 'godot --dump-extension-api-with-docs' to create.\n");
 	printf("  -h                 = Prints usage information.\n");
+	printf("  -v                 = Prints version.\n");
+}
+
+void print_version(void)
+{
+	printf("0.0.0-BRUH");
+}
+
+int generate_tarragon_json(char* dest, char* ext_api_path)
+{
+	FILE* file = fopen(dest, "w");
+	if (!file)
+	{
+		fprintf(stderr, "FAILED TO OPEN FILE '%s' FOR WRITING\n", dest);
+		print_usage();
+		return 1;
+	}
+	fprintf(file, "{\n\t\"extension_api\": \"%s\",\n", ext_api_path);
+	fputs("\t\"warnings\": [],\n\t\"ignored_dirs\": [],\n}", file);
+	fclose(file);
+	return 0;
 }
