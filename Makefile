@@ -2,10 +2,10 @@ CC = gcc
 CFLAGS = -Wall -Wextra
 TREE-SITTER_INCLUDES = -I tree-sitter/lib/include -I tree-sitter/lib/src
 
-all: test-json-parser arg-parser
+all: tarragon test-json-parser
 
 test-json-parser: test_json_parser.o tree_sitter.o json_parser.o
-	$(CC) $(CFLAGS) $(TREE-SITTER_INCLUDES) -o $@ $^
+	$(CC) $(TREE-SITTER_INCLUDES) -o $@ $^
 tree_sitter.o:
 	$(CC) $(CFLAGS) $(TREE-SITTER_INCLUDES) -c tree-sitter/lib/src/lib.c -o $@
 json_parser.o:
@@ -19,17 +19,25 @@ arg-parser: arg_parser.o src/find_file.o
 arg_parser.o:
 	$(CC) $(CFLAGS) -c arg_parser.c -o $@
 
+tarragon: src/main.o src/file_sys.o
+	$(CC) -ggdb -o $@ $^
+
 # src/%.o: src/%.c
 # 	$(CC) $(CFLAGS) -c $^ -o $@
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $^ -o $@
 
-test: arg-parser
-	${CURDIR}/arg-parser.exe
+test: tarragon
+	${CURDIR}/tarragon -h
+	${CURDIR}/tarragon -g ../../Godot/bins/temp/extension_api.json
+	${CURDIR}/tarragon
 
 clean:
 	rm -rf *.o src/*.o *.exe
+
+clean-emacs:
+	rm -rf *~ src/*~
 
 compile_commands:
 	make --always-make --dry-run all \
