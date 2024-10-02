@@ -1,4 +1,4 @@
-#include "find_file.h"
+#include "file_sys.h"
 #include <stdio.h>
 /* #include <dirent.h> */
 #include <stdlib.h>
@@ -11,23 +11,11 @@
 #define DIR_SEPERATOR '/'
 #endif
 
-int path_compare(const char*  path0, const char*  path1);
+int path_eq(const char*  path0, const char*  path1);
 
-int find_upward(const char* name, char* dir, find_file_t* res)
+int find_upward(const char* name, char* dir, file_context* res)
 {
-	char* temp = malloc(strlen(dir) + strlen(name) + 2);
-	int idx = 0;
-	for (size_t i = 0; i < strlen(dir); i++)
-	{
-		temp[idx++] = dir[i];
-	}
-	temp[idx++] = DIR_SEPERATOR;
-	for (size_t i = 0; i < strlen(name); i++)
-	{
-		temp[idx++] = name[i];
-	}
-	temp[idx++] = '\0';
-	/* printf("checking: %s...\n", temp); */
+	char* temp = join_path(dir, name);
 	FILE* file = fopen(temp, "r");
 	if (file !=  NULL)
 	{
@@ -39,7 +27,7 @@ int find_upward(const char* name, char* dir, find_file_t* res)
 	}
 	temp = dirname(dir);
 	/* printf("dir: %s\tnext-dir: %s\n", dir, temp); */
-	if (1 - path_compare(temp, dir))
+	if (1 - path_eq(temp, dir))
 	{
 		return find_upward(name, temp, res);
 	}
@@ -73,7 +61,24 @@ char* dirname(const char* name)
 	return res;
 }
 
-int path_compare(const char* path0, const char* path1)
+char* join_path(const char* dir, const char* name)
+{
+	char* res = malloc(strlen(dir) + strlen(name) + 2);
+	int idx = 0;
+	for (size_t i = 0; i < strlen(dir); i++)
+	{
+		res[idx++] = dir[i];
+	}
+	res[idx++] = DIR_SEPERATOR;
+	for (size_t i = 0; i < strlen(name); i++)
+	{
+		res[idx++] = name[i];
+	}
+	res[idx++] = '\0';
+	return res;
+}
+
+int path_eq(const char* path0, const char* path1)
 {
 	if (strlen(path0) != strlen(path1))
 	{
