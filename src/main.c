@@ -53,7 +53,7 @@ int main(int argc, char** argv) {
 	file_context context = {};
 	if (find_upward(CONFIG_JSON, cwd, &context))
 	{
-		tarragon_t tarragon = {.project_root = cwd};
+		/* tarragon_t tarragon = {.project_root = cwd}; */
 		/* init(context.file, &tarragon); */
 		printf("Found %s in %s!\n", CONFIG_JSON, context.dir);
 		char s[1024];
@@ -62,7 +62,7 @@ int main(int argc, char** argv) {
 			printf("%s", s);
 		}
 		fclose(context.file);
-		free(tarragon.project_root);
+		free(context.dir);
 		return 0;
 	}
 	perror("DID NOT FIND tarragon.json IN FILE HIEARCHY\n");
