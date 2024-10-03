@@ -34,7 +34,7 @@ char* build_string_and_free(FILE* file)
 	// NOTE: just leave the last node kinda big who cares? (I do.)
 	// realloc_last_str((char**)&(node->str), (size % STR_SIZE));
 	node->next = NULL;
-	char* res = malloc(size * sizeof *res);
+	char* res = malloc((size + 1) * sizeof *res);
 	node = head;
 	unsigned int idx = 0;
 	while (node->next != NULL)
@@ -50,6 +50,7 @@ char* build_string_and_free(FILE* file)
 	{
 		res[idx * STR_SIZE + i] = node->str[i];
 	}
+	res[size] = '\0';
 	rec_free(head);
 	fclose(file);
 	return res;
