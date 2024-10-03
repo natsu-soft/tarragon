@@ -19,10 +19,10 @@ arg-parser: arg_parser.o src/find_file.o
 arg_parser.o:
 	$(CC) $(CFLAGS) -c arg_parser.c -o $@
 
-tarragon: src/main.o src/file_sys.o src/tarragon.o src/str_file.o
+tarragon: src/main.o src/file_sys.o src/tarragon.o src/str_builder.o
 	$(CC) $(CFLAGS) -ggdb -o $@ $^
 
-src/tarragon.o: tree_sitter.o json_parser.o src/str_file.o
+src/tarragon.o: tree_sitter.o json_parser.o src/str_builder.o
 	$(CC) $(CFLAGS) $(TREE-SITTER_INCLUDES) -c src/tarragon.c -o $@ $^
 
 # src/%.o: src/%.c
@@ -32,11 +32,12 @@ src/tarragon.o: tree_sitter.o json_parser.o src/str_file.o
 	$(CC) $(CFLAGS) -c $^ -o $@
 
 test: tarragon
+	@echo ATTN: TESTS START
 	${CURDIR}/tarragon
 	# ${CURDIR}/tarragon -v
 	# ${CURDIR}/tarragon -h
 	# ${CURDIR}/tarragon -g ../../Godot/bins/extension_api.json
-	@echo TESTS SUCCEEDED
+	@echo ATTN: TESTS SUCCEEDED
 
 clean:
 	rm -rf *.o src/*.o *.exe

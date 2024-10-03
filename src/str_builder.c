@@ -1,38 +1,41 @@
-#include "str_file.h"
+#include "str_builder.h"
 #include <stdio.h>
 #include <stdlib.h>
 
-typedef struct str_ll {
-	struct str_ll* next;
-	char str[STR_SIZE];
-} str_ll;
+#define STR_SIZE 1024
 
-void rec_free(str_ll* node)
+typedef struct str_node {
+	struct str_node* next;
+	char str[STR_SIZE];
+} str_node;
+
+void rec_free(str_node* node)
 {
-	if (node->next != NULL)
+	str_node* temp;
+	while (node->next)
 	{
-		rec_free(node->next);
+		temp = node->next;
+		free(node);
+		node = temp;
 	}
-	free(node);
 }
 
-char* build_string_and_free(FILE* file)
+char* str_file(FILE* file)
 {
-	unsigned int size = 0;
-	str_ll* node = malloc(sizeof(str_ll));
-	str_ll* head = node;
+	int size = 0;
+	str_node* node = malloc(sizeof(str_node));
+	str_node* head = node;
 	char c;
-	while ((c = fgetc(file)) != EOF)
+	while ((c = getc(file)) != EOF)
 	{
 		node->str[size++ % STR_SIZE] = c;
 		if (size % STR_SIZE == 0) {
-			str_ll* next = malloc(sizeof(str_ll*));
+			str_node* next = malloc(sizeof(str_node));
 			node->next = next;
 			node = next;
 		}
 	}
-	// NOTE: just leave the last node kinda big who cares? (I do.)
-	// realloc_last_str((char**)&(node->str), (size % STR_SIZE));
+	// NOTE: just leave the last node big who cares? (I do.)
 	node->next = NULL;
 	char* res = malloc((size + 1) * sizeof *res);
 	node = head;
