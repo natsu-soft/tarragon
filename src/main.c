@@ -17,18 +17,19 @@ void print_usage(void)
 	printf("If launched without any options, tarragon searches for 'tarragon.json' upwards in\n");
 	printf("the file hierarchy, parses it for configuration, then acts as a Language Server.\n\n");
 	printf("Options\n");
-	printf("  -g <extension api> = generates a 'tarragon.json' file in the current working\n");
-	printf("                       directory for project-wise configuration.\n");
-	printf("                       - <extension api> path to the extension_api.json to use\n");
-	printf("                         for a project.\n");
-	printf("                         Call 'godot --dump-extension-api-with-docs' to create.\n");
 	printf("  -h                 = Prints usage information.\n");
-	printf("  -v                 = Prints version.\n");
+	printf("  -v                 = Prints tarragon version.\n");
+	printf("  -g                 = Prints supported Godot version.\n");
 }
 
 void print_version(void)
 {
-	printf("0.0.0-BRUH\n");
+	printf("0.0.0-LMAO\n");
+}
+
+void print_supported_godot(void)
+{
+	printf("0.0.0-LMAO\n");
 }
 
 int generate_tarragon_json(char* dest, char* ext_api_path)
@@ -48,12 +49,12 @@ int generate_tarragon_json(char* dest, char* ext_api_path)
 
 /*
  * IDEALIZED USER OPTIONS
- * -v
- *   prints version
  * -h
  *   prints usage
- * -g <path/to/extension_api.json>
- *   generates a tarragon.json configuration file
+ * -v
+ *   prints tartragon version
+ * -g
+ *   prints supported Godot version
  */
 int main(int argc, char** argv) {
 	char cwd[PATH_MAX];
@@ -71,17 +72,7 @@ int main(int argc, char** argv) {
 			print_usage();
 			return 0;
 		case 'g':
-			if (argc == i + 1)
-			{
-				print_usage();
-				fprintf(stderr, "INSUFFICIENT ARGUMENTS FOR '-g' OPTION!\n");
-				perror("MUST PASS IN PATH TO extension_api.json TO USE FOR PROJECT!\n");
-				exit(EXIT_FAILURE);
-			}
-			char* dest = join_path(cwd, CONFIG_JSON);
-			int gen_res = generate_tarragon_json(dest, argv[i + 1]);
-			free(dest);
-			return gen_res;
+			print_supported_godot();
 		default:
 			fprintf(stderr, "UNRECOGNIZED OPTION: '-%c'\n", argv[i][1]);
 			print_usage();
