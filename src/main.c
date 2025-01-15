@@ -56,6 +56,7 @@ int generate_tarragon_json(char* dest, char* ext_api_path)
  * -g
  *   prints supported Godot version
  */
+#ifndef TEST
 int main(int argc, char** argv) {
 	char cwd[PATH_MAX];
 	if (getcwd(cwd, PATH_MAX) == NULL)
@@ -107,4 +108,10 @@ int main(int argc, char** argv) {
 	/* } */
 	/* free(dir); */
 }
-
+#else
+int main(int argc, char** argv)
+{
+	printf("running tests!\n");
+	return 0;
+}
+#endif
