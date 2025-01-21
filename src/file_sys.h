@@ -12,10 +12,14 @@ typedef struct filep_context {
 	char* dir;
 } filep_context;
 
+char *fs_abs_path(const char* rel_path);
+
 int find_upward(const char* name, char* dir, filep_context* res);
 
 char* dirname(const char* name);
 
 char* join_path(const char* dir, const char* filename);
+
+char* str_file(const char* abs_path, int* out_len);
 
 #endif

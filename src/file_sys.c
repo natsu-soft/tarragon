@@ -1,5 +1,6 @@
 #include "file_sys.h"
 #include <stdio.h>
+#include <limits.h>
 /* #include <dirent.h> */
 #include <stdlib.h>
 #include <string.h>
@@ -7,9 +8,24 @@
 
 #ifdef _WIN32
 #define DIR_SEPERATOR '\\'
-#else
+#define ABS_PATH(BUF, PATH, MAX_LEN) _fullpath(BUF, PATH, MAX_LEN)
+#else /* NOTE: test this */
+#define ABS_PATH(BUF, PATH, MAX_LEN) realpath(PATH, BUF) // NOTE: args are swapped
 #define DIR_SEPERATOR '/'
 #endif
+
+
+char *fs_abs_path(const char* rel_path)
+{
+	char *res = malloc(PATH_MAX * sizeof *res);
+	if (ABS_PATH(res, rel_path, PATH_MAX) == NULL)
+	{
+		fprintf(stderr, "Failed to find absolute path for: %s", rel_path);
+		exit(EXIT_FAILURE);
+
+	}
+	return res;
+}
 
 int path_eq(const char*  path0, const char*  path1);
 
@@ -92,4 +108,25 @@ int path_eq(const char* path0, const char* path1)
 		}
 	}
 	return 1;
+}
+
+char* str_file(const char* abs_path, int* out_len)
+{
+	char* res = NULL;
+	*out_len = 0;
+	long temp;
+	FILE* file = fopen(abs_path, "r");
+	if (file)
+	{
+		fseek(file, 0, SEEK_END);
+		temp = ftell(file);
+		fseek(file, 0, SEEK_SET);
+		res = malloc(*out_len);
+		if (res)
+		{
+			fread(res, 1, temp, file);
+			*out_len = temp;
+		}
+	}
+	return res;
 }
