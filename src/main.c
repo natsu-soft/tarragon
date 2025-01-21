@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include "file_sys.h"
 #include "tarragon.h"
+#include "error_macros.h"
+#include "tests.h"
 // #include "tarragon.h"
 
 #define CONFIG_JSON "tarragon.json"
@@ -56,16 +58,14 @@ int generate_tarragon_json(char* dest, char* ext_api_path)
  * -g
  *   prints supported Godot version
  */
-#ifndef TEST
 int main(int argc, char** argv) {
-	char cwd[PATH_MAX];
-	if (getcwd(cwd, PATH_MAX) == NULL)
+	char c;
+	while ((c = getopt(argc, argv, "tvhg")) != 1)
 	{
-		perror("Failed to get current working directory!");
-		exit(EXIT_FAILURE);
-	}
-	for (int i = 1; i < argc && *argv[i] == '-'; i++) {
-		switch (argv[i][1]) {
+		switch(c)
+		{
+		case 't':
+			return run_tests();
 		case 'v':
 			print_version();
 			return 0;
@@ -74,12 +74,40 @@ int main(int argc, char** argv) {
 			return 0;
 		case 'g':
 			print_supported_godot();
-		default:
-			fprintf(stderr, "UNRECOGNIZED OPTION: '-%c'\n", argv[i][1]);
-			print_usage();
-			exit(EXIT_FAILURE);
+			return 0;
+		case ':':
+			log_error("Unrecognized option: %s", argv[optind - 1]);
+			return 1;
+		case '?':
+			log_error("Unrecognized option: %s", argv[optind - 1]);
+			return 1;
 		}
 	}
+	char cwd[PATH_MAX];
+	if (getcwd(cwd, PATH_MAX) == NULL)
+	{
+		perror("Failed to get current working directory!");
+		exit(EXIT_FAILURE);
+	}
+	/* for (int i = 1; i < argc && *argv[i] == '-'; i++) { */
+	/* 	switch (argv[i][1]) { */
+	/* 	case 't': */
+	/* 		run_tests(); */
+	/* 		return 0; */
+	/* 	case 'v': */
+	/* 		print_version(); */
+	/* 		return 0; */
+	/* 	case 'h': */
+	/* 		print_usage(); */
+	/* 		return 0; */
+	/* 	case 'g': */
+	/* 		print_supported_godot(); */
+	/* 	default: */
+	/* 		fprintf(stderr, "UNRECOGNIZED OPTION: '-%c'\n", argv[i][1]); */
+	/* 		print_usage(); */
+	/* 		exit(EXIT_FAILURE); */
+	/* 	} */
+	/* } */
 	filep_context context = {};
 	if (find_upward(CONFIG_JSON, cwd, &context))
 	{
@@ -108,10 +136,3 @@ int main(int argc, char** argv) {
 	/* } */
 	/* free(dir); */
 }
-#else
-int main(int argc, char** argv)
-{
-	printf("running tests!\n");
-	return 0;
-}
-#endif
