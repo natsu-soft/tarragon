@@ -1,6 +1,7 @@
 #include "tarragon.h"
 #include <stdio.h>
 #include <tree_sitter/api.h>
+#include <string.h>
 /* #include "str_builder.h" */
 #include "file_sys.h"
 
@@ -9,7 +10,7 @@ extern unsigned int default_config_json_len;
 
 const TSLanguage *tree_sitter_json(void);
 
-char* generate_config(const char* dir)
+char* lsp_generate_config(const char* dir)
 {
 	char* config_name = fs_join(dir, CONFIG_NAME);
 	fs_write(config_name, (char*)&default_config_json[0]);
@@ -17,7 +18,7 @@ char* generate_config(const char* dir)
 }
 
 
-void init(FILE* config_fp, tarragon_t* t)
+void lsp_init(FILE* config_fp)
 {
 	// TSParser *parser = ts_parser_new();
 	// ts_parser_set_language(parser, tree_sitter_json());
@@ -28,6 +29,12 @@ void init(FILE* config_fp, tarragon_t* t)
 	/* free(str); */
 }
 
-void scan(tarragon_t* t)
+
+void lsp_base_protocol(char* content, FILE* stream)
+{
+	fprintf(stream, "Content-Length:%lu\r\n\r\n%s", strlen(content), content);
+}
+
+void lsp_scan(Workspace* w)
 {
 }

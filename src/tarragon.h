@@ -15,15 +15,26 @@ typedef struct _iobuf FILE;
 typedef struct _IO_FILE FILE;
 #endif
 
-typedef struct tarragon_t {
-	char* project_root;
-	/* TODO: add as needed */
-} tarragon_t;
+typedef struct LSP
+{
+} LSP;
 
-char* generate_config(const char* dir);
+typedef struct Workspace
+{
+	char* dir;
+} Workspace;
 
-void init(FILE* config_fp, tarragon_t* t);
+typedef struct Document
+{
+	char* uri;
+} Document;
 
-void scan(tarragon_t* t);
+char* lsp_generate_config(const char* dir);
+
+void lsp_init(FILE* config_fp);
+
+void lsp_scan(Workspace* workspace);
+
+void lsp_base_protocol(char* content, FILE* stream);
 
 #endif

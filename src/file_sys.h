@@ -7,7 +7,8 @@ typedef struct _iobuf FILE;
 typedef struct _IO_FILE FILE;
 #endif
 
-typedef struct FileContext {
+typedef struct FileContext
+{
 	char* dir;
 	FILE* fp;
 } FileContext;

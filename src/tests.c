@@ -13,7 +13,7 @@
 #define URI "file:///d:/Repos/tarragon/test_stuff/str_file.txt"
 #else
 #define REPO_PATH "/home/jon/Repos/tarragon"
-#define URI "file:///home/jon/Repos/tarragon/test_stuff/str_file.txt"
+#define URI "file:////home/jon/Repos/tarragon/test_stuff/str_file.txt"
 #endif
 
 extern unsigned char default_config_json[];
@@ -48,7 +48,7 @@ int run_tests(int argc, char** argv)
 	printf("WINDOWS_HACK:\nthis is the baked string for the default config json:\n%s\n", &default_config_json); // the assert test does not work on windows, BUT AS WE CAN SEE IT OUTPUTS PROPERLY
 	printf("does it look good?\n");
 	#else
-	assertf(!strcmp( fs_filestr(default_config_file, &config_len), &default_config_json), "default config file does not match hex dump!");
+	assertf(!strcmp( fs_filestr(default_config_file, &config_len), &default_config_json[0]), "default config file does not match hex dump!");
 	#endif
 	char* config_path = generate_config(context->dir);
 	FileContext* config_context = fs_find_upward(CONFIG_NAME, cwd);
