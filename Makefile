@@ -58,11 +58,11 @@ obj_dirs:
 	@mkdir -p ts_obj
 
 test: tarragon
-	@touch ../bruh
+	@touch ../../bruh
 	@echo "CREATED: temporary testing files"
 	@${CURDIR}/tarragon -t
-	@rm ../bruh
-	@rm ../tarragon_config.json
+	@rm ../../bruh
+	@rm ../../tarragon_config.json
 	@echo "CLEANED: temporary testing files"
 
 clean:
