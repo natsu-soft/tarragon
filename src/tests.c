@@ -10,8 +10,10 @@
 // wow, you want to test it on your own machine? enjoy changing these hardcoded paths lmao
 #ifdef _WIN32
 #define REPO_PATH "D:\\Repos\\tarragon"
+#define URI "file:///d:/Repos/tarragon/test_stuff/str_file.txt"
 #else
 #define REPO_PATH "/home/jon/Repos/tarragon"
+#define URI "file:///home/jon/Repos/tarragon/test_stuff/str_file.txt"
 #endif
 
 extern unsigned char default_config_json[];
@@ -27,12 +29,11 @@ int run_tests(int argc, char** argv)
 	/* FILE_SYS TESTS */
 	int temp = 0;
 	char* str_file_abs_path = fs_abs_path( "test_stuff/str_file.txt");
+	char* str_file_uri = fs_abs_uri(str_file_abs_path);
+	assertf(!strcmp(URI, str_file_uri), "fs_abs_uri failed");
 	assertf(!strcmp(fs_filestr(str_file_abs_path, &temp), "hello!\n"), "str_file test failed"); // have to ! because strcmp returns 0 (false) if equal
-	// rel to abs path
 	// dirname test
 	char* cwd = fs_dirname(argv[0]);
-	// NOTE: you're going to have to set up the path as a preprocessor constant via Makefile
-	/* assertf(!strcmp(cwd, "/home/jon/Repos/tarragon"), "fs_dirname failed!"); */
 	assertf(!strcmp(cwd, REPO_PATH), "fs_dirname failed!");
 	// find upwards
 	FileContext* context = fs_find_upward("bruh", cwd);
@@ -45,13 +46,16 @@ int run_tests(int argc, char** argv)
 	assertf(default_config_file, "default config file DNE!");
 	#ifdef _WIN32
 	printf("WINDOWS_HACK:\nthis is the baked string for the default config json:\n%s\n", &default_config_json); // the assert test does not work on windows, BUT AS WE CAN SEE IT OUTPUTS PROPERLY
-	printf("CHECK: does it look good?\n");
+	printf("does it look good?\n");
 	#else
 	assertf(!strcmp( fs_filestr(default_config_file, &config_len), &default_config_json), "default config file does not match hex dump!");
 	#endif
 	char* config_path = generate_config(context->dir);
 	FileContext* config_context = fs_find_upward(CONFIG_NAME, cwd);
 	assertf(config_context, "find_upwards failed to find %s!", CONFIG_NAME);
+
+	/* TARRAGON INITIALIZATION */
+
 	printf("ATTN: TESTS SUCCEEDED!\n");
 	return 0;
 }

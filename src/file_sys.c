@@ -30,16 +30,41 @@ static Arena* fs_singleton(void)
 	return fs_arena;
 }
 
+char* fs_abs_uri(const char* abs_path)
+{
+	char* res = arena_alloc(fs_singleton(), strlen(abs_path) + 9);
+	if (sprintf(res, "file:///%s", abs_path) > 0)
+	{
+		#ifdef _WIN32
+		for (int i = 8; i < strlen(res); ++i)
+		{
+			switch(res[i])
+			{
+			case DIR_SEPERATOR:
+				res[i] = '/';
+				break;
+			}
+		}
+		#endif
+		return res;
+	}
+	else
+	{
+		return NULL;
+	}
+}
+
 
 char *fs_abs_path(const char* rel_path)
 {
-	char *res = malloc(PATH_MAX * sizeof *res);
+	char *res = arena_alloc(fs_singleton(), PATH_MAX);
 	if (ABS_PATH(res, rel_path, PATH_MAX) == NULL)
 	{
 		fprintf(stderr, "Failed to find absolute path for: %s", rel_path);
 		exit(EXIT_FAILURE);
 
 	}
+	arena_free_tail(fs_singleton(), PATH_MAX - (strlen(res) + 1));
 	return res;
 }
 

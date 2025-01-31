@@ -12,6 +12,8 @@ typedef struct FileContext {
 	FILE* fp;
 } FileContext;
 
+char* fs_abs_uri(const char* abs_path);
+
 char* fs_abs_path(const char* rel_path);
 
 FileContext* fs_find_upward(const char* name, char* dir);
