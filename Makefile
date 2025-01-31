@@ -9,7 +9,7 @@ OBJ += $(TREE_SITTER_OBJ)
 JSON_OBJ := obj/default_config.o
 OBJ += $(JSON_OBJ)
 
-.PHONY: default test clean deep-clean dep_dir obj_dirs compile_commands
+.PHONY: default test dependencies clean deep-clean dep_dir obj_dirs compile_commands
 
 default: tarragon
 
@@ -40,12 +40,13 @@ obj/%.o: src/%.c dep/%.d | obj_dirs
 obj/tests.o: src/tests.c dep/tests.d | obj_dirs
 	$(CC) $(CFLAGS) -c $< -o $@
 
+dependencies: $(DEP)
+
 dep/%.d: src/%.c | dep_dir
 	$(CC) -MM -MP -MT obj/$*.o -MF $@ $<
 
 include $(wildcard dep/*.d)
 
-# NOTE: make sure this works on Windows
 $(JSON_OBJ): obj/%.o: %.json | obj_dirs
 	xxd -i $< | $(CC) $(CFLAGS) -xc -c -o $@ -
 
