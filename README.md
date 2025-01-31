@@ -23,5 +23,3 @@ use the following to get the string of `default_config.json` inside of source fi
 extern unsigned char default_config_json[];
 extern unsigned int default_config_json_len;
 ```
-
-bruh
