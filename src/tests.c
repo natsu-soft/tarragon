@@ -44,7 +44,8 @@ int run_tests(int argc, char** argv)
 	char* default_config_file = fs_abs_path("default_config.json");
 	assertf(default_config_file, "default config file DNE!");
 	#ifdef _WIN32
-	printf("%s\n", &default_config_json); // the assert test does not work on windows, BUT AS WE CAN SEE IT OUTPUTS PROPERLY
+	printf("WINDOWS_HACK:\nthis is the baked string for the default config json:\n%s\n", &default_config_json); // the assert test does not work on windows, BUT AS WE CAN SEE IT OUTPUTS PROPERLY
+	printf("CHECK: does it look good?\n");
 	#else
 	assertf(!strcmp( fs_filestr(default_config_file, &config_len), &default_config_json), "default config file does not match hex dump!");
 	#endif
