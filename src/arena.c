@@ -1,8 +1,15 @@
 #include "arena.h"
-#include <stdint.h>
 #include <assert.h>
 #include <stdlib.h>
 
+Arena* arena_init(size_t bytes)
+{
+	Arena* arena = malloc(sizeof * arena);
+	arena->size = 0;
+	arena->cap = bytes;
+	arena->memory = malloc(bytes);
+	return arena;
+}
 
 void* arena_alloc(Arena* arena, size_t bytes)
 {
@@ -16,5 +23,18 @@ void* arena_alloc(Arena* arena, size_t bytes)
 		void* addr = arena->memory + arena->size;
 		arena->size += bytes;
 		return addr;
+	}
+}
+
+void arena_free_tail(Arena* arena, size_t bytes)
+{
+	assert(arena->size - (int32_t)bytes >= 0);
+	if (arena->size - (int32_t)bytes < 0)
+	{
+		return;
+	}
+	else
+	{
+		arena->size -= bytes;
 	}
 }

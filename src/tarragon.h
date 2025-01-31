@@ -1,6 +1,8 @@
 #ifndef TARRAGON_H
 #define TARRAGON_H
 
+#define CONFIG_NAME "tarragon_config.json"
+
 /*
  * NOTE: use nftw() to ignore certain subdirs (them ignored dirs BREHHHH)
  * https://beej.us/guide/bgc/html/#multithreading mutex ml
@@ -17,6 +19,8 @@ typedef struct tarragon_t {
 	char* project_root;
 	/* TODO: add as needed */
 } tarragon_t;
+
+char* generate_config(const char* dir);
 
 void init(FILE* config_fp, tarragon_t* t);
 

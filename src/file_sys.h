@@ -7,19 +7,21 @@ typedef struct _iobuf FILE;
 typedef struct _IO_FILE FILE;
 #endif
 
-typedef struct filep_context {
-	FILE* file;
+typedef struct FileContext {
 	char* dir;
-} filep_context;
+	FILE* fp;
+} FileContext;
 
-char *fs_abs_path(const char* rel_path);
+char* fs_abs_path(const char* rel_path);
 
-int find_upward(const char* name, char* dir, filep_context* res);
+FileContext* fs_find_upward(const char* name, char* dir);
 
-char* dirname(const char* name);
+char* fs_dirname(const char* name);
 
-char* join_path(const char* dir, const char* filename);
+char* fs_join(const char* dir, const char* filename);
 
-char* str_file(const char* abs_path, int* out_len);
+char* fs_filestr(const char* abs_path, int* out_len);
+
+void fs_write(const char* abs_path, char* data);
 
 #endif

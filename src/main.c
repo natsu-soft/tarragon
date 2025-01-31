@@ -7,7 +7,6 @@
 #include "tarragon.h"
 #include "error_macros.h"
 #include "tests.h"
-// #include "tarragon.h"
 
 #define CONFIG_JSON "tarragon.json"
 
@@ -65,7 +64,7 @@ int main(int argc, char** argv) {
 		switch(c)
 		{
 		case 't':
-			return run_tests();
+			return run_tests(argc, argv);
 		case 'v':
 			print_version();
 			return 0;
@@ -89,6 +88,10 @@ int main(int argc, char** argv) {
 		perror("Failed to get current working directory!");
 		exit(EXIT_FAILURE);
 	}
+	// search for project.godot upwards
+	// look for tarragon.json in found dir
+	// if DNE then generate the default
+	// init tarragon using the parsed config
 	/* for (int i = 1; i < argc && *argv[i] == '-'; i++) { */
 	/* 	switch (argv[i][1]) { */
 	/* 	case 't': */
@@ -108,16 +111,16 @@ int main(int argc, char** argv) {
 	/* 		exit(EXIT_FAILURE); */
 	/* 	} */
 	/* } */
-	filep_context context = {};
-	if (find_upward(CONFIG_JSON, cwd, &context))
-	{
-		tarragon_t tarragon = {.project_root = cwd};
-		/* init(context.file, &tarragon); */
-		printf("Found %s in %s!\n", CONFIG_JSON, context.dir);
-		init(context.file, &tarragon);
-		// free(context.dir); // WHY? Because it lives on the stack
-		exit(EXIT_SUCCESS);
-	}
+	/* FileContext context = {}; */
+	/* if (fsfind_upward(CONFIG_JSON, cwd, &context)) */
+	/* { */
+	/* 	tarragon_t tarragon = {.project_root = cwd}; */
+	/* 	/\* init(context.file, &tarragon); *\/ */
+	/* 	printf("Found %s in %s!\n", CONFIG_JSON, context.dir); */
+	/* 	init(context.fp, &tarragon); */
+	/* 	// free(context.dir); // WHY? Because it lives on the stack */
+	/* 	exit(EXIT_SUCCESS); */
+	/* } */
 	perror("DID NOT FIND tarragon.json IN FILE HIEARCHY\n");
 	exit(EXIT_FAILURE);
 	/* printf("argv[0]: %s\n", argv[0]); */

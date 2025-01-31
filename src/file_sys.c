@@ -1,18 +1,34 @@
 #include "file_sys.h"
 #include <stdio.h>
 #include <limits.h>
-/* #include <dirent.h> */
 #include <stdlib.h>
 #include <string.h>
+#include "arena.h"
+#include "error_macros.h"
 /* #include <stdbool.h> */
 
 #ifdef _WIN32
 #define DIR_SEPERATOR '\\'
 #define ABS_PATH(BUF, PATH, MAX_LEN) _fullpath(BUF, PATH, MAX_LEN)
-#else /* NOTE: test this */
+#else
 #define ABS_PATH(BUF, PATH, MAX_LEN) realpath(PATH, BUF) // NOTE: args are swapped
 #define DIR_SEPERATOR '/'
 #endif
+
+static Arena* fs_arena = NULL;
+
+static Arena* fs_singleton(void)
+{
+	if (fs_arena)
+	{
+		return fs_arena;
+	}
+	fs_arena = malloc(sizeof * fs_arena);
+	fs_arena->cap = 1024 * PATH_MAX;
+	fs_arena->size = 0;
+	fs_arena->memory = malloc(1024 * PATH_MAX);
+	return fs_arena;
+}
 
 
 char *fs_abs_path(const char* rel_path)
@@ -27,37 +43,48 @@ char *fs_abs_path(const char* rel_path)
 	return res;
 }
 
-int path_eq(const char*  path0, const char*  path1);
 
-int find_upward(const char* name, char* dir, filep_context* res)
+// oh yeah im just writing my own dir shit here BECAUSE THIS IS WHERE I USE IT GODDAMNIT
+FileContext* fs_find_upward(const char* name, char* dir)
 {
-	char* temp = join_path(dir, name);
-	FILE* file = fopen(temp, "r");
-	if (file !=  NULL)
+	char* temp = fs_join(dir, name);
+	size_t size0 = strlen(temp);
+	FILE* fp = fopen(temp, "r");
+	if (fp)
 	{
-		res->file = file;
+		arena_free_tail(fs_singleton(), strlen(temp) + 1);
+		FileContext* res = arena_alloc(fs_singleton(), sizeof *res);
+		res->fp = fp;
 		res->dir = dir;
-		/* printf("found %s%c%s!", dir, DIR_SEPERATOR, name); */
-		free(temp);
-		return 1;
+		return res;
 	}
-	temp = dirname(dir);
-	/* printf("dir: %s\tnext-dir: %s\n", dir, temp); */
-	if (1 - path_eq(temp, dir))
+	for (int i = strlen(dir) - 1; i >= 0; i--)
 	{
-		return find_upward(name, temp, res);
+		switch(dir[i])
+		{
+		case DIR_SEPERATOR:
+			memmove(&temp[i + 1], name, strlen(name) + 1);
+			arena_free_tail(fs_singleton(), size0 - strlen(temp));
+			fp = fopen(temp, "r");
+			if (fp)
+			{
+				arena_free_tail(fs_singleton(), strlen(temp) + 1);
+				temp = arena_alloc(fs_singleton(), i + 1);
+				memmove(temp, dir, i);
+				temp[i] = '\0';
+				FileContext* res = arena_alloc(fs_singleton(), sizeof *res);
+				res->fp = fp;
+				res->dir = temp;
+				return res;
+			}
+			break;
+		}
 	}
-	else
-	{
-		res->file = NULL;
-		res->dir = NULL;
-		free(temp);
-		return 0;
-	}
+	return NULL;
 }
 
 // NOTE: test this w/ Unix filesystem
-char* dirname(const char* name)
+char* fs_dirname(const char* name)
 {
 	char* res;
 	for (int i = strlen(name) - 1; i >= 0; i--)
@@ -65,52 +92,31 @@ char* dirname(const char* name)
 		switch (name[i])
 		{
 		case DIR_SEPERATOR:
-			res = malloc((i + 1) * sizeof(char));
-			memcpy(res, name, i);
+			res = arena_alloc(fs_singleton(), i + 1);
+			memmove(res, name, i);
 			res[i] = '\0';
 			return res;
 		}
 	}
-	res = malloc(strlen(name) * sizeof(char));
-	memcpy(res, name, strlen(name));
+	res = arena_alloc(fs_singleton(), strlen(name));
+	memmove(res, name, strlen(name));
 	res[strlen(name)] = '\0';
 	return res;
 }
 
-char* join_path(const char* dir, const char* name)
+char* fs_join(const char* dir, const char* name)
 {
-	char* res = malloc(strlen(dir) + strlen(name) + 2);
-	int idx = 0;
-	for (size_t i = 0; i < strlen(dir); i++)
-	{
-		res[idx++] = dir[i];
-	}
-	res[idx++] = DIR_SEPERATOR;
-	for (size_t i = 0; i < strlen(name); i++)
-	{
-		res[idx++] = name[i];
-	}
-	res[idx++] = '\0';
+	/* char* res = malloc(strlen(dir) + strlen(name) + 2); */
+	char* res = arena_alloc(fs_singleton(), strlen(dir) + strlen(name) + 2);
+	memmove(res, dir, strlen(dir));
+	res[strlen(dir)] = DIR_SEPERATOR;
+	memmove(&res[strlen(dir) + 1], name, strlen(name));
+	res[strlen(dir) + strlen(name) + 1] = '\0';
 	return res;
 }
 
-int path_eq(const char* path0, const char* path1)
-{
-	if (strlen(path0) != strlen(path1))
-	{
-		return 0;
-	}
-	for (size_t i = 0; i < strlen(path0); i++)
-	{
-		if (path0[i] != path1[i])
-		{
-			return 0;
-		}
-	}
-	return 1;
-}
-
-char* str_file(const char* abs_path, int* out_len)
+// NOTE: HELLO, MEMORY MANAGER? WHERE'S THE ARENA???
+char* fs_filestr(const char* abs_path, int* out_len)
 {
 	char* res = NULL;
 	*out_len = 0;
@@ -119,14 +125,26 @@ char* str_file(const char* abs_path, int* out_len)
 	if (file)
 	{
 		fseek(file, 0, SEEK_END);
-		temp = ftell(file);
+		*out_len = ftell(file);
 		fseek(file, 0, SEEK_SET);
-		res = malloc(*out_len);
+		res = malloc(*out_len + 1);
 		if (res)
 		{
-			fread(res, 1, temp, file);
-			*out_len = temp;
+			fread(res, 1, *out_len, file);
+			res[*out_len] = '\0';
 		}
 	}
+	fclose(file);
 	return res;
+}
+
+void fs_write(const char* abs_path, char* data)
+{
+	FILE* file = fopen(abs_path, "w");
+	assertf(file, "Failed to open \"%s\" for writing!", abs_path);
+	if (file)
+	{
+		fprintf(file, "%s", data);
+		fclose(file);
+	}
 }

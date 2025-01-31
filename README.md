@@ -13,3 +13,13 @@ A GDScript LSP that uses IO instead of ports.
 > All of Tree-sitter’s parsing functionality is exposed through C APIs.
 - [[https://tree-sitter.github.io/tree-sitter/using-parsers][Using Parsers]]
 - [[https://github.com/tree-sitter/tree-sitter/wiki/List-of-parsers][list of parsers]]--includs GDScript & JSON & C++!
+
+
+## NOTES
+use the following to get the string of `default_config.json` inside of source files
+
+``` c
+// *.c
+extern unsigned char default_config_json[];
+extern unsigned int default_config_json_len;
+```

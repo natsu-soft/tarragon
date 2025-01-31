@@ -1,0 +1,7 @@
+{
+	"debugging": {
+		"inferred_declaration": "warn",
+		"untyped_declaration": "warn"
+	},
+	"ignored_dirs": [],
+}

@@ -4,7 +4,18 @@
 /* #include "str_builder.h" */
 #include "file_sys.h"
 
+extern unsigned char default_config_json[];
+extern unsigned int default_config_json_len;
+
 const TSLanguage *tree_sitter_json(void);
+
+char* generate_config(const char* dir)
+{
+	char* config_name = fs_join(dir, CONFIG_NAME);
+	fs_write(config_name, (char*)&default_config_json[0]);
+	return config_name;
+}
+
 
 void init(FILE* config_fp, tarragon_t* t)
 {
