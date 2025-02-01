@@ -58,15 +58,6 @@ obj_dirs:
 	@mkdir -p obj
 	@mkdir -p ts_obj
 
-test: tarragon
-	@touch ../../bruh
-	@mkdir -p temp_testing
-	@echo "CREATED: temporary testing files"
-	@${CURDIR}/tarragon -t
-	@rm ../../bruh ../../tarragon_config.json
-	@rm -rf temp_testing
-	@echo "CLEANED: temporary testing files"
-
 clean:
 	rm -rf obj/*.o dep/*.d *.exe tarragon
 
@@ -87,3 +78,11 @@ compile_commands.json: $(SRC) $(JSON_OBJ)
 # | rg -w $(CC) \
 # | rg -w '\-[co]' \
 # | jq -nR '[inputs|{command:., directory:".", file: match("\\-c [\\w\\-/]+\\.c").string[3:], output: match("\\-o [\\w\\-/]+\\.o").string[3:]}]' > compile_commands.json
+
+test: tarragon
+	@touch ../../bruh
+	@mkdir -p temp_testing
+	@echo "CREATED: temporary testing files"
+	@${CURDIR}/tarragon -t
+	@rm ../../bruh ../../tarragon_config.json test_stuff/rpc_encode
+	@echo "CLEANED: temporary testing files"
