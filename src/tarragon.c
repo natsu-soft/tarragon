@@ -30,9 +30,9 @@ void lsp_init(FILE* config_fp)
 }
 
 
-void lsp_base_protocol(char* content, FILE* stream)
+void lsp_encode(char* content, FILE* stream)
 {
-	fprintf(stream, "Content-Length:%lu\r\n\r\n%s", strlen(content), content);
+	fprintf(stream, "Content-Length: %llu\r\n\r\n%s", strlen(content), content);
 }
 
 void lsp_scan(Workspace* w)
