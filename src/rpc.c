@@ -18,7 +18,14 @@ void rpc_decode(FILE* stream, uint32_t* content_len, char** content)
 		*content_len = 0;
 		*content = NULL;
 	}
-	char* temp = malloc(*content_len);
-	fread(temp, 1, *content_len, stream);
+	char* temp = malloc(*content_len); // OwO Arena???
+	size_t n;
+	while(n = fread(temp, 1, *content_len, stream), n < *content_len) // RARE!
+	{
+		for (int i = n; i >= 0; --i)
+		{
+			ungetc(temp[i] , stream);
+		}
+	}
 	*content = temp;
 }
