@@ -35,6 +35,4 @@ void lsp_init(FILE* config_fp);
 
 void lsp_scan(Workspace* workspace);
 
-void lsp_encode(char* content, FILE* stream);
-
 #endif

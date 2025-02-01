@@ -29,12 +29,6 @@ void lsp_init(FILE* config_fp)
 	/* free(str); */
 }
 
-
-void lsp_encode(char* content, FILE* stream)
-{
-	fprintf(stream, "Content-Length: %llu\r\n\r\n%s", strlen(content), content);
-}
-
 void lsp_scan(Workspace* w)
 {
 }
