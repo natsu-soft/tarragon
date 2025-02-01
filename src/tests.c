@@ -5,9 +5,10 @@
 #include <string.h>
 #include "error_macros.h"
 #include "file_sys.h"
+#include "rpc.h"
 #include "tarragon.h"
 
-// wow, you want to test it on your own machine? enjoy changing these hardcoded paths lmao
+// wow, you want to test it on your own pc? enjoy changing these hardcoded paths lmao
 #ifdef _WIN32
 #define REPO_PATH "D:\\Repos\\tarragon"
 #define URI "file:///d:/Repos/tarragon/test_stuff/str_file.txt"
@@ -50,11 +51,30 @@ int run_tests(int argc, char** argv)
 	#else
 	assertf(!strcmp( fs_filestr(default_config_file, &config_len), &default_config_json[0]), "default config file does not match hex dump!");
 	#endif
-	char* config_path = generate_config(context->dir);
+	char* config_path = lsp_generate_config(context->dir);
 	FileContext* config_context = fs_find_upward(CONFIG_NAME, cwd);
 	assertf(config_context, "find_upwards failed to find %s!", CONFIG_NAME);
 
-	/* TARRAGON INITIALIZATION */
+	/* RPC */
+
+	FILE* fp = fopen("test_stuff/rpc_encode", "w");
+	rpc_encode(fp, "{\"testing\": true}");
+	/* fflush(fp); */
+	fclose(fp);
+	fp = fopen("test_stuff/rpc_encode", "r");
+	uint32_t decode_len;
+	char* decode_content = NULL;
+	rpc_decode(fp, &decode_len, &decode_content);
+	assertf(decode_len == 17, "rpc_decode length mismatch");
+	/* printf("decoded content: %s\n", decode_content); */
+	assertf(!strcmp( "{\"testing\": true}", decode_content), "rpc_decode content mismatch");
+	fclose(fp);
+	/* int content_len; */
+	/* char* content; */
+	/* fflush(stdin); */
+	/* fscanf(stdin, "Content-Length: %ul ", &content_len); */
+	/* printf("cl: %d", content_len); */
+	/* fflush(stdin); */
 
 	printf("ATTN: TESTS SUCCEEDED!\n");
 	return 0;
