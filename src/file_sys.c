@@ -145,7 +145,6 @@ char* fs_filestr(const char* abs_path, int* out_len)
 {
 	char* res = NULL;
 	*out_len = 0;
-	long temp;
 	FILE* file = fopen(abs_path, "r");
 	if (file)
 	{

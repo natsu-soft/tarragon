@@ -59,22 +59,15 @@ int run_tests(int argc, char** argv)
 
 	FILE* fp = fopen("test_stuff/rpc_encode", "w");
 	rpc_encode(fp, "{\"testing\": true}");
-	/* fflush(fp); */
 	fclose(fp);
 	fp = fopen("test_stuff/rpc_encode", "r");
 	uint32_t decode_len;
-	char* decode_content = NULL;
+	char* decode_content;
 	rpc_decode(fp, &decode_len, &decode_content);
 	assertf(decode_len == 17, "rpc_decode length mismatch");
 	/* printf("decoded content: %s\n", decode_content); */
 	assertf(!strcmp( "{\"testing\": true}", decode_content), "rpc_decode content mismatch");
 	fclose(fp);
-	/* int content_len; */
-	/* char* content; */
-	/* fflush(stdin); */
-	/* fscanf(stdin, "Content-Length: %ul ", &content_len); */
-	/* printf("cl: %d", content_len); */
-	/* fflush(stdin); */
 
 	printf("ATTN: TESTS SUCCEEDED!\n");
 	return 0;

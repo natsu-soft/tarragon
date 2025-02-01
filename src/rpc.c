@@ -7,7 +7,7 @@
 
 void rpc_encode(FILE* stream, char* content)
 {
-	fprintf(stream, "Content-Length: %llu\r\n\r\n%s", strlen(content), content);
+	fprintf(stream, "Content-Length: %lu\r\n\r\n%s", strlen(content), content);
 }
 
 
