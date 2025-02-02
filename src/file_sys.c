@@ -21,12 +21,8 @@ static Arena* fs_singleton(void)
 {
 	if (fs_arena)
 	{
-		return fs_arena;
+		fs_arena = arena_init(1024 * PATH_MAX);
 	}
-	fs_arena = malloc(sizeof * fs_arena);
-	fs_arena->cap = 1024 * PATH_MAX;
-	fs_arena->size = 0;
-	fs_arena->memory = malloc(1024 * PATH_MAX);
 	return fs_arena;
 }
 
