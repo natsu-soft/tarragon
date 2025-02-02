@@ -69,6 +69,11 @@ int run_tests(int argc, char** argv)
 	assertf(!strcmp( "{\"testing\": true}", decode_content), "rpc_decode content mismatch");
 	fclose(fp);
 
+	fp = fopen("test_stuff/bad_rpc", "r");
+	int scanned = fscanf(fp, "Content-Length: %u\r\n\r\n", &decode_len);
+	printf("decoded: %d", decode_len);
+	fclose(fp);
+
 	printf("ATTN: TESTS SUCCEEDED!\n");
 	return 0;
 }
