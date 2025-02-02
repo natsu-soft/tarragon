@@ -6,7 +6,7 @@
 
 typedef struct Arena
 {
-	int32_t size;
+	uint32_t size;
 	size_t cap;
 	uint8_t* memory;
 } Arena;

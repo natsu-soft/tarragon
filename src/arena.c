@@ -28,8 +28,8 @@ void* arena_alloc(Arena* arena, size_t bytes)
 
 void arena_free_tail(Arena* arena, size_t bytes)
 {
-	assert(arena->size - (int32_t)bytes >= 0);
-	if (arena->size - (int32_t)bytes < 0)
+	assert((int32_t)arena->size - (int32_t)bytes >= 0);
+	if ((int32_t)arena->size - (int32_t)bytes < 0)
 	{
 		return;
 	}
