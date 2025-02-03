@@ -13,13 +13,13 @@ typedef struct _iobuf FILE;
 typedef struct _IO_FILE FILE;
 #endif
 
-char* rpc_message(void);
+char* bp_content(void);
 
-void rpc_recycle(void);
+void bp_init(void);
 
-void rpc_encode(FILE* stream, char* content);
+void bp_send(FILE* stream, char* content);
 
-uint32_t rpc_decode(FILE* stream);
+int32_t bp_receive(FILE* stream);
 
 
 #endif /* End RPC_H */
