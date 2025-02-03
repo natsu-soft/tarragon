@@ -1,4 +1,4 @@
-CC := clang
+CC := clang -std=gnu17
 CFLAGS := -Wall -Wextra -ggdb -O2
 SRC := $(wildcard src/*.c)
 DEP := $(patsubst src/%.c,dep/%.d,$(SRC))
@@ -10,7 +10,7 @@ OBJ += $(TREE_SITTER_OBJ)
 JSON_OBJ := obj/default_config.o
 OBJ += $(JSON_OBJ)
 
-.PHONY: default test dependencies clean deep-clean dep_dir obj_dirs
+.PHONY: default test dependencies clean ean-dep clean-ts clean-emacs clean-all dep_dir obj_dirs
 
 default: tarragon
 
@@ -61,11 +61,16 @@ obj_dirs:
 clean:
 	rm -rf obj/*.o dep/*.d *.exe tarragon
 
-deep-clean: clean
+clean-dep:
+	rm -rf dep/*.d
+
+clean-ts:
 	rm -rf ts_obj/*.o
 
 clean-emacs:
 	rm -rf *~ src/*~
+
+clean-all: clean clean-dep clean-ts clean-emacs
 
 compile_commands.json: $(SRC) $(JSON_OBJ)
 	$(CC) -MJ temp $(CFLAGS) $(TREE-SITTER_INCLUDES) -c $^
