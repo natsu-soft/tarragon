@@ -5,7 +5,7 @@
 #include <string.h>
 #include "error_macros.h"
 #include "file_sys.h"
-#include "rpc.h"
+#include "base_protocol.h"
 #include "tarragon.h"
 
 // wow, you want to test it on your own pc? enjoy changing these hardcoded paths lmao
@@ -58,20 +58,22 @@ int run_tests(int argc, char** argv)
 	/* RPC */
 
 	FILE* fp = fopen("test_stuff/rpc_encode", "w");
-	rpc_encode(fp, "{\"testing\": true}");
+	bp_send(fp, "{\"testing\": true}");
 	fclose(fp);
 	fp = fopen("test_stuff/rpc_encode", "r");
-	uint32_t decode_len;
-	char* decode_content;
-	rpc_decode(fp, &decode_len, &decode_content);
-	assertf(decode_len == 17, "rpc_decode length mismatch");
-	/* printf("decoded content: %s\n", decode_content); */
-	assertf(!strcmp( "{\"testing\": true}", decode_content), "rpc_decode content mismatch");
+	bp_init();
+	int32_t content_len = bp_receive(fp);
+	assertf(content_len == 17, "bp_consume length mismatch");
+	/* printf("length: %d\ncontent: %s\n", content_len, bp_content()); */
+	assertf(!strcmp( "{\"testing\": true}", bp_content()), "bp_content content mismatch");
 	fclose(fp);
-
+	bp_init();
 	fp = fopen("test_stuff/bad_rpc", "r");
-	int scanned = fscanf(fp, "Content-Length: %u\r\n\r\n", &decode_len);
-	printf("decoded: %d", decode_len);
+	content_len = bp_receive(fp);
+	assertf(content_len == -1, "bp_content erroneously parsed bad base protocol");
+	bp_init();
+	/* int scanned = fscanf(fp, "Content-Length: %u\r\n\r\n", &decode_len); */
+	/* printf("decoded: %d", decode_len); */
 	fclose(fp);
 
 	printf("ATTN: TESTS SUCCEEDED!\n");
