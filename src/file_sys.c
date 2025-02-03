@@ -19,7 +19,7 @@ static Arena* fs_arena = NULL;
 
 static Arena* fs_singleton(void)
 {
-	if (fs_arena)
+	if (!fs_arena)
 	{
 		fs_arena = arena_init(1024 * PATH_MAX);
 	}
