@@ -88,6 +88,6 @@ test: tarragon
 	@touch ../../bruh
 	@mkdir -p temp_testing
 	@echo "CREATED: temporary testing files"
-	@${CURDIR}/tarragon -t
+	@${CURDIR}/tarragon -l log.txt -t
 	@rm ../../bruh ../../tarragon_config.json test_stuff/rpc_encode
 	@echo "CLEANED: temporary testing files"

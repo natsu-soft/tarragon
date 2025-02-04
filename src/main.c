@@ -8,6 +8,8 @@
 #include "error_macros.h"
 #include "tests.h"
 
+extern FILE* log_fp;
+
 #define CONFIG_JSON "tarragon.json"
 
 void print_usage(void)
@@ -59,10 +61,13 @@ int generate_tarragon_json(char* dest, char* ext_api_path)
  */
 int main(int argc, char** argv) {
 	char c;
-	while ((c = getopt(argc, argv, "tvhg")) != 1)
+	while ((c = getopt(argc, argv, "l:tvhg")) != 1)
 	{
 		switch(c)
 		{
+		case 'l':
+			log_fp = fopen(optarg, "w");
+			break;
 		case 't':
 			return run_tests(argc, argv);
 		case 'v':

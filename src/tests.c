@@ -7,6 +7,7 @@
 #include "file_sys.h"
 #include "base_protocol.h"
 #include "tarragon.h"
+#include "logger.h"
 
 // wow, you want to test it on your own pc? enjoy changing these hardcoded paths lmao
 #ifdef _WIN32
@@ -19,6 +20,7 @@
 
 extern unsigned char default_config_json[];
 extern unsigned int default_config_json_len;
+extern FILE* log_fp;
 
 int run_tests(int argc, char** argv)
 {
@@ -26,6 +28,7 @@ int run_tests(int argc, char** argv)
 	{
 		printf("arg%d: %s\n", i, argv[i]);
 	}
+	LOG("starting tests");
 	printf("ATTN: TESTS STARTED!\n");
 	/* FILE_SYS TESTS */
 	int temp = 0;
@@ -55,7 +58,7 @@ int run_tests(int argc, char** argv)
 	FileContext* config_context = fs_find_upward(CONFIG_NAME, cwd);
 	assertf(config_context, "find_upwards failed to find %s!", CONFIG_NAME);
 
-	/* RPC */
+	/* BASE PROTOCOL */
 
 	FILE* fp = fopen("test_stuff/rpc_encode", "w");
 	bp_send(fp, "{\"testing\": true}");
@@ -64,7 +67,7 @@ int run_tests(int argc, char** argv)
 	bp_init();
 	int32_t content_len = bp_receive(fp);
 	assertf(content_len == 17, "bp_consume length mismatch");
-	/* printf("length: %d\ncontent: %s\n", content_len, bp_content()); */
+	LOG("length: %d\ncontent: %s\n", content_len, bp_content());
 	assertf(!strcmp( "{\"testing\": true}", bp_content()), "bp_content content mismatch");
 	fclose(fp);
 	bp_init();
@@ -73,9 +76,11 @@ int run_tests(int argc, char** argv)
 	assertf(content_len == -1, "bp_content erroneously parsed bad base protocol");
 	bp_init();
 	/* int scanned = fscanf(fp, "Content-Length: %u\r\n\r\n", &decode_len); */
-	/* printf("decoded: %d", decode_len); */
+	LOG("decoded: %d", content_len);
 	fclose(fp);
-
+	LOG("finished tests!");
+	fflush(log_fp);
+	fclose(log_fp);
 	printf("ATTN: TESTS SUCCEEDED!\n");
 	return 0;
 }
