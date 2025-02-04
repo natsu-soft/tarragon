@@ -1,0 +1,15 @@
+Content-Length: 160
+
+{
+	"jsonrpc": "2.0",
+	"id": 1,
+	"method": "initialize",
+	"params":
+	{
+		"processId": null,
+		"clientInfo": {
+			"name": "testing",
+		}
+		"capabilities": {}
+	}
+}
