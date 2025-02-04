@@ -78,6 +78,11 @@ int run_tests(int argc, char** argv)
 	/* int scanned = fscanf(fp, "Content-Length: %u\r\n\r\n", &decode_len); */
 	LOG("decoded: %d", content_len);
 	fclose(fp);
+
+	fp = fopen("test_stuff/initialize_request.json", "r");
+	content_len = bp_receive(fp);
+	LOG("%s", bp_content());
+	bp_init();
 	LOG("finished tests!");
 	fflush(log_fp);
 	fclose(log_fp);
