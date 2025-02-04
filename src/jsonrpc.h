@@ -1,0 +1,15 @@
+#ifndef LANGUAGE_SERVER_H
+#define LANGUAGE_SERVER_H
+
+enum
+{
+	RPC_PARSE_ERROR = -32700,
+	RPC_INVALID_REQUEST = -32600,
+	RPC_METHOD_NOT_FOUND = -32601,
+	RPC_INVALID_PARAMS = -32602,
+	RPC_INTERNAL_ERROR = -32603,
+};
+
+void process_request(char* json, int len);
+
+#endif /* End LANGUAGE_SERVER_H */
