@@ -1,4 +1,4 @@
-#include "rpc.h"
+#include "base_protocol.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -6,7 +6,6 @@
 #include <time.h>
 #include "arena.h"
 #include "logger.h"
-/* LOG_FILE */
 
 
 #define KILOBYTE 1024
