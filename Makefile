@@ -1,3 +1,4 @@
+# CC := gcc -std=gnu17
 CC := clang -std=gnu17
 CFLAGS := -Wall -Wextra -ggdb -O2
 SRC := $(wildcard src/*.c)

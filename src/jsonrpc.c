@@ -59,7 +59,7 @@ char* node_text(const TSNode* n, const char* str, NodeTextAllocation allocation)
 	case FIXED_ARRAY:
 		memmove(&parse_array, str + b0, b1 - b0);
 		parse_array[b1 - b0] = '\0';
-		return &parse_array;
+		return &parse_array[0];
 	case SCRATCH:
 		if (b0 - b1 + 1 > scratch->cap)
 		{
@@ -82,8 +82,8 @@ void rpc_init(void)
 {
 	parser = ts_parser_new();
 	ts_parser_set_language(parser, tree_sitter_json());
-	method_query = make_query(&request_tsquery, request_tsquery_len);
-	params_query = make_query(&params_tsquery, params_tsquery_len);
+	method_query = make_query(&request_tsquery[0], request_tsquery_len);
+	params_query = make_query(&params_tsquery[0], params_tsquery_len);
 	scratch = arena_init(1024);
 	request_arena = arena_init(sizeof(Request));
 }

@@ -21,7 +21,7 @@ static char response_scratch[8192];
 
 void lsp_response(FILE* out, char* id, char* result_or_error, bool result_flag)
 {
-	char* response = &response_scratch; // JUST USE IT ALL FUCKIT
+	char* response = &response_scratch[0]; // JUST USE IT ALL FUCKIT
 	if (result_flag)
 	{
 		sprintf(response, "{\"jsonrpc\":\"2.0\",\"id\":%s,\"result\":%s}", id, result_or_error);
