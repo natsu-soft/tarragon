@@ -83,7 +83,7 @@ compile_commands.json: $(SRC) $(JSON_OBJ)
 	$(CC) -MJ temp $(CFLAGS) $(TREE-SITTER_INCLUDES) -c $^
 	python -c 'with open("temp", "r") as f:\
     print("[\n{}\n]".format(f.read()[:-2]))' > compile_commands.json
-	rm temp
+	rm temp *.o
 
 # compile_commands.json:
 # make --always-make --dry-run --keep-going \
