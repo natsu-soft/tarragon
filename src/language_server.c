@@ -30,7 +30,9 @@ void lsp_response(FILE* out, char* id, char* result_or_error, bool result_flag)
 		sprintf(response, "{\"jsonrpc\":\"2.0\",\"id\":%s,\"error\":%s}", id, result_or_error);
 	}
 	bp_send(out, response);
+	fflush(out);
 	bp_send(log_fp, response);
+	fflush(log_fp);
 }
 
 void respond_initialize(FILE* out, char* id, InitializeParams* params)
@@ -99,13 +101,14 @@ int ls_listen(FILE* in,FILE* out)
 	{
 		LOG("processing %d of 10", i);
 		bp_reset();
-		/* length = bp_receive_nosleep(in); */
-		length = bp_receive(in);
+		length = bp_receive_nosleep(in);
+		/* length = bp_receive(in); */
 		if (length > 0)
 		{
 			/* LOG("lsp listen: %s", bp_content()); */
 			LOG("content: %s", bp_content());
 			respond(out, rpc_parse(bp_content(), length));
+			fflush(in);
 			/* bp_send(out, "{ \"method\": \"window/showMessage\",\"type\": 3,\"message\":\"based\"}"); */
 		}
 		else {

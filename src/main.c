@@ -90,8 +90,8 @@ int main(int argc, char** argv) {
 		}
 	}
 	LOG("initializing tarragon");
-	setbuf(stdin, NULL);
-	setbuf(stdout, NULL);
+	/* setbuf(stdin, NULL); */
+	/* setbuf(stdout, NULL); */
 	return ls_listen(stdin, stdout);
 	/* echo(100, stdin, log_fp); */
 
