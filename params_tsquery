@@ -1,0 +1,3 @@
+(pair
+  key: (string (string_content) @key-0)
+  value: (_) @val-1)

@@ -17,9 +17,15 @@ char* bp_content(void);
 
 void bp_init(void);
 
+void bp_reset(void);
+
 void bp_send(FILE* stream, char* content);
 
 int32_t bp_receive(FILE* stream);
+
+int32_t bp_receive_nosleep(FILE* stream);
+
+void echo(uint32_t n, FILE* in, FILE* out);
 
 
 #endif /* End RPC_H */

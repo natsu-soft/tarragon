@@ -1,0 +1,16 @@
+(object
+ (pair
+  key: (string (string_content))
+  value: (string (string_content)))
+ .
+ (pair
+  key: (string (string_content))
+  value: [(number) (string (string_content)) (null)] @id-0)
+ .
+ (pair
+  key: (string (string_content))
+  value: (string (string_content) @method-1))
+ .
+ (pair
+  key: (string (string_content))
+  value: (object) @params-2))

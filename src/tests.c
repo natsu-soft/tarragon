@@ -8,6 +8,7 @@
 #include "base_protocol.h"
 #include "tarragon.h"
 #include "logger.h"
+/* LOG_FILE */
 
 // wow, you want to test it on your own pc? enjoy changing these hardcoded paths lmao
 #ifdef _WIN32
@@ -20,7 +21,6 @@
 
 extern unsigned char default_config_json[];
 extern unsigned int default_config_json_len;
-extern FILE* log_fp;
 
 int run_tests(int argc, char** argv)
 {
@@ -84,8 +84,7 @@ int run_tests(int argc, char** argv)
 	LOG("%s", bp_content());
 	bp_init();
 	LOG("finished tests!");
-	fflush(log_fp);
-	fclose(log_fp);
+	ENDLOG
 	printf("ATTN: TESTS SUCCEEDED!\n");
 	return 0;
 }

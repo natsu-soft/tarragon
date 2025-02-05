@@ -3,12 +3,12 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 #include "file_sys.h"
-#include "tarragon.h"
 #include "error_macros.h"
+#include "language_server.h"
 #include "tests.h"
-
-extern FILE* log_fp;
+#include "logger.h"
 
 #define CONFIG_JSON "tarragon.json"
 
@@ -60,14 +60,16 @@ int generate_tarragon_json(char* dest, char* ext_api_path)
  *   prints supported Godot version
  */
 int main(int argc, char** argv) {
-	char c;
-	while ((c = getopt(argc, argv, "l:tvhg")) != 1)
+	log_fp = fopen("tarragon.log" , "w");
+	LOG("opened tarragon.log for logging");
+	int c;
+	while ((c = getopt(argc, argv, "tvhg")) != -1)
 	{
+		printf("opt: %c\n", c);
 		switch(c)
 		{
-		case 'l':
-			log_fp = fopen(optarg, "w");
-			break;
+		/* case 'l': */
+		/* 	break; */
 		case 't':
 			return run_tests(argc, argv);
 		case 'v':
@@ -87,6 +89,19 @@ int main(int argc, char** argv) {
 			return 1;
 		}
 	}
+	LOG("initializing tarragon");
+	return ls_listen(stdin, stdout);
+	/* echo(100, stdin, log_fp); */
+
+	/* bp_receive(stdin); */
+
+	/* while (c = getc(stdin), c) */
+	/* { */
+	/* 	PLAIN_LOG("%c", c); */
+	/* } */
+	LOG("exiting");
+	ENDLOG
+	return 0;
 	char cwd[PATH_MAX];
 	if (getcwd(cwd, PATH_MAX) == NULL)
 	{

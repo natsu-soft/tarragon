@@ -7,6 +7,15 @@ typedef struct _iobuf FILE;
 typedef struct _IO_FILE FILE;
 #endif
 
-#define LOG(M, ...) if (log_fp) fprintf(log_fp, "[tarragon] " M "\n", ##__VA_ARGS__);
+#ifndef EXTERN_LOG_FILE_POINTERR
+extern FILE* log_fp;
+#define LOG_FILE
+#endif
+
+
+#define PLAIN_LOG(M, ...) if (log_fp) fprintf(log_fp, M, ##__VA_ARGS__);
+#define LOG(M, ...) if (log_fp) fprintf(log_fp, "[tarragon] " M "\n", ##__VA_ARGS__); fflush(log_fp)
+
+#define ENDLOG fclose(log_fp);
 
 #endif /* End LOGGER_H */

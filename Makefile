@@ -8,17 +8,21 @@ TREE-SITTER_INCLUDES = -I tree-sitter/lib/include -I tree-sitter/lib/src
 TREE_SITTER_OBJ := ts_obj/tree_sitter.o ts_obj/json_parser.o ts_obj/cpp_parser.o ts_obj/cpp_scanner.o
 OBJ += $(TREE_SITTER_OBJ)
 JSON_OBJ := obj/default_config.o
+TSQUERY_OBJS := obj/request_tsquery.o obj/params_tsquery.o
 OBJ += $(JSON_OBJ)
 
 .PHONY: default test dependencies clean ean-dep clean-ts clean-emacs clean-all dep_dir obj_dirs
 
 default: tarragon
 
-tarragon: $(OBJ)
+tarragon: $(OBJ) $(TSQUERY_OBJS)
 	$(CC) $(CFLAGS) -o $@ $^
 
-test-json-parser: obj/test_json_parser.o ts_obj/tree_sitter.o ts_obj/json_parser.o
-	$(CC) $(TREE-SITTER_INCLUDES) -o $@ $^
+test-json-parser: test_json_parser.c ts_obj/tree_sitter.o ts_obj/json_parser.o obj/file_sys.o obj/arena.o $(TSQUERY_OBJS)
+	$(CC) $(CFLAGS) $(TREE-SITTER_INCLUDES) -o $@ $^
+
+# test_json_parser.o: test_json_parser.c
+# 	$(CC) $(CFLAGS) $(TREE-SITTER_INCLDUES) -c $< -o $@
 
 ts_obj/tree_sitter.o: | obj_dirs
 	$(CC) $(CFLAGS) $(TREE-SITTER_INCLUDES) -c tree-sitter/lib/src/lib.c -o $@
@@ -35,7 +39,7 @@ arg-parser: arg_parser.o src/find_file.o
 arg_parser.o:
 	$(CC) $(CFLAGS) -c arg_parser.c -o $@
 
-obj/%.o: src/%.c dep/%.d compile_commands.json | obj_dirs
+obj/%.o: src/%.c dep/%.d | obj_dirs
 	$(CC) $(CFLAGS) -c $< -o $@
 
 obj/tests.o: src/tests.c dep/tests.d | obj_dirs
@@ -51,6 +55,9 @@ include $(wildcard dep/*.d)
 $(JSON_OBJ): obj/%.o: %.json | obj_dirs
 	xxd -i $< | $(CC) $(CFLAGS) -xc -c -o $@ -
 
+$(TSQUERY_OBJS): obj/%_tsquery.o: %_tsquery | obj_dirs
+	xxd -i $< | $(CC) $(CFLAGS) -xc -c -o $@ -
+
 dep_dir:
 	@mkdir -p dep
 
@@ -59,7 +66,7 @@ obj_dirs:
 	@mkdir -p ts_obj
 
 clean:
-	rm -rf obj/*.o dep/*.d *.exe tarragon
+	rm -rf *.o obj/*.o *.exe tarragon
 
 clean-dep:
 	rm -rf dep/*.d
@@ -91,3 +98,6 @@ test: tarragon
 	@${CURDIR}/tarragon -l tarragon.log -t
 	@rm ../../bruh ../../tarragon_config.json test_stuff/rpc_encode
 	@echo "CLEANED: temporary testing files"
+
+test-parse: test-json-parser
+	@${CURDIR}/test-json-parser
