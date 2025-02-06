@@ -9,4 +9,4 @@ compile_commands.json
 tarragon.json
 tarragon
 test-json-parser
-tarragon.log
+*.log
