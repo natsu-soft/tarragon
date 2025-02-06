@@ -60,16 +60,16 @@ int generate_tarragon_json(char* dest, char* ext_api_path)
  *   prints supported Godot version
  */
 int main(int argc, char** argv) {
-	log_fp = fopen("tarragon.log" , "w");
-	LOG("opened tarragon.log for logging");
 	int c;
-	while ((c = getopt(argc, argv, "tvhg")) != -1)
+	while ((c = getopt(argc, argv, "l:tvhg")) != -1)
 	{
-		printf("opt: %c\n", c);
+		/* printf("opt: %c\n", c); */
 		switch(c)
 		{
-		/* case 'l': */
-		/* 	break; */
+		case 'l':
+			log_fp = fopen(optarg , "w");
+			LOG("opened tarragon.log for logging");
+			break;
 		case 't':
 			return run_tests(argc, argv);
 		case 'v':
