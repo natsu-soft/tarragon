@@ -12,12 +12,6 @@ enum
 	RPC_INTERNAL_ERROR = -32603,
 };
 
-typedef enum
-{
-	ID_NULL,
-	ID_INTEGER,
-	ID_STRING,
-} IdType;
 
 typedef enum
 {
@@ -26,7 +20,7 @@ typedef enum
 	SHUTDOWN,
 	EXIT,
 	METHOD_COUNT
-} RequestMethod;
+} Method;
 
 
 typedef struct InitializeParams
@@ -43,9 +37,9 @@ typedef struct ShutdownParams {
 typedef struct ExitParams {
 } ExitParams;
 
-typedef struct Request
+typedef struct Rpc
 {
-	char id[32]; // MASSIVE
+	char id[16]; // MASSIVE
 	union
 	{
 		InitializeParams initialize;
@@ -53,13 +47,13 @@ typedef struct Request
 		ShutdownParams shutdown;
 		ExitParams exit;
 	} params;
-	RequestMethod method;
-} Request;
+	Method method;
+} Rpc;
 
 void rpc_init(void);
 
 void rpc_deinit(void);
 
-Request* rpc_parse(char* json, int len);
+Rpc* rpc_parse(char* json, int len);
 
 #endif /* End JSONRPC_H */

@@ -4,10 +4,9 @@
 #include <tree_sitter/api.h>
 #include "arena.h"
 #include "logger.h"
-/* #include <stdlib.h> */
 
-extern unsigned char request_tsquery[];
-extern unsigned int request_tsquery_len;
+extern unsigned char client_tsquery[];
+extern unsigned int client_tsquery_len;
 extern unsigned char params_tsquery[];
 extern unsigned int params_tsquery_len;
 
@@ -82,10 +81,10 @@ void rpc_init(void)
 {
 	parser = ts_parser_new();
 	ts_parser_set_language(parser, tree_sitter_json());
-	method_query = make_query(&request_tsquery[0], request_tsquery_len);
+	method_query = make_query(&client_tsquery[0], client_tsquery_len);
 	params_query = make_query(&params_tsquery[0], params_tsquery_len);
 	scratch = arena_init(1024);
-	request_arena = arena_init(sizeof(Request));
+	request_arena = arena_init(sizeof(Rpc));
 }
 
 void rpc_deinit(void)
@@ -99,17 +98,17 @@ void rpc_deinit(void)
 	free(request_arena);
 }
 
-void parse_params(char* json, int len, Request* request);
+void parse_params(char* json, int len, Rpc* request);
 
-void parse_initialize(char* json, TSQueryCursor* cursor, TSQueryMatch* match, Request* request);
+void parse_initialize(char* json, TSQueryCursor* cursor, TSQueryMatch* match, Rpc* request);
 
-void parse_initialized(char* json, int len, Request* request);
+void parse_initialized(char* json, int len, Rpc* request);
 
-void parse_shutdown(char* json, int len, Request* request);
+void parse_shutdown(char* json, int len, Rpc* request);
 
-void parse_exit(char* json, int len, Request* request);
+void parse_exit(char* json, int len, Rpc* request);
 
-void parse_method (char* json, int len, Request* request)
+void parse_rpc (char* json, int len, Rpc* request)
 {
 	TSTree *tree = ts_parser_parse_string(
 		parser,
@@ -123,7 +122,7 @@ void parse_method (char* json, int len, Request* request)
 	while(ts_query_cursor_next_match(cursor, &match))
 	{
 		// TODO switch
-		if(match.pattern_index == 0)
+		if(match.pattern_index == 0) // client request
 		{
 			// parse the id
 			node = match.captures[0].node;
@@ -163,12 +162,15 @@ void parse_method (char* json, int len, Request* request)
 			uint32_t b1 = ts_node_end_byte(node);
 			parse_params(json + b0, b1 - b0, request);
 		}
+		else if(match.pattern_index == 1) // client notification
+		{
+		}
 	}
 	ts_query_cursor_delete(cursor);
 	ts_tree_delete(tree);
 }
 
-void parse_params(char* json, int len, Request* request)
+void parse_params(char* json, int len, Rpc* request)
 {
 	TSTree *tree = ts_parser_parse_string(
 		parser,
@@ -190,7 +192,7 @@ void parse_params(char* json, int len, Request* request)
 	ts_tree_delete(tree);
 }
 
-void parse_initialize(char* json, TSQueryCursor* cursor, TSQueryMatch* match, Request* request)
+void parse_initialize(char* json, TSQueryCursor* cursor, TSQueryMatch* match, Rpc* request)
 {
 	TSNode node;
 	while(ts_query_cursor_next_match(cursor, match))
@@ -210,27 +212,27 @@ void parse_initialize(char* json, TSQueryCursor* cursor, TSQueryMatch* match, Re
 	}
 }
 
-void parse_initialized(char* json, int len, Request* request)
+void parse_initialized(char* json, int len, Rpc* request)
 {
 	/* TODO */
 }
 
-void parse_shutdown(char* json, int len, Request* request)
+void parse_shutdown(char* json, int len, Rpc* request)
 {
 	/* TODO */
 }
 
-void parse_exit(char* json, int len, Request* request)
+void parse_exit(char* json, int len, Rpc* request)
 {
 	/* TODO */
 }
 
 
 
-Request* rpc_parse(char* json, int len)
+Rpc* rpc_parse(char* json, int len)
 {
 	request_arena->size = 0;
-	Request* request = arena_alloc(request_arena, sizeof *request);
-	parse_method(json, len, request);
+	Rpc* request = arena_alloc(request_arena, sizeof *request);
+	parse_rpc(json, len, request);
 	return request;
 }

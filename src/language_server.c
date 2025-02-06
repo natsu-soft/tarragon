@@ -19,7 +19,7 @@ Lsp* lsp()
 
 static char response_scratch[8192];
 
-void lsp_response(FILE* out, char* id, char* result_or_error, bool result_flag)
+void respond(FILE* out, char* id, char* result_or_error, bool result_flag)
 {
 	char* response = &response_scratch[0]; // JUST USE IT ALL FUCKIT
 	if (result_flag)
@@ -27,39 +27,35 @@ void lsp_response(FILE* out, char* id, char* result_or_error, bool result_flag)
 		sprintf(response, "{\"jsonrpc\":\"2.0\",\"id\":%s,\"result\":%s}", id, result_or_error);
 	}
 	else {
-		sprintf(response, "{\"jsonrpc\":\"2.0\",\"id\":%s,\"error\":%s}", id, result_or_error);
-	}
+		sprintf(response, "{\"jsonrpc\":\"2.0\",\"id\":%s,\"error\":%s}", id, result_or_error);}
 	bp_send(out, response);
 	fflush(out);
 	bp_send(log_fp, response);
 	fflush(log_fp);
 }
 
-void respond_initialize(FILE* out, char* id, InitializeParams* params)
+void handle_initialize(FILE* out, Rpc* rpc)
 {
-	LOG("request id: %d", params->process_id);
-	LOG("initialize processId: %d", params->process_id);
+	InitializeParams params = rpc->params.initialize;
+	LOG("request id: %s", &rpc->id[0]);
+	LOG("initialize processId: %d", params.process_id);
 	lsp_singleton.state = LSP_INITIALIZING;
-	lsp_response(out, id,   "{\"capabilities\":{},\"serverInfo\":{\"name\":\"TARRAGON\",\"version\":\"0.0.0-lmao\"}}", true);
+	respond(out, &rpc->id[0],   "{\"capabilities\":{},\"serverInfo\":{\"name\":\"TARRAGON\",\"version\":\"0.0.0-lmao\"}}", true);
 	/* LOG("%s", response); */
 }
 
-void respond_initialized(FILE* out, char* id, InitializedParams* params)
+void handle_initialized(FILE* out, Rpc* rpc)
 {
 	lsp_singleton.state = LSP_INITIALIZED;
-	/* char* response =  "{\"capabilities\": {}, \"serverInfo\": {\"name\": \"TARRAGON\", \"version\": \"0.0.0-lmao\"}}"; */
-	/* bp_send(out, response); */
-	/* bp_send(log_fp, response); */
-	/* LOG("%s", response); */
 }
 
-void respond_shutdown(FILE* out, char* id, ShutdownParams* params)
+void handle_shutdown(FILE* out, Rpc* rpc)
 {
 	LOG("received shutdown request!");
 	lsp_singleton.state = LSP_SHUTDOWN;
 }
 
-void respond_exit(FILE* out, char* id, ExitParams* params)
+void handle_exit(FILE* out, Rpc* rpc)
 {
 	LOG("received an exit request!");
 	switch(lsp_singleton.state)
@@ -72,34 +68,30 @@ void respond_exit(FILE* out, char* id, ExitParams* params)
 	}
 }
 
-void respond(FILE* out, Request* request)
+void handle_unknown(FILE* out, Rpc* rpc)
 {
-	switch(request->method)
-	{
-	case INITIALIZE:
-		respond_initialize(out, &request->id[0], &request->params.initialize);
-		break;
-	case INITIALIZED:
-		respond_initialized(out, &request->id[0], &request->params.initialized);
-		break;
-	case SHUTDOWN:
-		respond_shutdown(out, &request->id[0], &request->params.shutdown);
-	case EXIT:
-		respond_exit(out, &request->id[0], &request->params.exit);
-	default:
-		LOG("unrecognized request method: %d", request->method);
-	}
+	// throw an error lmao
+	LOG("unknown method");
 }
+
+
+static void (*handle[])(FILE* out, Rpc* rpc) = {
+	handle_initialize,
+	handle_initialized,
+	handle_shutdown,
+	handle_exit,
+	handle_unknown
+};
 
 int ls_listen(FILE* in,FILE* out)
 {
 	int32_t length = 0;
-	/* static struct timespec eep = { .tv_nsec = 1000 }; */
 	bp_init();
 	rpc_init();
-	for(uint32_t i = 0; i < 10; ++i)
+	/* for(uint32_t i = 0; i < 10; ++i) */
+	for(;;)
 	{
-		LOG("processing %d of 10", i);
+		/* LOG("processing %d of 10", i); */
 		bp_reset();
 		length = bp_receive_nosleep(in);
 		/* length = bp_receive(in); */
@@ -107,12 +99,15 @@ int ls_listen(FILE* in,FILE* out)
 		{
 			/* LOG("lsp listen: %s", bp_content()); */
 			LOG("content: %s", bp_content());
-			respond(out, rpc_parse(bp_content(), length));
+			Rpc* rpc = rpc_parse(bp_content(), length);
+			handle[rpc->method](out, rpc);
 			fflush(in);
 			/* bp_send(out, "{ \"method\": \"window/showMessage\",\"type\": 3,\"message\":\"based\"}"); */
 		}
 		else {
 			LOG("eof encounterd in bp_receive()");
+			rpc_deinit();
+			return 1;
 		}
 		if (lsp_singleton.state > LSP_SHUTDOWN)
 		{
