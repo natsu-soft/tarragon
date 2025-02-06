@@ -12,7 +12,7 @@ JSON_OBJ := obj/default_config.o
 TSQUERY_OBJS := obj/client_tsquery.o obj/params_tsquery.o
 OBJ += $(JSON_OBJ)
 
-.PHONY: default test dependencies clean ean-dep clean-ts clean-emacs clean-all dep_dir obj_dirs
+.PHONY: default test dependencies clean ean-dep clean-ts clean-emacs clean-all dep_dir obj_dirs lsp-test
 
 default: tarragon
 
@@ -99,6 +99,9 @@ test: tarragon
 	@${CURDIR}/tarragon -l tarragon.log -t
 	@rm ../../bruh ../../tarragon_config.json test_stuff/rpc_encode
 	@echo "CLEANED: temporary testing files"
+
+lsp-test: tarragon
+	@python test-tarragon.py
 
 test-parse: test-json-parser
 	@${CURDIR}/test-json-parser
