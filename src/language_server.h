@@ -1,6 +1,8 @@
 #ifndef LANGUAGE_SERVER_H
 #define LANGUAGE_SERVER_H
 
+#include <stdint.h>
+
 #ifdef _WIN32
 typedef struct _iobuf FILE;
 #else
@@ -17,9 +19,18 @@ typedef enum LspState
 	LSP_EXIT_1
 } LspState;
 
+typedef struct TextDocument
+{
+	char* abs_path;
+	char* language_id;
+	uint32_t version;
+} TextDocument;
+
 typedef struct Lsp
 {
 	LspState state;
+	uint32_t num_documents;
+	TextDocument* documents;
 } Lsp;
 
 int ls_listen(FILE* in,FILE* out);

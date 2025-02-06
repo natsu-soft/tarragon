@@ -98,17 +98,17 @@ void rpc_deinit(void)
 	free(request_arena);
 }
 
-void parse_params(char* json, int len, Rpc* request);
+void parse_params(char* json, int len, Rpc* rpc);
 
-void parse_initialize(char* json, TSQueryCursor* cursor, TSQueryMatch* match, Rpc* request);
+void parse_initialize(char* json, TSQueryCursor* cursor, TSQueryMatch* match, Rpc* rpc);
 
-void parse_initialized(char* json, int len, Rpc* request);
+void parse_initialized(char* json, int len, Rpc* rpc);
 
-void parse_shutdown(char* json, int len, Rpc* request);
+void parse_shutdown(char* json, int len, Rpc* rpc);
 
-void parse_exit(char* json, int len, Rpc* request);
+void parse_exit(char* json, int len, Rpc* rpc);
 
-void parse_rpc (char* json, int len, Rpc* request)
+void parse_rpc (char* json, int len, Rpc* rpc)
 {
 	TSTree *tree = ts_parser_parse_string(
 		parser,
@@ -119,7 +119,7 @@ void parse_rpc (char* json, int len, Rpc* request)
 	ts_query_cursor_exec(cursor, method_query, ts_tree_root_node(tree));
 	TSNode node;
 	TSQueryMatch match;
-	while(ts_query_cursor_next_match(cursor, &match))
+	if(ts_query_cursor_next_match(cursor, &match)) // just try to match once lmao
 	{
 		// TODO switch
 		if(match.pattern_index == 0) // client request
@@ -127,44 +127,56 @@ void parse_rpc (char* json, int len, Rpc* request)
 			// parse the id
 			node = match.captures[0].node;
 			char* text = node_text(&node, json, FIXED_ARRAY);
-			memcpy(request->id, text, strlen(text) + 1);
+			memcpy(rpc->id, text, strlen(text) + 1);
 			// parse the method name
 			node = match.captures[1].node;
 			text = node_text(&node, json, FIXED_ARRAY);
 			if (strcmp(text, "initialize") == 0)
 			{
-				request->method = INITIALIZE;
+				rpc->method = INITIALIZE;
 				LOG("received an initialize request!");
-			}
-			else if (strcmp(text, "initialized") == 0)
-			{
-				request->method = INITIALIZED;
-				LOG("received an initialized request!");
 			}
 			else if (strcmp(text, "shutdown") == 0)
 			{
-				request->method = SHUTDOWN;
+				rpc->method = SHUTDOWN;
 				LOG("received a shutdown request!");
-			}
-			else if (strcmp(text, "exit") == 0)
-			{
-				request->method = EXIT;
-				LOG("received an exit request!");
 			}
 			else
 			{
 				LOG("unrecognized method: %s", text);
-				request->method = -1;
+				rpc->method = METHOD_UNKNOWN;
 			}
 			// parse method parameters
 			node = match.captures[2].node;
 			uint32_t b0 = ts_node_start_byte(node);
 			uint32_t b1 = ts_node_end_byte(node);
-			parse_params(json + b0, b1 - b0, request);
+			parse_params(json + b0, b1 - b0, rpc);
 		}
-		else if(match.pattern_index == 1) // client notification
+		else if(match.pattern_index == 1) // client notification (no id)
 		{
+			*rpc->id = '\0';
+			node = match.captures[0].node;
+			char* text = node_text(&node, json, FIXED_ARRAY);
+			if (strcmp(text, "initialized") == 0)
+			{
+				rpc->method = INITIALIZED;
+				LOG("received an initialized notice!");
+			}
+			else if (strcmp(text, "exit") == 0)
+			{
+				rpc->method = EXIT;
+				LOG("received an exit notice!");
+			}
+			else
+			{
+				rpc->method = METHOD_UNKNOWN;
+				LOG("unrecognized method: %s", text);
+			}
 		}
+	}
+	else
+	{
+		ERROR("Failed to parse a method from %s", json);
 	}
 	ts_query_cursor_delete(cursor);
 	ts_tree_delete(tree);
@@ -227,12 +239,10 @@ void parse_exit(char* json, int len, Rpc* request)
 	/* TODO */
 }
 
-
-
 Rpc* rpc_parse(char* json, int len)
 {
 	request_arena->size = 0;
-	Rpc* request = arena_alloc(request_arena, sizeof *request);
-	parse_rpc(json, len, request);
-	return request;
+	Rpc* rpc = arena_alloc(request_arena, sizeof *rpc);
+	parse_rpc(json, len, rpc);
+	return rpc;
 }

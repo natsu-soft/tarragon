@@ -19,7 +19,7 @@ typedef enum
 	INITIALIZED,
 	SHUTDOWN,
 	EXIT,
-	METHOD_COUNT
+	METHOD_UNKNOWN
 } Method;
 
 

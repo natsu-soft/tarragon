@@ -51,13 +51,12 @@ void handle_initialized(FILE* out, Rpc* rpc)
 
 void handle_shutdown(FILE* out, Rpc* rpc)
 {
-	LOG("received shutdown request!");
 	lsp_singleton.state = LSP_SHUTDOWN;
+	respond(out, &rpc->id[0], "null", true);
 }
 
 void handle_exit(FILE* out, Rpc* rpc)
 {
-	LOG("received an exit request!");
 	switch(lsp_singleton.state)
 	{
 	case LSP_SHUTDOWN:
@@ -85,15 +84,14 @@ static void (*handle[])(FILE* out, Rpc* rpc) = {
 
 int ls_listen(FILE* in,FILE* out)
 {
-	int32_t length = 0;
 	bp_init();
 	rpc_init();
 	/* for(uint32_t i = 0; i < 10; ++i) */
-	for(;;)
+	for(/* LOL */ ; /* LMAO */ ; /* EVEN */ )
 	{
 		/* LOG("processing %d of 10", i); */
 		bp_reset();
-		length = bp_receive_nosleep(in);
+		int32_t length = bp_receive_nosleep(in);
 		/* length = bp_receive(in); */
 		if (length > 0)
 		{
@@ -104,7 +102,7 @@ int ls_listen(FILE* in,FILE* out)
 			fflush(in);
 			/* bp_send(out, "{ \"method\": \"window/showMessage\",\"type\": 3,\"message\":\"based\"}"); */
 		}
-		else {
+		else if (length == -1) {
 			LOG("eof encounterd in bp_receive()");
 			rpc_deinit();
 			return 1;
