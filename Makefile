@@ -9,7 +9,7 @@ TREE-SITTER_INCLUDES = -I tree-sitter/lib/include -I tree-sitter/lib/src
 TREE_SITTER_OBJ := ts_obj/tree_sitter.o ts_obj/json_parser.o ts_obj/cpp_parser.o ts_obj/cpp_scanner.o
 OBJ += $(TREE_SITTER_OBJ)
 JSON_OBJ := obj/default_config.o
-TSQUERY_OBJS := obj/request_tsquery.o obj/params_tsquery.o
+TSQUERY_OBJS := obj/client_tsquery.o obj/params_tsquery.o
 OBJ += $(JSON_OBJ)
 
 .PHONY: default test dependencies clean ean-dep clean-ts clean-emacs clean-all dep_dir obj_dirs

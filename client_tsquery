@@ -13,4 +13,17 @@
  .
  (pair
   key: (string (string_content))
-  value: (object) @params-2))
+  value: (_) @params-2))
+
+(object
+ (pair
+  key: (string (string_content))
+  value: (string (string_content)))
+ .
+ (pair
+  key: (string (string_content))
+  value: (string (string_content) @method-0))
+ .
+ (pair
+  key: (string (string_content))
+  value: (_) @params-1))
