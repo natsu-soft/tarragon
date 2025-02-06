@@ -1,6 +1,7 @@
 # CC := gcc -std=gnu17
 CC := clang -std=gnu17
 CFLAGS := -Wall -Wextra -ggdb -O2
+LIBRARIES := -ljanson
 SRC := $(wildcard src/*.c)
 DEP := $(patsubst src/%.c,dep/%.d,$(SRC))
 CCMD := $(patsubst src/%.c,ccmd/%.json,$(SRC))
@@ -17,7 +18,7 @@ OBJ += $(JSON_OBJ)
 default: tarragon
 
 tarragon: $(OBJ) $(TSQUERY_OBJS)
-	$(CC) $(CFLAGS) -o $@ $^
+	$(CC) $(CFLAGS) -o $@ $^ $(LIBRARIES)
 
 test-json-parser: test_json_parser.c ts_obj/tree_sitter.o ts_obj/json_parser.o obj/file_sys.o obj/arena.o $(TSQUERY_OBJS)
 	$(CC) $(CFLAGS) $(TREE-SITTER_INCLUDES) -o $@ $^

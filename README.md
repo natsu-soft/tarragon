@@ -14,6 +14,10 @@ A standalone GDScript LSP
 - [[https://tree-sitter.github.io/tree-sitter/using-parsers][Using Parsers]]
 - [[https://github.com/tree-sitter/tree-sitter/wiki/List-of-parsers][list of parsers]]--includs GDScript & JSON & C++!
 
+## Jannson
+- https://github.com/akheron/jansson - repo
+- https://jansson.readthedocs.io/en/latest/ - docs
+
 
 ## NOTES
 use the following to get the string of `default_config.json` inside of source files
