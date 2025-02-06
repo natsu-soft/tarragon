@@ -1,6 +1,6 @@
 # Tarragon
 
-A GDScript LSP that uses IO instead of ports.
+A standalone GDScript LSP
 
 ## LEARN YE C
 - [[https://beej.us/guide/bgc/html/split-wide/][Beej's Guide to C Programming]]
@@ -23,3 +23,5 @@ use the following to get the string of `default_config.json` inside of source fi
 extern unsigned char default_config_json[];
 extern unsigned int default_config_json_len;
 ```
+
+- https://stackoverflow.com/questions/33588288/what-does-setmode-actually-translate - seriously why is windows stdio trash?
