@@ -98,6 +98,12 @@ int ls_listen(FILE* in,FILE* out)
 			/* LOG("lsp listen: %s", bp_content()); */
 			LOG("content: %s", bp_content());
 			Rpc* rpc = rpc_parse(bp_content(), length);
+			if (!rpc)
+			{
+				LOG("jansson decode failure--shutting down!");
+				rpc_deinit();
+				return 1;
+			}
 			handle[rpc->method](out, rpc);
 			fflush(in);
 			/* bp_send(out, "{ \"method\": \"window/showMessage\",\"type\": 3,\"message\":\"based\"}"); */

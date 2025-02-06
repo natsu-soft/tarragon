@@ -32,6 +32,12 @@ int main(int argc, char** argv)
 		printf("\n");
 		iter = json_object_iter_next(root, iter);
 	}
+	json_t* method_o = json_object_get(root, "method");
+	if (method_o)
+	{
+		printf("method: %s\n", json_string_value(method_o));
+	}
+	json_decref(method_o);
 	json_decref(root);
 	return 0;
 }
