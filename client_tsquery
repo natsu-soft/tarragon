@@ -1,29 +1,31 @@
-(object
- (pair
-  key: (string (string_content))
-  value: (string (string_content)))
- .
- (pair
-  key: (string (string_content))
-  value: [(number) (string (string_content)) (null)] @id-0)
- .
- (pair
-  key: (string (string_content))
-  value: (string (string_content) @method-1))
- .
- (pair
-  key: (string (string_content))
-  value: (_) @params-2))
+(document
+ (object
+  (pair
+   key: (string (string_content))
+   value: (string (string_content)))
+  .
+  (pair
+   key: (string (string_content))
+   value: [(number) (string (string_content)) (null)] @id-0)
+  .
+  (pair
+   key: (string (string_content))
+   value: (string (string_content) @method-1))
+  .
+  (pair
+   key: (string (string_content))
+   value: (_) @params-2)))
 
-(object
- (pair
-  key: (string (string_content))
-  value: (string (string_content)))
- .
- (pair
-  key: (string (string_content))
-  value: (string (string_content) @method-0))
- .
- (pair
-  key: (string (string_content))
-  value: (_) @params-1))
+(document
+ (object
+  (pair
+   key: (string (string_content))
+   value: (string (string_content)))
+  .
+  (pair
+   key: (string (string_content))
+   value: (string (string_content) @method-0))
+  .
+  (pair
+   key: (string (string_content))
+   value: (_) @params-1)))
