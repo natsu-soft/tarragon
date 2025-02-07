@@ -60,7 +60,7 @@ char *fs_abs_path(const char* rel_path)
 		exit(EXIT_FAILURE);
 
 	}
-	arena_free_tail(fs_singleton(), PATH_MAX - (strlen(res) + 1));
+	arena_free(fs_singleton(), PATH_MAX - (strlen(res) + 1));
 	return res;
 }
 
@@ -73,7 +73,7 @@ FileContext* fs_find_upward(const char* name, char* dir)
 	FILE* fp = fopen(temp, "r");
 	if (fp)
 	{
-		arena_free_tail(fs_singleton(), strlen(temp) + 1);
+		arena_free(fs_singleton(), strlen(temp) + 1);
 		FileContext* res = arena_alloc(fs_singleton(), sizeof *res);
 		res->fp = fp;
 		res->dir = dir;
@@ -85,11 +85,11 @@ FileContext* fs_find_upward(const char* name, char* dir)
 		{
 		case DIR_SEPERATOR:
 			memmove(&temp[i + 1], name, strlen(name) + 1);
-			arena_free_tail(fs_singleton(), size0 - strlen(temp));
+			arena_free(fs_singleton(), size0 - strlen(temp));
 			fp = fopen(temp, "r");
 			if (fp)
 			{
-				arena_free_tail(fs_singleton(), strlen(temp) + 1);
+				arena_free(fs_singleton(), strlen(temp) + 1);
 				temp = arena_alloc(fs_singleton(), i + 1);
 				memmove(temp, dir, i);
 				temp[i] = '\0';

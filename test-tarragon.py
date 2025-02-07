@@ -41,22 +41,22 @@ def notice(method, params=None):
 def main():
     # p = subprocess.Popen(["./tarragon", "-h"], stdout=subprocess.PIPE, text=True);
     p = subprocess.Popen(["./tarragon", "-l", "./bruh.log"], stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE, text=True);
-    # out, err = p.communicate(request("initialize", '{"processId": 420}'))
-    p.stdin.write((request("initialize", '{"processId": 420}')))
-    p.stdin.flush()
-    time.sleep(0.1)
+    out, err = p.communicate(request("initialize", '{"processId": 420}'))
+    # p.stdin.write((request("initialize", '{"processId": 420}')))
+    # p.stdin.flush()
+    # time.sleep(1)
     # print(p.stdout.read())
-    p.stdin.write(notice("initialized", "{}"))
-    p.stdin.flush()
-    time.sleep(1)
-    p.stdin.write(request("shutdown", "null"))
-    p.stdin.flush()
-    time.sleep(1)
-    p.stdin.write(notice("exit"))
-    p.stdin.flush()
-    time.sleep(1)
-    if p.poll():
-        print("BRUH: its still schmoovin")
+    # p.stdin.write(notice("initialized", "{}"))
+    # p.stdin.flush()
+    # time.sleep(1)
+    # p.stdin.write(request("shutdown", "null"))
+    # p.stdin.flush()
+    # time.sleep(1)
+    # p.stdin.write(notice("exit"))
+    # p.stdin.flush()
+    # time.sleep(1)
+    # if p.poll():
+    #     print("BRUH: its still schmoovin")
 
     # p.stdin.flush()
     # print(p.stdout.read()[:-1])

@@ -1,6 +1,8 @@
 #include "arena.h"
 #include <assert.h>
 #include <stdlib.h>
+#include "error_macros.h"
+#include "logger.h"
 
 Arena* arena_init(size_t bytes)
 {
@@ -13,7 +15,8 @@ Arena* arena_init(size_t bytes)
 
 void* arena_alloc(Arena* arena, size_t bytes)
 {
-	assert(arena->size + bytes <= arena->cap);
+	/* LOG("allocating %zu from %zu", bytes, arena-> cap - arena->size); */
+	fassertf(log_fp, arena->size + bytes <= arena->cap, "ARENA OVERFLOW!");
 	if (arena->size + bytes > arena->cap)
 	{
 		return NULL;
@@ -26,7 +29,7 @@ void* arena_alloc(Arena* arena, size_t bytes)
 	}
 }
 
-void arena_free_tail(Arena* arena, size_t bytes)
+void arena_free(Arena* arena, size_t bytes)
 {
 	assert((int32_t)arena->size - (int32_t)bytes >= 0);
 	if ((int32_t)arena->size - (int32_t)bytes < 0)

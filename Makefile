@@ -1,7 +1,7 @@
 # CC := gcc -std=gnu17
 CC := clang -std=gnu17
 CFLAGS := -Wall -Wextra -ggdb -O2
-LIBRARIES := -ljanson
+LIBRARIES := -ljansson
 SRC := $(wildcard src/*.c)
 DEP := $(patsubst src/%.c,dep/%.d,$(SRC))
 CCMD := $(patsubst src/%.c,ccmd/%.json,$(SRC))
@@ -13,7 +13,7 @@ JSON_OBJ := obj/default_config.o
 TSQUERY_OBJS := obj/client_tsquery.o obj/params_tsquery.o
 OBJ += $(JSON_OBJ)
 
-.PHONY: default test dependencies clean ean-dep clean-ts clean-emacs clean-all dep_dir obj_dirs lsp-test
+.PHONY: default test dependencies clean ean-dep clean-ts clean-emacs clean-all dep_dir obj_dirs lsp-test jansson-test
 
 default: tarragon
 
@@ -82,7 +82,7 @@ clean-emacs:
 clean-all: clean clean-dep clean-ts clean-emacs
 
 compile_commands.json: $(SRC) $(JSON_OBJ)
-	$(CC) -MJ temp $(CFLAGS) $(TREE-SITTER_INCLUDES) -c $^
+	$(CC) -MJ temp $(CFLAGS) $(TREE-SITTER_INCLUDES) -c $^ $(LIBRARIES)
 	python -c 'with open("temp", "r") as f:\
     print("[\n{}\n]".format(f.read()[:-2]))' > compile_commands.json
 	rm temp *.o
@@ -106,3 +106,7 @@ lsp-test: tarragon
 
 test-parse: test-json-parser
 	@${CURDIR}/test-json-parser
+
+jansson-test:
+	gcc $(CFLAGS) -o jt jansson_test.c  src/file_sys.c src/arena.c $(LIBRARIES)
+	@${CURDIR}/jt

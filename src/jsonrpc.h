@@ -25,7 +25,7 @@ typedef enum
 
 typedef struct InitializeParams
 {
-	uint32_t process_id;
+	uint32_t process_id; // null represented w/ zero
 } InitializeParams;
 
 typedef struct InitializedParams {
@@ -54,6 +54,6 @@ void rpc_init(void);
 
 void rpc_deinit(void);
 
-Rpc* rpc_parse(char* json, int len);
+const Rpc* rpc_parse(char* json, int len);
 
 #endif /* End JSONRPC_H */

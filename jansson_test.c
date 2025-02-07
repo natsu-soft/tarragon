@@ -39,5 +39,9 @@ int main(int argc, char** argv)
 	}
 	json_decref(method_o);
 	json_decref(root);
+	json_t* test = json_object();
+	json_object_set(test, "foo", json_integer(69));
+	json_dumpf(test, stdout, JSON_COMPACT);
+	json_decref(test);
 	return 0;
 }

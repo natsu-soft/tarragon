@@ -15,6 +15,6 @@ Arena* arena_init(size_t bytes);
 
 void* arena_alloc(Arena* arena, size_t bytes);
 
-void arena_free_tail(Arena* arena, size_t bytes);
+void arena_free(Arena* arena, size_t bytes);
 
 #endif /* End ARENA_H */
