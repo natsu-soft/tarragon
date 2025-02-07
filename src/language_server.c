@@ -16,10 +16,13 @@ static Arena* scratch = NULL;
 /* static Arena* response_arena = NULL; */
 
 static Lsp lsp_singleton = {
-	.state = LSP_UNINITIALIZED
+	.state = LSP_UNINITIALIZED,
+	.documents = NULL,
+	.out = NULL,
+	.num_documents = 0
 };
 
-Lsp* lsp()
+Lsp* lsp(void)
 {
 	return &lsp_singleton;
 }
@@ -52,6 +55,20 @@ json_t* add_id(json_t* o, const Rpc* rpc)
 	return o;
 }
 
+// I do NOT thing this one works (mb just not with eglot)
+void log_client(char* message)
+{
+	scratch->size = 0;
+	json_t* o = boilerplate();
+	json_object_set(o, "method", json_string("window/logMessage"));
+	json_t* params_o = json_object();
+	json_object_set(params_o, "type", json_integer(4));
+	json_object_set(params_o, "message", json_string(message));
+	json_object_set(o, "params", params_o);
+	respond(lsp_singleton.out, o);
+}
+
+
 void handle_initialize(FILE* out, const Rpc* rpc)
 {
 	json_t* o = add_id(boilerplate(), rpc);
@@ -72,16 +89,19 @@ void handle_initialized(FILE* out, const Rpc* rpc)
 {
 	lsp_singleton.state = LSP_INITIALIZED;
 	LOG("received an initialized notice!");
+	/* log_client("tarragon is initialized!"); */
 }
 
 void handle_shutdown(FILE* out, const Rpc* rpc)
 {
 	lsp_singleton.state = LSP_SHUTDOWN;
 	LOG("received a shutdown request!");
-	json_t* o = json_object();
-	json_object_set(o, "id", json_string(&rpc->id[0]));
+	json_t* o = add_id(boilerplate(), rpc);
 	json_object_set(o, "result", json_null());
 	respond(out, o);
+	/* log_client("tarragon shutting down NOW!"); */
+	// just shutdown tbqh
+	lsp_singleton.state = LSP_EXIT_0;
 }
 
 void handle_exit(FILE* out, const Rpc* rpc)
@@ -143,12 +163,20 @@ void handle(FILE* out, const Rpc* rpc)
 	}
 }
 
+void cleanup(void)
+{
+	rpc_deinit();
+	free(scratch->memory);
+	free(scratch);
+}
+
 
 int ls_listen(FILE* in,FILE* out)
 {
 	bp_init();
 	rpc_init();
 	scratch = arena_init(KILOBYTE * sizeof(json_t));
+	lsp_singleton.out = out;
 	/* for(uint32_t i = 0; i < 10; ++i) */
 	for(/* LOL */ ; /* LMAO */ ; /* EVEN */ )
 	{
@@ -159,14 +187,12 @@ int ls_listen(FILE* in,FILE* out)
 		if (length > 0)
 		{
 			/* LOG("lsp listen: %s", bp_content()); */
-			LOG("content: %s", bp_content());
+			LOG("content %s", bp_content());
 			const Rpc* rpc = rpc_parse(bp_content(), length);
 			if (!rpc)
 			{
 				LOG("jansson decode failure--shutting down!");
-				rpc_deinit();
-				free(scratch->memory);
-				free(scratch);
+				cleanup();
 				return 1;
 			}
 			handle(out, rpc);
@@ -175,16 +201,12 @@ int ls_listen(FILE* in,FILE* out)
 		}
 		else if (length == -1) {
 			LOG("eof encounterd in bp_receive()");
-			rpc_deinit();
-			free(scratch->memory);
-			free(scratch);
-			return 1;
+			lsp_singleton.state = LSP_EXIT_1;
 		}
 		if (lsp_singleton.state > LSP_SHUTDOWN)
 		{
-			rpc_deinit();
-			free(scratch->memory);
-			free(scratch);
+			cleanup();
+			LOG("exiting with code: %d", lsp_singleton.state - LSP_EXIT_0);
 			return lsp_singleton.state - LSP_EXIT_0;
 		}
 	}

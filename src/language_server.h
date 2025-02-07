@@ -28,10 +28,13 @@ typedef struct TextDocument
 
 typedef struct Lsp
 {
-	LspState state;
-	uint32_t num_documents;
+	FILE* out;
 	TextDocument* documents;
+	uint32_t num_documents;
+	LspState state;
 } Lsp;
+
+Lsp* lsp(void);
 
 int ls_listen(FILE* in,FILE* out);
 

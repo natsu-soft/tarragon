@@ -7,11 +7,13 @@
 #include "arena.h"
 #include "logger.h"
 
+#define KILOBYTE 1024
+#define MEGABYTE 1048576
+
 /* extern unsigned char client_tsquery[]; */
 /* extern unsigned int client_tsquery_len; */
 /* extern unsigned char params_tsquery[]; */
 /* extern unsigned int params_tsquery_len; */
-
 /* static TSParser* parser = NULL; */
 /* static TSQuery* method_query = NULL; */
 /* static TSQuery* params_query = NULL; */
@@ -20,8 +22,7 @@
 
 /* const char err_matching[5][32] = { */
 /* 	"UNMATCHED ERROR TYPE", */
-/* 	"Syntax", */
-/* 	"Node Type", */
+/* 	"Syntax", */ /* 	"Node Type", */
 /* 	"Field", */
 /* 	"Capture", */
 /* }; */
@@ -95,7 +96,7 @@ void rpc_init(void)
 	/* parser = ts_parser_new(); */
 	/* ts_parser_set_language(parser, tree_sitter_json()); */
 	/* method_query = make_query(&client_tsquery[0], client_tsquery_len); params_query = make_query(&params_tsquery[0], params_tsquery_len); */
-	scratch = arena_init(1024 * 1024 * sizeof(json_t));
+	scratch = arena_init(MEGABYTE * sizeof(json_t));
 	/* scratch = arena_init(12); */
 	/* json_malloc_t = &scratch_alloc; */
 	request_arena = arena_init(sizeof(Rpc));
