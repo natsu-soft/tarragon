@@ -1,7 +1,7 @@
 # CC := gcc -std=gnu17
 CC := clang -std=gnu17
 CFLAGS := -Wall -Wextra -ggdb -O2
-LIBRARIES := -ljansson
+LDFLAGS := --static -ljansson
 SRC := $(wildcard src/*.c)
 DEP := $(patsubst src/%.c,dep/%.d,$(SRC))
 CCMD := $(patsubst src/%.c,ccmd/%.json,$(SRC))
@@ -18,7 +18,7 @@ OBJ += $(JSON_OBJ)
 default: tarragon
 
 tarragon: $(OBJ) $(TSQUERY_OBJS)
-	$(CC) $(CFLAGS) -o $@ $^ $(LIBRARIES)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 test-json-parser: test_json_parser.c ts_obj/tree_sitter.o ts_obj/json_parser.o obj/file_sys.o obj/arena.o $(TSQUERY_OBJS)
 	$(CC) $(CFLAGS) $(TREE-SITTER_INCLUDES) -o $@ $^
@@ -82,7 +82,7 @@ clean-emacs:
 clean-all: clean clean-dep clean-ts clean-emacs
 
 compile_commands.json: $(SRC) $(JSON_OBJ)
-	$(CC) -MJ temp $(CFLAGS) $(TREE-SITTER_INCLUDES) -c $^ $(LIBRARIES)
+	$(CC) -MJ temp $(CFLAGS) $(TREE-SITTER_INCLUDES) -c $^ $(LDFLAGS)
 	python -c 'with open("temp", "r") as f:\
     print("[\n{}\n]".format(f.read()[:-2]))' > compile_commands.json
 	rm temp *.o
