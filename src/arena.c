@@ -4,16 +4,16 @@
 #include "error_macros.h"
 #include "logger.h"
 
-Arena* arena_init(size_t bytes)
+arena_t* arena_init(size_t bytes)
 {
-	Arena* arena = malloc(sizeof * arena);
+	arena_t* arena = malloc(sizeof * arena);
 	arena->size = 0;
 	arena->cap = bytes;
 	arena->memory = malloc(bytes);
 	return arena;
 }
 
-void* arena_alloc(Arena* arena, size_t bytes)
+void* arena_alloc(arena_t* arena, size_t bytes)
 {
 	/* LOG("allocating %zu from %zu", bytes, arena-> cap - arena->size); */
 	fassertf(log_fp, arena->size + bytes <= arena->cap, "ARENA OVERFLOW!");
@@ -29,7 +29,7 @@ void* arena_alloc(Arena* arena, size_t bytes)
 	}
 }
 
-void arena_free(Arena* arena, size_t bytes)
+void arena_free(arena_t* arena, size_t bytes)
 {
 	assert((int32_t)arena->size - (int32_t)bytes >= 0);
 	if ((int32_t)arena->size - (int32_t)bytes < 0)

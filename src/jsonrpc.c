@@ -10,75 +10,9 @@
 #define KILOBYTE 1024
 #define MEGABYTE 1048576
 
-/* extern unsigned char client_tsquery[]; */
-/* extern unsigned int client_tsquery_len; */
-/* extern unsigned char params_tsquery[]; */
-/* extern unsigned int params_tsquery_len; */
-/* static TSParser* parser = NULL; */
-/* static TSQuery* method_query = NULL; */
-/* static TSQuery* params_query = NULL; */
 
-/* const TSLanguage *tree_sitter_json(void); */
-
-/* const char err_matching[5][32] = { */
-/* 	"UNMATCHED ERROR TYPE", */
-/* 	"Syntax", */ /* 	"Node Type", */
-/* 	"Field", */
-/* 	"Capture", */
-/* }; */
-
-/* typedef enum NodeTextAllocation { */
-/* 	FIXED_ARRAY, */
-/* 	SCRATCH, */
-/* } NodeTextAllocation; */
-
-/* static char parse_array[128]; */
-static Arena* scratch = NULL;
-static Arena* request_arena = NULL;
-
-/* #define QUERY_ASSERT(A) if (A) { fprintf(stderr, "[TSQUERY ERROR] %s:%d  -- %s\n", __FILE__, __LINE__, err_matching[A]); exit(EXIT_FAILURE); } */
-
-/* TSQuery* make_query(const char* query, const int len) */
-/* { */
-/* 	TSQueryError err; */
-/* 	uint32_t err_offset; */
-/* 	TSQuery* ts_q = ts_query_new( */
-/* 		tree_sitter_json(), */
-/* 		query, */
-/* 		len, */
-/* 		&err_offset, */
-/* 		&err); */
-/* 	QUERY_ASSERT(err); */
-/* 	return ts_q; */
-/* } */
-
-/* char* node_text(const TSNode* n, const char* str, NodeTextAllocation allocation) */
-/* { */
-/* 	uint32_t b0 = ts_node_start_byte(*n); */
-/* 	uint32_t b1 = ts_node_end_byte(*n); */
-/* 	switch(allocation) */
-/* 	{ */
-/* 	case FIXED_ARRAY: */
-/* 		memmove(&parse_array, str + b0, b1 - b0); */
-/* 		parse_array[b1 - b0] = '\0'; */
-/* 		return &parse_array[0]; */
-/* 	case SCRATCH: */
-/* 		if (b0 - b1 + 1 > scratch->cap) */
-/* 		{ */
-/* 			free(scratch->memory); */
-/* 			scratch->size = 0; */
-/* 			scratch->memory = malloc(b0 - b1 + 1024); */
-/* 		} */
-/* 		memmove(scratch->memory, str + b0, b1 - b0); */
-/* 		scratch->memory[b1 - b0] = '\0'; */
-/* 		scratch->size = b1 - b0 + 1; */
-/* 		return scratch->memory; */
-/* 	} */
-/* 	char* res = malloc(b1 - b0 + 1); */
-/* 	strncpy(res, str + b0, b1 - b0); */
-/* 	res[b1 - b0] = '\0'; */
-/* 	return res; */
-/* } */
+static arena_t* scratch = NULL;
+static arena_t* request_arena = NULL;
 
 /*  NOTE: HOPE U DONT OVER ALLOCATE LMAO */
 static void* scratch_alloc(size_t bytes)
@@ -93,29 +27,21 @@ static void scratch_free(void* memory)
 
 void rpc_init(void)
 {
-	/* parser = ts_parser_new(); */
-	/* ts_parser_set_language(parser, tree_sitter_json()); */
-	/* method_query = make_query(&client_tsquery[0], client_tsquery_len); params_query = make_query(&params_tsquery[0], params_tsquery_len); */
 	scratch = arena_init(MEGABYTE * sizeof(json_t));
-	/* scratch = arena_init(12); */
-	/* json_malloc_t = &scratch_alloc; */
-	request_arena = arena_init(sizeof(Rpc));
+	request_arena = arena_init(sizeof(rpc_t));
 }
 
 void rpc_deinit(void)
 {
-	/* ts_query_delete(method_query); */
-	/* ts_query_delete(params_query); */
-	/* ts_parser_delete(parser); */
 	free(scratch->memory);
 	free(scratch);
 	free(request_arena->memory);
 	free(request_arena);
 }
 
-void initialize_params(json_t* params_o, Rpc* rpc);
+void initialize_params(json_t* params_o, rpc_t* rpc);
 
-void parse_rpc (char* str, int len, Rpc* rpc)
+void parse_rpc (char* str, int len, rpc_t* rpc)
 {
 	json_error_t error;
 	json_t* rpc_o = json_loadb(str, len, 0, &error);
@@ -188,100 +114,9 @@ void parse_rpc (char* str, int len, Rpc* rpc)
 	else {
 		rpc->method = METHOD_UNKNOWN;
 	}
-	/* TSTree *tree = ts_parser_parse_string( */
-	/* 	parser, */
-	/* 	NULL, */
-	/* 	json, */
-	/* 	len); */
-	/* TSQueryCursor* cursor = ts_query_cursor_new(); */
-	/* ts_query_cursor_exec(cursor, method_query, ts_tree_root_node(tree)); */
-	/* TSNode node; */
-	/* TSQueryMatch match; */
-	/* if(ts_query_cursor_next_match(cursor, &match)) // just try to match once lmao */
-	/* { */
-	/* 	// TODO switch */
-	/* 	if(match.pattern_index == 0) // client request */
-	/* 	{ */
-	/* 		// parse the id */
-	/* 		node = match.captures[0].node; */
-	/* 		char* text = node_text(&node, json, FIXED_ARRAY); */
-	/* 		memcpy(rpc->id, text, strlen(text) + 1); */
-	/* 		// parse the method name */
-	/* 		node = match.captures[1].node; */
-	/* 		text = node_text(&node, json, FIXED_ARRAY); */
-	/* 		if (strcmp(text, "initialize") == 0) */
-	/* 		{ */
-	/* 			rpc->method = INITIALIZE; */
-	/* 			LOG("received an initialize request!"); */
-	/* 		} */
-	/* 		else if (strcmp(text, "shutdown") == 0) */
-	/* 		{ */
-	/* 			rpc->method = SHUTDOWN; */
-	/* 			LOG("received a shutdown request!"); */
-	/* 		} */
-	/* 		else */
-	/* 		{ */
-	/* 			LOG("unrecognized method: %s", text); */
-	/* 			rpc->method = METHOD_UNKNOWN; */
-	/* 		} */
-	/* 		// parse method parameters */
-	/* 		node = match.captures[2].node; */
-	/* 		uint32_t b0 = ts_node_start_byte(node); */
-	/* 		uint32_t b1 = ts_node_end_byte(node); */
-	/* 		parse_params(json + b0, b1 - b0, rpc); */
-	/* 	} */
-	/* 	else if(match.pattern_index == 1) // client notification (no id) */
-	/* 	{ */
-	/* 		*rpc->id = '\0'; */
-	/* 		node = match.captures[0].node; */
-	/* 		char* text = node_text(&node, json, FIXED_ARRAY); */
-	/* 		if (strcmp(text, "initialized") == 0) */
-	/* 		{ */
-	/* 			rpc->method = INITIALIZED; */
-	/* 			LOG("received an initialized notice!"); */
-	/* 		} */
-	/* 		else if (strcmp(text, "exit") == 0) */
-	/* 		{ */
-	/* 			rpc->method = EXIT; */
-	/* 			LOG("received an exit notice!"); */
-	/* 		} */
-	/* 		else */
-	/* 		{ */
-	/* 			rpc->method = METHOD_UNKNOWN; */
-	/* 			LOG("unrecognized method: %s", text); */
-	/* 		} */
-	/* 	} */
-	/* } */
-	/* else */
-	/* { */
-	/* 	ERROR("Failed to parse a method from %s", json); */
-	/* } */
-	/* ts_query_cursor_delete(cursor); */
-	/* ts_tree_delete(tree); */
 }
 
-/* void parse_initialize(char* json, TSQueryCursor* cursor, TSQueryMatch* match, Rpc* request) */
-/* { */
-/* 	TSNode node; */
-/* 	while(ts_query_cursor_next_match(cursor, match)) */
-/* 	{ */
-/* 		node = match->captures[0].node; */
-/* 		char* text = node_text(&node, json, FIXED_ARRAY); */
-/* 		if (strcmp(text, "processId") == 0) */
-/* 		{ */
-/* 			node = match->captures[1].node; */
-/* 			text = node_text(&node, json, FIXED_ARRAY); */
-/* 			LOG("jsonrcp processId: %s", text); */
-/* 			uint32_t process_id = 0; */
-/* 			int res = sscanf(text, "%ud", &process_id); */
-/* 			LOG("parsed process_id in initialize parameters: %d", process_id); */
-/* 			request->params.initialize.process_id = process_id; */
-/* 		} */
-/* 	} */
-/* } */
-
-
-void initialize_params(json_t* params_o, Rpc* rpc)
+void initialize_params(json_t* params_o, rpc_t* rpc)
 {
 	// the process with PID 0 is responsible for paging, ergo it is NOT the parent process id (so keep using ur unsigned int u degenerate)
 	json_t* pid_o = json_object_get(params_o, "processId");
@@ -296,12 +131,12 @@ void initialize_params(json_t* params_o, Rpc* rpc)
 	arena_free(scratch, sizeof * pid_o);
 }
 
-const Rpc* rpc_parse(char* json, int len)
+const rpc_t* rpc_parse(char* json, int len)
 {
 	json_set_alloc_funcs(&scratch_alloc, &scratch_free);
 	scratch->size = 0;
 	request_arena->size = 0;
-	Rpc* rpc = arena_alloc(request_arena, sizeof *rpc);
+	rpc_t* rpc = arena_alloc(request_arena, sizeof *rpc);
 	parse_rpc(json, len, rpc);
 	return rpc;
 }

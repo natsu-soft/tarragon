@@ -15,9 +15,9 @@
 #define DIR_SEPERATOR '/'
 #endif
 
-static Arena* fs_arena = NULL;
+static arena_t* fs_arena = NULL;
 
-static Arena* fs_singleton(void)
+static arena_t* fs_singleton(void)
 {
 	if (!fs_arena)
 	{
@@ -66,7 +66,7 @@ char *fs_abs_path(const char* rel_path)
 
 
 // oh yeah im just writing my own dir shit here BECAUSE THIS IS WHERE I USE IT GODDAMNIT
-FileContext* fs_find_upward(const char* name, char* dir)
+file_context_t* fs_find_upward(const char* name, char* dir)
 {
 	char* temp = fs_join(dir, name);
 	size_t size0 = strlen(temp);
@@ -74,7 +74,7 @@ FileContext* fs_find_upward(const char* name, char* dir)
 	if (fp)
 	{
 		arena_free(fs_singleton(), strlen(temp) + 1);
-		FileContext* res = arena_alloc(fs_singleton(), sizeof *res);
+		file_context_t* res = arena_alloc(fs_singleton(), sizeof *res);
 		res->fp = fp;
 		res->dir = dir;
 		return res;
@@ -93,7 +93,7 @@ FileContext* fs_find_upward(const char* name, char* dir)
 				temp = arena_alloc(fs_singleton(), i + 1);
 				memmove(temp, dir, i);
 				temp[i] = '\0';
-				FileContext* res = arena_alloc(fs_singleton(), sizeof *res);
+				file_context_t* res = arena_alloc(fs_singleton(), sizeof *res);
 				res->fp = fp;
 				res->dir = temp;
 				return res;

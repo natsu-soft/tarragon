@@ -6,7 +6,7 @@
 #include "error_macros.h"
 #include "file_sys.h"
 #include "base_protocol.h"
-#include "tarragon.h"
+#include "language_server.h"
 #include "logger.h"
 /* LOG_FILE */
 
@@ -40,7 +40,7 @@ int run_tests(int argc, char** argv)
 	char* cwd = fs_dirname(argv[0]);
 	assertf(!strcmp(cwd, REPO_PATH), "fs_dirname failed!");
 	// find upwards
-	FileContext* context = fs_find_upward("bruh", cwd);
+	file_context_t* context = fs_find_upward("bruh", cwd);
 	assertf(context, "find_upwards failed!");
 
 	/* GENERATING CONFIG FILE */
@@ -54,8 +54,8 @@ int run_tests(int argc, char** argv)
 	#else
 	assertf(!strcmp( fs_filestr(default_config_file, &config_len), &default_config_json[0]), "default config file does not match hex dump!");
 	#endif
-	char* config_path = lsp_generate_config(context->dir);
-	FileContext* config_context = fs_find_upward(CONFIG_NAME, cwd);
+	char* config_path = ls_generate_config(context->dir);
+	file_context_t* config_context = fs_find_upward(CONFIG_NAME, cwd);
 	assertf(config_context, "find_upwards failed to find %s!", CONFIG_NAME);
 
 	/* BASE PROTOCOL */

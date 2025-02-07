@@ -6,23 +6,27 @@
 #include <string.h>
 #include <jansson.h>
 #include "jsonrpc.h"
+#include "file_sys.h"
 #include "base_protocol.h"
 #include "logger.h"
 #include "arena.h"
 
 #define KILOBYTE 1024
 
-static Arena* scratch = NULL;
+extern unsigned char default_config_json[];
+extern unsigned int default_config_json_len;
+
+static arena_t* scratch = NULL;
 /* static Arena* response_arena = NULL; */
 
-static Lsp lsp_singleton = {
+static lsp_t lsp_singleton = {
 	.state = LSP_UNINITIALIZED,
 	.documents = NULL,
 	.out = NULL,
 	.num_documents = 0
 };
 
-Lsp* lsp(void)
+lsp_t* lsp(void)
 {
 	return &lsp_singleton;
 }
@@ -41,7 +45,7 @@ json_t* boilerplate()
 	return o;
 }
 
-json_t* add_id(json_t* o, const Rpc* rpc)
+json_t* add_id(json_t* o, const rpc_t* rpc)
 {
 	uint32_t id;
 	if (sscanf(&rpc->id[0], "%ul", &id))
@@ -69,7 +73,7 @@ void log_client(char* message)
 }
 
 
-void handle_initialize(FILE* out, const Rpc* rpc)
+void handle_initialize(FILE* out, const rpc_t* rpc)
 {
 	json_t* o = add_id(boilerplate(), rpc);
 	json_t* result_o = json_object();
@@ -85,14 +89,14 @@ void handle_initialize(FILE* out, const Rpc* rpc)
 	respond(out, o);
 }
 
-void handle_initialized(FILE* out, const Rpc* rpc)
+void handle_initialized(FILE* out, const rpc_t* rpc)
 {
 	lsp_singleton.state = LSP_INITIALIZED;
 	LOG("received an initialized notice!");
 	/* log_client("tarragon is initialized!"); */
 }
 
-void handle_shutdown(FILE* out, const Rpc* rpc)
+void handle_shutdown(FILE* out, const rpc_t* rpc)
 {
 	lsp_singleton.state = LSP_SHUTDOWN;
 	LOG("received a shutdown request!");
@@ -104,7 +108,7 @@ void handle_shutdown(FILE* out, const Rpc* rpc)
 	lsp_singleton.state = LSP_EXIT_0;
 }
 
-void handle_exit(FILE* out, const Rpc* rpc)
+void handle_exit(FILE* out, const rpc_t* rpc)
 {
 	LOG("received an exit notice!");
 	switch(lsp_singleton.state)
@@ -138,7 +142,7 @@ static void scratch_free(void* memory)
 	// lol
 }
 
-void handle(FILE* out, const Rpc* rpc)
+void handle(FILE* out, const rpc_t* rpc)
 {
 	// why YES I am changing the json memory functions willy-nilly
 	json_set_alloc_funcs(&scratch_alloc, &scratch_free);
@@ -188,7 +192,7 @@ int ls_listen(FILE* in,FILE* out)
 		{
 			/* LOG("lsp listen: %s", bp_content()); */
 			LOG("content %s", bp_content());
-			const Rpc* rpc = rpc_parse(bp_content(), length);
+			const rpc_t* rpc = rpc_parse(bp_content(), length);
 			if (!rpc)
 			{
 				LOG("jansson decode failure--shutting down!");
@@ -210,4 +214,11 @@ int ls_listen(FILE* in,FILE* out)
 			return lsp_singleton.state - LSP_EXIT_0;
 		}
 	}
+}
+
+char* ls_generate_config(const char* dir)
+{
+	char* config_name = fs_join(dir, CONFIG_NAME);
+	fs_write(config_name, (char*)&default_config_json[0]);
+	return config_name;
 }

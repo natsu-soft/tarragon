@@ -1,6 +1,8 @@
 #ifndef LANGUAGE_SERVER_H
 #define LANGUAGE_SERVER_H
 
+#define CONFIG_NAME "tarragon_config.json"
+
 #include <stdint.h>
 
 #ifdef _WIN32
@@ -9,7 +11,7 @@ typedef struct _iobuf FILE;
 typedef struct _IO_FILE FILE;
 #endif
 
-typedef enum LspState
+typedef enum lsp_state_t
 {
 	LSP_UNINITIALIZED = 0,
 	LSP_INITIALIZING,
@@ -17,25 +19,27 @@ typedef enum LspState
 	LSP_SHUTDOWN,
 	LSP_EXIT_0,
 	LSP_EXIT_1
-} LspState;
+} lsp_state_t;
 
-typedef struct TextDocument
+typedef struct text_document_t
 {
 	char* abs_path;
 	char* language_id;
 	uint32_t version;
-} TextDocument;
+} text_document_t;
 
-typedef struct Lsp
+typedef struct lsp_t
 {
 	FILE* out;
-	TextDocument* documents;
+	text_document_t* documents;
 	uint32_t num_documents;
-	LspState state;
-} Lsp;
+	lsp_state_t state;
+} lsp_t;
 
-Lsp* lsp(void);
+lsp_t* lsp(void);
 
 int ls_listen(FILE* in,FILE* out);
+
+char* ls_generate_config(const char* dir);
 
 #endif /* End LANGUAGE_SERVER_H */

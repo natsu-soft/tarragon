@@ -4,17 +4,17 @@
 #include <stddef.h>
 #include <stdint.h>
 
-typedef struct Arena
+typedef struct arena
 {
 	uint32_t size;
 	size_t cap;
 	uint8_t* memory;
-} Arena;
+} arena_t;
 
-Arena* arena_init(size_t bytes);
+arena_t* arena_init(size_t bytes);
 
-void* arena_alloc(Arena* arena, size_t bytes);
+void* arena_alloc(arena_t* arena, size_t bytes);
 
-void arena_free(Arena* arena, size_t bytes);
+void arena_free(arena_t* arena, size_t bytes);
 
 #endif /* End ARENA_H */

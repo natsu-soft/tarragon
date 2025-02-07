@@ -25,7 +25,7 @@ static enum {
 } decode_state = CACHING_HEADER;
 
 
-static Arena* decode_arena = NULL;
+static arena_t* decode_arena = NULL;
 char* bp_content(void)
 {
 	return decode_arena->memory;
