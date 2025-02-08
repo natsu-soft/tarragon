@@ -47,6 +47,8 @@ json_t* boilerplate()
 
 json_t* add_id(json_t* o, const rpc_t* rpc)
 {
+	// NOTE: SPEED IS LIFE
+	// rpc->id[0] ^ '\0'
 	uint32_t id;
 	if (sscanf(&rpc->id[0], "%ul", &id))
 	{
