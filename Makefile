@@ -7,17 +7,19 @@ DEP := $(patsubst src/%.c,dep/%.d,$(SRC))
 CCMD := $(patsubst src/%.c,ccmd/%.json,$(SRC))
 OBJ := $(patsubst src/%.c,obj/%.o,$(SRC))
 TREE-SITTER_INCLUDES = -I tree-sitter/lib/include -I tree-sitter/lib/src
-TREE_SITTER_OBJ := ts_obj/tree_sitter.o ts_obj/json_parser.o ts_obj/cpp_parser.o ts_obj/cpp_scanner.o
+TREE_SITTER_OBJ := obj/ts/tree_sitter.o obj/ts/json_parser.o obj/ts/cpp_parser.o obj/ts/cpp_scanner.o
 OBJ += $(TREE_SITTER_OBJ)
-JSON_OBJ := obj/default_config.o
+HEX_OBJS := obj/supported_godot.o
+API_OBJS := obj/api/global_constants.o obj/api/global_enums.o obj/api/utility_functions.o obj/api/builtin_classes.o obj/api/classes.o obj/api/singletons.o obj/api/native_structures.o
+JSON_OBJS :=  obj/default_config.o
 TSQUERY_OBJS := obj/client_tsquery.o obj/params_tsquery.o
-OBJ += $(JSON_OBJ)
+OBJ += $(HEX_OBJS) $(API_OBJS) $(JSON_OBJS) $(TSQUERY_OBJS)
 
-.PHONY: default test dependencies clean ean-dep clean-ts clean-emacs clean-all dep_dir obj_dirs lsp-test jansson-test
+.PHONY: default test dependencies clean clean-dep clean-ts clean-emacs clean-api clean-all dep_dir obj_dirs lsp-test jansson-test
 
 default: tarragon
 
-tarragon: $(OBJ) $(TSQUERY_OBJS)
+tarragon: $(OBJ)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 test-json-parser: test_json_parser.c ts_obj/tree_sitter.o ts_obj/json_parser.o obj/file_sys.o obj/arena.o $(TSQUERY_OBJS)
@@ -26,13 +28,13 @@ test-json-parser: test_json_parser.c ts_obj/tree_sitter.o ts_obj/json_parser.o o
 # test_json_parser.o: test_json_parser.c
 # 	$(CC) $(CFLAGS) $(TREE-SITTER_INCLDUES) -c $< -o $@
 
-ts_obj/tree_sitter.o: | obj_dirs
+obj/ts/tree_sitter.o: | obj_dirs
 	$(CC) $(CFLAGS) $(TREE-SITTER_INCLUDES) -c tree-sitter/lib/src/lib.c -o $@
 
-ts_obj/%_parser.o: | obj_dirs
+obj/ts/%_parser.o: | obj_dirs
 	$(CC) $(CFLAGS) $(TREE-SITTER_INCLDUES) -c tree-sitter-$*/src/parser.c -o $@ $(TARGET_OPT)
 
-ts_obj/cpp_scanner.o: | obj_dirs
+obj/ts/cpp_scanner.o: | obj_dirs
 	$(CC) $(CFLAGS) $(TREE-SITTER_INCLDUES) -c tree-sitter-cpp/src/scanner.c -o $@ $(TARGET_OPT)
 
 arg-parser: arg_parser.o src/find_file.o
@@ -44,9 +46,6 @@ arg_parser.o:
 obj/%.o: src/%.c dep/%.d | obj_dirs
 	$(CC) $(CFLAGS) -c $< -o $@
 
-obj/tests.o: src/tests.c dep/tests.d | obj_dirs
-	$(CC) $(CFLAGS) -c $< -o $@
-
 dependencies: $(DEP)
 
 dep/%.d: src/%.c | dep_dir
@@ -54,8 +53,20 @@ dep/%.d: src/%.c | dep_dir
 
 include $(wildcard dep/*.d)
 
-$(JSON_OBJ): obj/%.o: %.json | obj_dirs
+obj/supported_godot.o: extension_api.json
+	@jq -r '.header.version_full_name' $< > supported_godot
+	xxd -i supported_godot | $(CC) $(CFLAGS) -xc -c -o $@ -
+	@rm supported_godot
+
+# extesnion_api.json:;
+
+$(JSON_OBJS): obj/%.o: %.json | obj_dirs
 	xxd -i $< | $(CC) $(CFLAGS) -xc -c -o $@ -
+
+$(API_OBJS): obj/api/%.o: extension_api.json | obj_dirs
+	@jq -r '.$*' $< > $*
+	xxd -i $* | $(CC) $(CFLAGS) -xc -c -o $@ -
+	@rm $*
 
 $(TSQUERY_OBJS): obj/%_tsquery.o: %_tsquery | obj_dirs
 	xxd -i $< | $(CC) $(CFLAGS) -xc -c -o $@ -
@@ -64,8 +75,7 @@ dep_dir:
 	@mkdir -p dep
 
 obj_dirs:
-	@mkdir -p obj
-	@mkdir -p ts_obj
+	@mkdir -p obj/{api,ts}
 
 clean:
 	rm -rf *.o obj/*.o *.exe tarragon
@@ -74,12 +84,15 @@ clean-dep:
 	rm -rf dep/*.d
 
 clean-ts:
-	rm -rf ts_obj/*.o
+	rm -rf obj/ts/*.o
+
+clean-api:
+	rm -rf obj/api/*.o
 
 clean-emacs:
 	rm -rf *~ src/*~
 
-clean-all: clean clean-dep clean-ts clean-emacs
+clean-all: clean clean-dep clean-ts clean-emacs clean-api
 
 compile_commands.json: $(SRC) $(JSON_OBJ)
 	$(CC) -MJ temp $(CFLAGS) $(TREE-SITTER_INCLUDES) -c $^ $(LDFLAGS)
