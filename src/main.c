@@ -12,6 +12,8 @@
 
 #define CONFIG_JSON "tarragon.json"
 
+extern char supported_godot[];
+
 void print_usage(void)
 {
 	printf("tarragon blahblahblah GDScript LSP that uses standard IO instead of ports\n\n");
@@ -22,7 +24,8 @@ void print_usage(void)
 	printf("Options\n");
 	printf("  -h                 = Prints usage information.\n");
 	printf("  -v                 = Prints tarragon version.\n");
-	printf("  -g                 = Prints supported Godot version.\n");
+	printf("  -s                 = Prints supported Godot version.\n");
+	/* printf("  -g                 = Prints supported Godot version.\n"); */
 }
 
 void print_version(void)
@@ -32,7 +35,7 @@ void print_version(void)
 
 void print_supported_godot(void)
 {
-	printf("0.0.0-LMAO\n");
+	printf("%s", &supported_godot[0]);
 }
 
 int generate_tarragon_json(char* dest, char* ext_api_path)
@@ -56,12 +59,12 @@ int generate_tarragon_json(char* dest, char* ext_api_path)
  *   prints usage
  * -v
  *   prints tartragon version
- * -g
+ * -s
  *   prints supported Godot version
  */
 int main(int argc, char** argv) {
 	int c;
-	while ((c = getopt(argc, argv, "l:tvhg")) != -1)
+	while ((c = getopt(argc, argv, "l:tvhs")) != -1)
 	{
 		/* printf("opt: %c\n", c); */
 		switch(c)
@@ -78,7 +81,7 @@ int main(int argc, char** argv) {
 		case 'h':
 			print_usage();
 			return 0;
-		case 'g':
+		case 's':
 			print_supported_godot();
 			return 0;
 		case ':':
