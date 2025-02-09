@@ -15,15 +15,15 @@
 #define DIR_SEPERATOR '/'
 #endif
 
-static arena_t* fs_arena = NULL;
+static arena_t fs_arena = { .memory  = NULL};
 
 static arena_t* fs_singleton(void)
 {
-	if (!fs_arena)
+	if (!fs_arena.memory)
 	{
-		fs_arena = arena_init(1024 * PATH_MAX);
+		arena_init(&fs_arena, 1024 * PATH_MAX);
 	}
-	return fs_arena;
+	return &fs_arena;
 }
 
 char* fs_abs_uri(const char* abs_path)

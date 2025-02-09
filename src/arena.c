@@ -4,13 +4,11 @@
 #include "error_macros.h"
 #include "logger.h"
 
-arena_t* arena_init(size_t bytes)
+void arena_init(arena_t* arena, size_t bytes)
 {
-	arena_t* arena = malloc(sizeof * arena);
 	arena->size = 0;
 	arena->cap = bytes;
 	arena->memory = malloc(bytes);
-	return arena;
 }
 
 void* arena_alloc(arena_t* arena, size_t bytes)

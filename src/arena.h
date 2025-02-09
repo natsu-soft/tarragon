@@ -11,7 +11,7 @@ typedef struct arena
 	uint8_t* memory;
 } arena_t;
 
-arena_t* arena_init(size_t bytes);
+void arena_init(arena_t* arena, size_t bytes);
 
 void* arena_alloc(arena_t* arena, size_t bytes);
 

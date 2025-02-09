@@ -11,32 +11,30 @@
 #define MEGABYTE 1048576
 
 
-static arena_t* scratch = NULL;
-static arena_t* request_arena = NULL;
+static arena_t scratch;
+static rpc_t* request_buffer;
 
 /*  NOTE: HOPE U DONT OVER ALLOCATE LMAO */
 static void* scratch_alloc(size_t bytes)
 {
-	return arena_alloc(scratch, bytes);
+	return arena_alloc(&scratch, bytes);
 }
 
-static void scratch_free(void* memory)
+static void scratch_free(void* ptr)
 {
 	// lol
 }
 
 void rpc_init(void)
 {
-	scratch = arena_init(MEGABYTE * sizeof(json_t));
-	request_arena = arena_init(sizeof(rpc_t));
+	arena_init(&scratch, MEGABYTE * sizeof(json_t));
+	request_buffer = malloc(sizeof * request_buffer);
 }
 
 void rpc_deinit(void)
 {
-	free(scratch->memory);
-	free(scratch);
-	free(request_arena->memory);
-	free(request_arena);
+	free(scratch.memory);
+	free(request_buffer);
 }
 
 void initialize_params(json_t* params_o, rpc_t* rpc);
@@ -128,15 +126,14 @@ void initialize_params(json_t* params_o, rpc_t* rpc)
 	{
 		rpc->params.initialize.process_id = json_integer_value(pid_o);
 	}
-	arena_free(scratch, sizeof * pid_o);
+	arena_free(&scratch, sizeof * pid_o);
 }
 
 const rpc_t* rpc_parse(char* json, int len)
 {
 	json_set_alloc_funcs(&scratch_alloc, &scratch_free);
-	scratch->size = 0;
-	request_arena->size = 0;
-	rpc_t* rpc = arena_alloc(request_arena, sizeof *rpc);
+	scratch.size = 0;
+	rpc_t* rpc = request_buffer;
 	parse_rpc(json, len, rpc);
 	return rpc;
 }

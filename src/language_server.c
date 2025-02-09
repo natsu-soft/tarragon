@@ -16,7 +16,7 @@
 extern unsigned char default_config_json[];
 extern unsigned int default_config_json_len;
 
-static arena_t* scratch = NULL;
+static arena_t scratch;
 /* static Arena* response_arena = NULL; */
 
 static lsp_t lsp_singleton = {
@@ -64,7 +64,7 @@ json_t* add_id(json_t* o, const rpc_t* rpc)
 // I do NOT thing this one works (mb just not with eglot)
 void log_client(char* message)
 {
-	scratch->size = 0;
+	scratch.size = 0;
 	json_t* o = boilerplate();
 	json_object_set(o, "method", json_string("window/logMessage"));
 	json_t* params_o = json_object();
@@ -136,7 +136,7 @@ void handle_exit(FILE* out, const rpc_t* rpc)
 /*  NOTE: HOPE U DONT OVER ALLOCATE LMAO */
 static void* scratch_alloc(size_t bytes)
 {
-	return arena_alloc(scratch, bytes);
+	return arena_alloc(&scratch, bytes);
 }
 
 static void scratch_free(void* memory)
@@ -148,7 +148,7 @@ void handle(FILE* out, const rpc_t* rpc)
 {
 	// why YES I am changing the json memory functions willy-nilly
 	json_set_alloc_funcs(&scratch_alloc, &scratch_free);
-	scratch->size = 0;
+	scratch.size = 0;
 	// why? because it's based
 	switch(rpc->method)
 	{
@@ -172,8 +172,7 @@ void handle(FILE* out, const rpc_t* rpc)
 void cleanup(void)
 {
 	rpc_deinit();
-	free(scratch->memory);
-	free(scratch);
+	free(scratch.memory);
 }
 
 
@@ -181,7 +180,7 @@ int ls_listen(FILE* in,FILE* out)
 {
 	bp_init();
 	rpc_init();
-	scratch = arena_init(KILOBYTE * sizeof(json_t));
+	arena_init(&scratch, KILOBYTE * sizeof(json_t));
 	lsp_singleton.out = out;
 	/* for(uint32_t i = 0; i < 10; ++i) */
 	for(/* LOL */ ; /* LMAO */ ; /* EVEN */ )

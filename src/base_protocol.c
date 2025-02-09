@@ -25,22 +25,22 @@ static enum {
 } decode_state = CACHING_HEADER;
 
 
-static arena_t* decode_arena = NULL;
+static arena_t decode_arena;
 char* bp_content(void)
 {
-	return decode_arena->memory;
+	return decode_arena.memory;
 }
 
 void bp_init(void)
 {
-	decode_arena = arena_init(4 * KILOBYTE);
+	arena_init(&decode_arena, 4 * KILOBYTE);
 }
 
 void bp_reset(void)
 {
 	decode_state = CACHING_HEADER;
 	content_length = 0;
-	decode_arena->size = 0;
+	decode_arena.size = 0;
 }
 
 void bp_send(FILE* stream, char* content)
@@ -62,7 +62,6 @@ static int32_t decode(FILE* stream)
 	}
 	char c;
 	char* temp;
-	size_t n;
 	switch (decode_state)
 	{
 	case CACHING_HEADER:
@@ -71,21 +70,24 @@ static int32_t decode(FILE* stream)
 		switch (c)
 		{
 		case '\n':
-			temp = arena_alloc(decode_arena, 1);
+			temp = arena_alloc(&decode_arena, 1);
 			*temp = '\0';
-			sscanf(decode_arena->memory, "Content-Length: %u", &content_length);
-			decode_arena->size = 0;
-			if (content_length + 1 > decode_arena->cap)
+			int res = sscanf((char*)decode_arena.memory, "Content-Length: %u ", &content_length);
+			if (res == EOF)
 			{
-				free(decode_arena->memory); // dont use realloc because I dont need to copy
-				decode_arena->size = 0;
-				decode_arena->cap = content_length + 1;
-				decode_arena->memory = malloc(content_length + 1);
+				printf("EOF encountered in sscanf!\n");
+				return -1;
+			}
+			decode_arena.size = 0;
+			if (content_length + 1 > decode_arena.cap)
+			{
+				free(decode_arena.memory); // not using realloc because I dont need to copy
+				arena_init(&decode_arena, content_length + 1);
 			}
 			decode_state = WAITING_CONTENT;
 			break;
 		default:
-			temp = arena_alloc(decode_arena, 1);
+			temp = arena_alloc(&decode_arena, 1);
 			*temp = c;
 		}
 		nanosleep(&charsleep, NULL);
@@ -106,12 +108,12 @@ static int32_t decode(FILE* stream)
 		changed. Otherwise, if a read error occurs, the error indicator for  the
 		stream shall be set, and errno shall be set to indicate the error.
 		*/
-		decode_arena->size = fread(decode_arena->memory + decode_arena->size, 1, content_length - decode_arena->size, stream);
-		if (decode_arena->size == content_length)
+		decode_arena.size = fread(decode_arena.memory + decode_arena.size, 1, content_length - decode_arena.size, stream);
+		if (decode_arena.size == content_length)
 		{
-			decode_arena->memory[content_length] = '\0';
-			fprintf(log_fp, "%s", decode_arena->memory);
-			decode_arena->size++;
+			decode_arena.memory[content_length] = '\0';
+			fprintf(log_fp, "%s", decode_arena.memory);
+			decode_arena.size++;
 			return content_length;
 		}
 		nanosleep(&readsleep, NULL);
@@ -129,7 +131,6 @@ static int32_t decode_nosleep(FILE* stream)
 	}
 	char c;
 	char* temp;
-	size_t n;
 	switch (decode_state)
 	{
 	case CACHING_HEADER:
@@ -137,21 +138,19 @@ static int32_t decode_nosleep(FILE* stream)
 		switch (c)
 		{
 		case '\n':
-			temp = arena_alloc(decode_arena, 1);
+			temp = arena_alloc(&decode_arena, 1);
 			*temp = '\0';
-			sscanf(decode_arena->memory, "Content-Length: %u", &content_length);
-			decode_arena->size = 0;
-			if (content_length + 1 > decode_arena->cap)
+			sscanf(decode_arena.memory, "Content-Length: %u", &content_length);
+			decode_arena.size = 0;
+			if (content_length + 1 > decode_arena.cap)
 			{
-				free(decode_arena->memory); // dont use realloc because I dont need to copy
-				decode_arena->size = 0;
-				decode_arena->cap = content_length + 1;
-				decode_arena->memory = malloc(content_length + 1);
+				free(decode_arena.memory); // not using realloc because I dont need to copy
+				arena_alloc(&decode_arena, content_length + 1);
 			}
 			decode_state = WAITING_CONTENT;
 			break;
 		default:
-			temp = arena_alloc(decode_arena, 1);
+			temp = arena_alloc(&decode_arena, 1);
 			*temp = c;
 		}
 		/* nanosleep(&charsleep, NULL); */
@@ -172,11 +171,11 @@ static int32_t decode_nosleep(FILE* stream)
 		changed. Otherwise, if a read error occurs, the error indicator for  the
 		stream shall be set, and errno shall be set to indicate the error.
 		*/
-		decode_arena->size = fread(decode_arena->memory + decode_arena->size, 1, content_length - decode_arena->size, stream);
-		if (decode_arena->size == content_length)
+		decode_arena.size = fread(decode_arena.memory + decode_arena.size, 1, content_length - decode_arena.size, stream);
+		if (decode_arena.size == content_length)
 		{
-			decode_arena->memory[content_length] = '\0';
-			decode_arena->size++;
+			decode_arena.memory[content_length] = '\0';
+			decode_arena.size++;
 			return content_length;
 		}
 		/* nanosleep(&readsleep, NULL); */
