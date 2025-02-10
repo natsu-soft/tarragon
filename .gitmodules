@@ -10,3 +10,6 @@
 [submodule "tree-sitter-gdscript"]
 	path = tree-sitter-gdscript
 	url = https://github.com/PrestonKnopp/tree-sitter-gdscript.git
+[submodule "libarchive"]
+	path = libarchive
+	url = https://github.com/libarchive/libarchive.git

@@ -2,6 +2,19 @@
 
 A standalone GDScript LSP
 
+MAKE SURE YOU `git clone --recursive` all them SUBMODULES, breh
+
+## libarchive
+
+used for unarchiving baked strings at runtime, have to build it from source otherwise you can't statically link it
+
+``` sh
+# build instructions
+cd libarchive
+cmake .
+make -j 8
+```
+
 ## LEARN YE C
 - [[https://beej.us/guide/bgc/html/split-wide/][Beej's Guide to C Programming]]
 - [[https://beej.us/guide/bgclr/html/split-wide/][Beej's C Library Reference]]

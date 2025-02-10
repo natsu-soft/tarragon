@@ -1,7 +1,9 @@
+# NOTE: bake the api jsons (classes is 10MB!)
+# NOTE: use libarchive to unarchive baked strings (archive_read & archive_read_data)
 # CC := gcc -std=gnu17
 CC := clang -std=gnu17
-CFLAGS := -Wall -Wextra -ggdb -O2
-LDFLAGS := --static -ljansson
+CFLAGS := -Wall -Wextra -ggdb -O0
+LDFLAGS := -flto -ljansson -L./libarchive/libarchive -larchive -static
 SRC := $(wildcard src/*.c)
 DEP := $(patsubst src/%.c,dep/%.d,$(SRC))
 CCMD := $(patsubst src/%.c,ccmd/%.json,$(SRC))
@@ -64,9 +66,9 @@ $(JSON_OBJS): obj/%.o: %.json | obj_dirs
 	xxd -i $< | $(CC) $(CFLAGS) -xc -c -o $@ -
 
 $(API_OBJS): obj/api/%.o: extension_api.json | obj_dirs
-	@jq -r '.$*' $< > $*
-	xxd -i $* | $(CC) $(CFLAGS) -xc -c -o $@ -
-	@rm $*
+	jq -r '.$*' $< | gzip --stdout - > $*.gz
+	xxd -i $*.gz | $(CC) $(CFLAGS) -xc -c -o $@ -
+	rm $*.gz
 
 $(TSQUERY_OBJS): obj/%_tsquery.o: %_tsquery | obj_dirs
 	xxd -i $< | $(CC) $(CFLAGS) -xc -c -o $@ -
