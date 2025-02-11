@@ -8,6 +8,8 @@
 #include "base_protocol.h"
 #include "language_server.h"
 #include "logger.h"
+
+// TODO: test unzip
 /* LOG_FILE */
 
 // wow, you want to test it on your own pc? enjoy changing these hardcoded paths lmao
