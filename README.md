@@ -12,7 +12,7 @@ used for unarchiving baked strings at runtime, have to build it from source othe
 # build instructions
 cd libarchive
 cmake .
-make -j 8
+make archive_static -j 8
 ```
 
 ## LEARN YE C

@@ -3,7 +3,7 @@
 # CC := gcc -std=gnu17
 CC := clang -std=gnu17
 CFLAGS := -Wall -Wextra -ggdb -O0
-LDFLAGS := -flto -ljansson -L./libarchive/libarchive -larchive -static
+LDFLAGS := -fuse-ld=lld -flto -ljansson ./libarchive/libarchive/libarchive.a -lz -static
 SRC := $(wildcard src/*.c)
 DEP := $(patsubst src/%.c,dep/%.d,$(SRC))
 CCMD := $(patsubst src/%.c,ccmd/%.json,$(SRC))
