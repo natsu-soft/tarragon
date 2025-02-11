@@ -8,9 +8,13 @@
 #include "base_protocol.h"
 #include "language_server.h"
 #include "logger.h"
+#include "unzip.h"
 
 // TODO: test unzip
 /* LOG_FILE */
+
+extern unsigned char utility_functions_gz[];
+extern unsigned int utility_functions_gz_len;
 
 // wow, you want to test it on your own pc? enjoy changing these hardcoded paths lmao
 #ifdef _WIN32
@@ -86,7 +90,21 @@ int run_tests(int argc, char** argv)
 	fp = fopen("test_stuff/initialize_request.json", "r");
 	content_len = bp_receive(fp);
 	LOG("%s", bp_content());
+	fclose(fp);
 	bp_init();
+	fp = fopen("file_sys.gz", "r");
+	uint32_t len;
+	char* file_sys_str = unzip_file(fp, &len, malloc);
+	fclose(fp);
+	/* printf("file_sys.c:\n%s\n", file_sys_str); */
+	/* free(file_sys_str); */
+	/* int zip_len; */
+	/* char* zip_str = fs_filestr(fs_abs_path("file_sys.gz"), &zip_len); */
+	uint32_t bruh_len;
+	char* bruh = unzip(&utility_functions_gz[0], utility_functions_gz_len, &bruh_len, malloc);
+	/* printf("unzip_res: %s\n", bruh); */
+	printf("archived_len: %d, full_len: %d\n", utility_functions_gz_len, bruh_len);
+	free(bruh);
 	LOG("finished tests!");
 	ENDLOG
 	printf("ATTN: TESTS SUCCEEDED!\n");
