@@ -37,13 +37,17 @@ int run_tests(int argc, char** argv)
 	LOG("starting tests");
 	printf("ATTN: TESTS STARTED!\n");
 	/* FILE_SYS TESTS */
+	printf("testing file system functions\n");
 	int temp = 0;
 	char* str_file_abs_path = fs_abs_path( "test_stuff/str_file.txt");
 	char* str_file_uri = fs_abs_uri(str_file_abs_path);
 	assertf(!strcmp(URI, str_file_uri), "fs_abs_uri failed");
 	assertf(!strcmp(fs_filestr(str_file_abs_path, &temp), "hello!\n"), "str_file test failed"); // have to ! because strcmp returns 0 (false) if equal
 	// dirname test
+	/* const char* abs_arg0 = fs_abs_path(argv[0]); */
+	/* printf("%s\n", abs_arg0); */
 	char* cwd = fs_dirname(argv[0]);
+	/* printf("cwd: %s\n", cwd); */
 	assertf(!strcmp(cwd, REPO_PATH), "fs_dirname failed!");
 	// find upwards
 	file_context_t* context = fs_find_upward("bruh", cwd);
@@ -51,6 +55,7 @@ int run_tests(int argc, char** argv)
 
 	/* GENERATING CONFIG FILE */
 
+	printf("testing config file generation\n");
 	int config_len = 0;
 	char* default_config_file = fs_abs_path("default_config.json");
 	assertf(default_config_file, "default config file DNE!");
@@ -66,6 +71,7 @@ int run_tests(int argc, char** argv)
 
 	/* BASE PROTOCOL */
 
+	printf("testing rpc encoding/decoding\n");
 	FILE* fp = fopen("test_stuff/rpc_encode", "w");
 	bp_send(fp, "{\"testing\": true}");
 	fclose(fp);
@@ -92,10 +98,13 @@ int run_tests(int argc, char** argv)
 	LOG("%s", bp_content());
 	fclose(fp);
 	bp_init();
+
+	printf("testing unzip functions\n");
 	fp = fopen("file_sys.gz", "r");
 	uint32_t len;
 	char* file_sys_str = unzip_file(fp, &len, malloc);
 	fclose(fp);
+
 	/* printf("file_sys.c:\n%s\n", file_sys_str); */
 	/* free(file_sys_str); */
 	/* int zip_len; */
@@ -103,7 +112,8 @@ int run_tests(int argc, char** argv)
 	uint32_t bruh_len;
 	char* bruh = unzip(&utility_functions_gz[0], utility_functions_gz_len, &bruh_len, malloc);
 	/* printf("unzip_res: %s\n", bruh); */
-	printf("archived_len: %d, full_len: %d\n", utility_functions_gz_len, bruh_len);
+	printf("archived_len: %d, full_len: %d, compression_ratio: %f\n", utility_functions_gz_len, bruh_len, 1.0f - (float)utility_functions_gz_len / (float)bruh_len);
+	free(file_sys_str);
 	free(bruh);
 	LOG("finished tests!");
 	ENDLOG

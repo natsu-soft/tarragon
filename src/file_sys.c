@@ -104,7 +104,6 @@ file_context_t* fs_find_upward(const char* name, char* dir)
 	return NULL;
 }
 
-// NOTE: test this w/ Unix filesystem
 char* fs_dirname(const char* name)
 {
 	char* res;

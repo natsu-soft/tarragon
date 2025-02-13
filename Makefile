@@ -1,9 +1,8 @@
-# NOTE: bake the api jsons (classes is 10MB!)
-# NOTE: use libarchive to unarchive baked strings (archive_read & archive_read_data)
 # CC := gcc -std=gnu17
 CC := clang -std=gnu17
 CFLAGS := -Wall -Wextra -ggdb -O0
 LDFLAGS := -fuse-ld=lld -flto -ljansson ./libarchive/libarchive/libarchive.a -lz -static
+# LDFLAGS := -fuse-ld=mold -flto -ljansson ./libarchive/libarchive/libarchive.a -lz -static # kinda cool tbqh
 SRC := $(wildcard src/*.c)
 DEP := $(patsubst src/%.c,dep/%.d,$(SRC))
 CCMD := $(patsubst src/%.c,ccmd/%.json,$(SRC))
@@ -23,6 +22,7 @@ default: tarragon
 
 tarragon: $(OBJ)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+	file $@
 
 test-json-parser: test_json_parser.c ts_obj/tree_sitter.o ts_obj/json_parser.o obj/file_sys.o obj/arena.o $(TSQUERY_OBJS)
 	$(CC) $(CFLAGS) $(TREE-SITTER_INCLUDES) -o $@ $^
@@ -111,9 +111,10 @@ compile_commands.json: $(SRC) $(JSON_OBJ)
 test: tarragon
 	@touch ../../bruh
 	@mkdir -p temp_testing
+	@cat src/file_sys.c | gzip -c - > file_sys.gz
 	@echo "CREATED: temporary testing files"
 	@${CURDIR}/tarragon -l tarragon.log -t
-	@rm ../../bruh ../../tarragon_config.json test_stuff/rpc_encode
+	@rm ../../bruh ../../tarragon_config.json test_stuff/rpc_encode file_sys.gz
 	@echo "CLEANED: temporary testing files"
 
 lsp-test: tarragon
