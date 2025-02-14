@@ -1,162 +1,204 @@
 #include "token_trie.h"
 #include <stdlib.h>
 #include <assert.h>
+#include <string.h>
 
-// TODO: try not to recurse
+// TODO: try not to recurse HARDER
 
-// intrusive list too much work :(
-typedef struct token_child_t {
-	struct token_child_t* next;
-	token_trie_t trie;
-} token_child_t;
-
-
-token_trie_t* add_token(token_trie_t* node, char* str)
+void add_token(trie_t* node, char* str, void* token)
 {
 	assert(node);
-	if (str == NULL)
+	if (str == NULL || token == NULL)
 	{
-		return NULL;
+		return;
 	}
-	token_child_t* child = node->children;
-	token_trie_t* subtrie;
-	while (child)
+	trie_t* trie = node;
+	for (int i = 0; i < strlen(str) + 1; ++i)
 	{
-		if (child->trie.c == str[0])
+		trie_edge_t* edge = trie->edges;
+		trie_t* subtrie = NULL;
+		for (; edge != NULL; edge->list.next)
 		{
-			subtrie = &child->trie;
-			goto recurse;
+			if (str[i] == edge->c)
+			{
+				subtrie = edge->token;
+				goto iteration_tail;
+			}
 		}
-		child = child->next;
+		edge = malloc(sizeof * edge);
+		if (str[i] != '\0')
+		{
+			subtrie = malloc(sizeof * subtrie);
+			edge->token = subtrie;
+		}
+		else
+		{
+			edge->token = token;
+		}
+		edge->list.next = trie->edges;
+		trie->edges = edge;
+	iteration_tail:
+		trie = subtrie;
 	}
-	child = malloc(sizeof * child);
-	child->trie.c = str[0];
-	child->next = node->children;
-	node->children = child;
-	subtrie = &child->trie;
-recurse:
-	return str[0] != '\0' ? add_token(subtrie, str + 1) : subtrie;
 }
 
-token_trie_t* find_token(token_trie_t* node, char* str)
+void* get_token(trie_t* node, char* str)
 {
 	assert(node);
 	if (str == NULL)
 	{
 		return NULL;
 	}
-	token_child_t* child = node->children;
-	while (child)
+	trie_t* trie = node;
+	for (int i = 0; i < strlen(str) + 1; ++i)
 	{
-		if (child->trie.c == str[0])
+		trie_edge_t* edge = trie->edges;
+		trie_t* subtrie = NULL;
+		for (; edge != NULL; edge = edge->list.next)
 		{
-			return find_token(&child->trie, str + 1);
+			if (str[i] == '\0' && edge->c == str[i])
+			{
+				return edge->token;
+			}
+			else if (str[i] == edge->c)
+			{
+				subtrie = edge->token;
+				goto iteration_tail;
+			}
 		}
-		child = child->next;
+		edge->list.next = trie->edges;
+		trie->edges = edge;
+	iteration_tail:
+		if (subtrie != NULL)
+		{
+			trie = subtrie;
+		}
+		else
+		{
+			return NULL;
+		}
 	}
 	return NULL;
 }
 
-uint8_t remove_token(token_trie_t* node, char* str)
+uint8_t recursive_remove_token(trie_t* node, char* str)
+{
+	list_t** elem = (list_t**)(&node->edges);
+	while (*elem)
+	{
+		trie_edge_t* edge = (trie_edge_t*)*elem;
+		if (str[0] == edge->c)
+		{
+			trie_t* token = edge->token;
+			if (str[0] != '\0' && recursive_remove_token(token, str + 1))
+			{
+				if (token->edges == NULL)
+				{
+					*elem = (*elem)->next;
+					free(token);
+					free(edge);
+				}
+				return 1;
+			}
+			else if (str[0] == '\0')
+			{
+				*elem = (*elem)->next;
+				free(token);
+				free(edge);
+				return 1;
+			}
+		}
+		elem = &(*elem)->next;
+	}
+	return 0;
+}
+
+uint8_t remove_token(trie_t* node, char* str)
 {
 	assert(node);
 	if (str == NULL)
 	{
 		return 0;
 	}
-	else if (str[0] == '\n' && node->c == '\n')
-	{
-		// free THIS node & its children (actually a gd_elem_t and not a linked list)
-		free(node->children);
-		free(node);
-		return 1;
-	}
-	else if (node->c == str[0])
-	{
-		token_child_t* child = node->children;
-		while (child)
-		{
-			if (remove_token(&child->trie, str + 1))
-			{
-				// remove child from node->children
-				token_child_t** c = &node->children;
-				while(*c != child)
-				{
-					c = &(*c)->next;
-				}
-				*c = child->next;
-				return 1;
-			}
-			child = child->next;
-		}
-	}
-	return 0;
+	return recursive_remove_token(node, str);
 }
 
-token_trie_t* find_token_excluding_null(token_trie_t* node, char* str)
+uint32_t num_leaves(trie_t* node)
+{
+	uint32_t cum = 0;
+	for (trie_edge_t* edge = node->edges; edge != NULL; edge = edge->list.next)
+	{
+		switch(edge->c)
+		{
+		case '\0':
+			++cum;
+			break;
+		default:
+			cum += num_leaves(edge->token);
+		}
+	}
+	return cum;
+}
+
+void leaf_strings(trie_t* node, char** results, uint8_t* offset, char* prefix, char* buffer, const uint8_t b_offset)
+{
+	for (trie_edge_t* edge = node->edges; edge != NULL; edge = edge->list.next) // why dont I hustle as hard as I hate?
+	{
+		char* temp;
+		switch(edge->c)
+		{
+		case '\0':
+			temp = malloc(strlen(prefix) + b_offset + 1);
+			memcpy(temp, prefix, strlen(prefix));
+			memcpy(temp + strlen(prefix), buffer, b_offset);
+			temp[strlen(prefix) + b_offset] = '\0';
+			results[*offset++] = temp;
+			break;
+		default:
+			buffer[b_offset] = edge->c;
+			leaf_strings(edge->token, results, offset, prefix, buffer, b_offset + 1);
+		}
+	}
+}
+
+char** completion_candidates(trie_t* node, char* prefix, uint32_t* num_candidates)
 {
 	assert(node);
-	if (str == NULL)
-	{
-		return NULL;
-	}
-	token_child_t* child = node->children;
-	while (child)
-	{
-		if (child->trie.c == str[0])
-		{
-			return str[1] != '\n' ? find_token(&child->trie, str + 1) : &child->trie;
-		}
-		child = child->next;
-	}
-	return NULL;
-}
-
-uint32_t num_leaves(token_trie_t* node)
-{
-	if (node->c == '\0')
-	{
-		return 1;
-	}
-	else
-	{
-		uint32_t res = 0;
-		token_child_t* child = node->children;
-		while (child)
-		{
-			res += num_leaves(&child->trie);
-			child = child->next;
-		}
-		return res;
-	}
-}
-
-char** trie_strings(token_trie_t* node, uint32_t* num_strs)
-{
-	char** res;
-	uint32_t n = num_leaves(node);
-	res = malloc(n * sizeof *res);
-	// depth first search
-	*num_strs = n;
-	return res;
-}
-
-char** completion_candidates(token_trie_t* node, char* prefix, uint32_t* num_candidates)
-{
-	assert(node);
+	num_candidates = 0;
 	if (prefix == NULL)
 	{
-		num_candidates = 0;
 		return NULL;
 	}
-	token_trie_t* subtrie = find_token_excluding_null(node, prefix);
-	if (subtrie)
+	trie_t* trie = node;
+	for (int i = 0; i < strlen(prefix); ++i)
 	{
-		return trie_strings(subtrie, num_candidates);
+		trie_edge_t* edge = trie->edges;
+		trie_t* subtrie = NULL;
+		while (edge)
+		{
+			if (prefix[i] == edge->c)
+			{
+				subtrie = edge->token;
+				goto iteration_tail;
+			}
+			edge = edge->list.next;
+		}
+		edge->list.next = trie->edges;
+		trie->edges = edge;
+	iteration_tail:
+		if (subtrie != NULL)
+		{
+			trie = subtrie;
+		}
+		else
+		{
+			return NULL;
+		}
 	}
-	else
-	{
-		num_candidates = 0;
-		return NULL;
-	}
+	*num_candidates = num_leaves(trie);
+	char** candidates = malloc(*num_candidates * sizeof * candidates);
+	char buf[255] = {0};
+	uint8_t offset = 0;
+	leaf_strings(trie, candidates, &offset, prefix, &buf[0], 0);
+	return candidates;
 }
