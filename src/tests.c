@@ -117,6 +117,8 @@ int run_tests(int argc, char** argv)
 	free(file_sys_str);
 	free(bruh);
 
+	trie_tests(stdout);
+
 	LOG("finished tests!");
 	ENDLOG
 	printf("ATTN: TESTS SUCCEEDED!\n");
