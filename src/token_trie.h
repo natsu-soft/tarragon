@@ -34,7 +34,7 @@ uint8_t remove_token(trie_t* node, char* str);
 
 uint32_t num_leaves(trie_t* node);
 
-char** completion_candidates(trie_t* node, char* prefix, uint32_t* num_candidates);
+char** completion_candidates(trie_t* node, uint32_t* num_candidates, char* prefix);
 
 void dump_dot(FILE* buf, trie_t* node);
 

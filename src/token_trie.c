@@ -16,27 +16,29 @@ void add_token(trie_t* node, char* str, void* token)
 	trie_t* trie = node;
 	for (int i = 0; i < strlen(str) + 1; ++i)
 	{
-		/* printf("adding: %c\n", str[i]); */
-		trie_edge_t* edge = trie->edges;
 		trie_t* subtrie = NULL;
+		trie_edge_t* edge = trie->edges;
 		for (; edge != NULL; edge = edge->list.next)
+		/* while (edge != NULL) */
 		{
 			if (str[i] == edge->c)
 			{
 				subtrie = edge->token;
 				goto iteration_tail;
 			}
+			/* edge = (trie_edge_t*)edge->list.next; */
 		}
 		edge = malloc(sizeof * edge);
 		edge->c = str[i];
-		if (str[i] != '\0')
+		switch(str[i])
 		{
-			subtrie = malloc(sizeof * subtrie);
-			edge->token = subtrie;
-		}
-		else
-		{
+		case '\0':
 			edge->token = token;
+			break;
+		default:
+			subtrie = malloc(sizeof * subtrie);
+			subtrie->edges = NULL;
+			edge->token = subtrie;
 		}
 		edge->list.next = trie->edges;
 		trie->edges = edge;
@@ -155,16 +157,19 @@ void leaf_strings(trie_t* node, char** results, uint8_t* offset, char* prefix, c
 			memcpy(temp, prefix, strlen(prefix));
 			memcpy(temp + strlen(prefix), buffer, b_offset);
 			temp[strlen(prefix) + b_offset] = '\0';
-			results[*offset++] = temp;
+			results[*offset] = temp;
+			*offset += 1;
+			/* printf("leaf: %s, offset: %hhu\n", temp, *offset); */
 			break;
 		default:
+			/* printf("edge->c: %c\n", edge->c); */
 			buffer[b_offset] = edge->c;
 			leaf_strings(edge->token, results, offset, prefix, buffer, b_offset + 1);
 		}
 	}
 }
 
-char** completion_candidates(trie_t* node, char* prefix, uint32_t* num_candidates)
+char** completion_candidates(trie_t* node, uint32_t* num_candidates, char* prefix)
 {
 	assert(node);
 	*num_candidates = 0;
@@ -244,12 +249,14 @@ void trie_tests(FILE* buf)
 		fruit[strlen(fruit) - 1] = '\0'; // yeah I HATE newlines
 		add_token(&fruit_trie, fruit, NULL);
 	}
-	/* dump_dot(buf, &fruit_trie); */ // works!
+	/* printf("num leaves: %d\n", num_leaves(&fruit_trie)); */
+	/* dump_dot(buf, &fruit_trie); // works! */
 	uint32_t num_fruits = 0;
-	char** all_fruits = completion_candidates(&fruit_trie, "A", &num_fruits); // DOESNT work
-	for (int i = 0; i < num_fruits; ++i)
+	char** all_fruits = completion_candidates(&fruit_trie, &num_fruits, NULL);
+	printf("num_fruits: %d\n", num_fruits);
+	for (uint32_t i = 0; i < num_fruits; ++i)
 	{
-		printf("fruit %d: %s", i, all_fruits[i]);
+		printf("fruit %hhu: %s\n", i, all_fruits[i]);
 	}
 	free(fruit);
 	fclose(fp);
