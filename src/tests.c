@@ -9,6 +9,7 @@
 #include "language_server.h"
 #include "logger.h"
 #include "unzip.h"
+#include "token_trie.h"
 
 // TODO: test unzip
 /* LOG_FILE */
@@ -115,6 +116,7 @@ int run_tests(int argc, char** argv)
 	printf("archived_len: %d, full_len: %d, compression_ratio: %f\n", utility_functions_gz_len, bruh_len, 1.0f - (float)utility_functions_gz_len / (float)bruh_len);
 	free(file_sys_str);
 	free(bruh);
+
 	LOG("finished tests!");
 	ENDLOG
 	printf("ATTN: TESTS SUCCEEDED!\n");

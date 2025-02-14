@@ -1,5 +1,6 @@
 #include "token_trie.h"
 #include <stdlib.h>
+#include <stdio.h>
 #include <assert.h>
 #include <string.h>
 
@@ -8,16 +9,17 @@
 void add_token(trie_t* node, char* str, void* token)
 {
 	assert(node);
-	if (str == NULL || token == NULL)
+	if (str == NULL)
 	{
 		return;
 	}
 	trie_t* trie = node;
 	for (int i = 0; i < strlen(str) + 1; ++i)
 	{
+		/* printf("adding: %c\n", str[i]); */
 		trie_edge_t* edge = trie->edges;
 		trie_t* subtrie = NULL;
-		for (; edge != NULL; edge->list.next)
+		for (; edge != NULL; edge = edge->list.next)
 		{
 			if (str[i] == edge->c)
 			{
@@ -26,6 +28,7 @@ void add_token(trie_t* node, char* str, void* token)
 			}
 		}
 		edge = malloc(sizeof * edge);
+		edge->c = str[i];
 		if (str[i] != '\0')
 		{
 			subtrie = malloc(sizeof * subtrie);
@@ -164,10 +167,10 @@ void leaf_strings(trie_t* node, char** results, uint8_t* offset, char* prefix, c
 char** completion_candidates(trie_t* node, char* prefix, uint32_t* num_candidates)
 {
 	assert(node);
-	num_candidates = 0;
+	*num_candidates = 0;
 	if (prefix == NULL)
 	{
-		return NULL;
+		prefix = "";
 	}
 	trie_t* trie = node;
 	for (int i = 0; i < strlen(prefix); ++i)
@@ -201,4 +204,53 @@ char** completion_candidates(trie_t* node, char* prefix, uint32_t* num_candidate
 	uint8_t offset = 0;
 	leaf_strings(trie, candidates, &offset, prefix, &buf[0], 0);
 	return candidates;
+}
+
+void dump_dot_recursive(FILE* buf, trie_t* node, uint32_t* id)
+{
+	uint32_t node_id = *id;
+	for (trie_edge_t* edge = node->edges; edge != NULL; edge = edge->list.next)
+	{
+		if (edge->c != '\0')
+		{
+			*id += 1;
+			fprintf(buf, "\t%d[label=\"%c\"];\n", *id, edge->c);
+			fprintf(buf, "\t%d -- %d\n", node_id, *id);
+			dump_dot_recursive(buf, edge->token, id);
+		}
+	}
+}
+
+void dump_dot(FILE* buf, trie_t* node)
+{
+	assert(buf != NULL);
+	assert(node != NULL);
+	fprintf(buf, "strict graph {\n");
+	fprintf(buf, "\t0[label=\":^)\"];\n");
+	uint32_t id = 0;
+	dump_dot_recursive(buf, node, &id);
+	fprintf(buf, "}\n");
+}
+
+void trie_tests(FILE* buf)
+{
+	/* printf("rudimentary trie testing\n"); */
+	FILE* fp = fopen("test_stuff/fruits.txt", "r");
+	trie_t fruit_trie = { 0 }; // u havin a giggle m8?
+	size_t lmao = 80;
+	char* fruit = malloc(lmao);
+	while(getline(&fruit, &lmao, fp) > 0)
+	{
+		fruit[strlen(fruit) - 1] = '\0';
+		add_token(&fruit_trie, fruit, NULL);
+	}
+	dump_dot(buf, &fruit_trie);
+	/* uint32_t num_fruits = 0; */
+	/* char** all_fruits = completion_candidates(&fruit_trie, "", &num_fruits); */
+	/* for (int i = 0; i < num_fruits; ++i) */
+	/* { */
+	/* 	printf("fruit %d: %s", i, all_fruits[i]); */
+	/* } */
+	free(fruit);
+	fclose(fp);
 }

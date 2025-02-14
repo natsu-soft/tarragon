@@ -9,6 +9,7 @@
 #include "language_server.h"
 #include "tests.h"
 #include "logger.h"
+#include "token_trie.h"
 
 #define CONFIG_JSON "tarragon.json"
 
@@ -92,6 +93,8 @@ int main(int argc, char** argv) {
 			return 1;
 		}
 	}
+	trie_tests(stdout);
+	return 0;
 	LOG("initializing tarragon");
 	/* setbuf(stdin, NULL); */
 	/* setbuf(stdout, NULL); */
