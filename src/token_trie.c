@@ -241,16 +241,16 @@ void trie_tests(FILE* buf)
 	char* fruit = malloc(lmao);
 	while(getline(&fruit, &lmao, fp) > 0)
 	{
-		fruit[strlen(fruit) - 1] = '\0';
+		fruit[strlen(fruit) - 1] = '\0'; // yeah I HATE newlines
 		add_token(&fruit_trie, fruit, NULL);
 	}
-	dump_dot(buf, &fruit_trie);
-	/* uint32_t num_fruits = 0; */
-	/* char** all_fruits = completion_candidates(&fruit_trie, "", &num_fruits); */
-	/* for (int i = 0; i < num_fruits; ++i) */
-	/* { */
-	/* 	printf("fruit %d: %s", i, all_fruits[i]); */
-	/* } */
+	/* dump_dot(buf, &fruit_trie); */ // works!
+	uint32_t num_fruits = 0;
+	char** all_fruits = completion_candidates(&fruit_trie, "A", &num_fruits); // DOESNT work
+	for (int i = 0; i < num_fruits; ++i)
+	{
+		printf("fruit %d: %s", i, all_fruits[i]);
+	}
 	free(fruit);
 	fclose(fp);
 }
