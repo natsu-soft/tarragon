@@ -11,7 +11,6 @@
 #include "unzip.h"
 #include "token_trie.h"
 
-// TODO: test unzip
 /* LOG_FILE */
 
 extern unsigned char utility_functions_gz[];
@@ -117,8 +116,10 @@ int run_tests(int argc, char** argv)
 	free(file_sys_str);
 	free(bruh);
 
-	trie_tests(stdout);
-
+	printf("rudimentary trie testing\n");
+	FILE* fruit_dot = fopen("fruits.dot", "w");
+	trie_tests(fruit_dot);
+	fclose(fruit_dot);
 	LOG("finished tests!");
 	ENDLOG
 	printf("ATTN: TESTS SUCCEEDED!\n");

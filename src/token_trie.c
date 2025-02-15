@@ -4,8 +4,6 @@
 #include <assert.h>
 #include <string.h>
 
-// TODO: try not to recurse HARDER
-
 void add_token(trie_t* node, char* str, void* token)
 {
 	assert(node);
@@ -85,6 +83,8 @@ void* get_token(trie_t* node, char* str)
 	}
 	return NULL;
 }
+
+// TODO: try not to recurse HARDER
 
 uint8_t recursive_remove_token(trie_t* node, char* str)
 {
@@ -226,12 +226,12 @@ void dump_dot_recursive(FILE* buf, trie_t* node, uint32_t* id)
 	}
 }
 
-void dump_dot(FILE* buf, trie_t* node)
+void dump_dot(FILE* buf, trie_t* node, char* root_label)
 {
 	assert(buf != NULL);
 	assert(node != NULL);
 	fprintf(buf, "strict graph {\n");
-	fprintf(buf, "\t0[label=\":^)\"];\n");
+	fprintf(buf, "\t0[label=\"%s\"];\n", root_label);
 	uint32_t id = 0;
 	dump_dot_recursive(buf, node, &id);
 	fprintf(buf, "}\n");
@@ -250,14 +250,25 @@ void trie_tests(FILE* buf)
 		add_token(&fruit_trie, fruit, NULL);
 	}
 	/* printf("num leaves: %d\n", num_leaves(&fruit_trie)); */
-	/* dump_dot(buf, &fruit_trie); // works! */
+	if (buf != NULL)
+	{
+		dump_dot(buf, &fruit_trie, "FRUIT TRIE LMAO"); // works!
+	}
 	uint32_t num_fruits = 0;
 	char** all_fruits = completion_candidates(&fruit_trie, &num_fruits, NULL);
-	printf("num_fruits: %d\n", num_fruits);
-	for (uint32_t i = 0; i < num_fruits; ++i)
-	{
-		printf("fruit %hhu: %s\n", i, all_fruits[i]);
-	}
+	/* printf("num_fruits: %d\n", num_fruits); */
+	assert(num_fruits == 51);
+	assert(strcmp(all_fruits[0], "Yuzu") == 0);
+	/* for (uint32_t i = 0; i < num_fruits; ++i) */
+	/* { */
+	/* 	printf("fruit %hhu: %s\n", i, all_fruits[i]); */
+	/* } */
+	remove_token(&fruit_trie, "Ap");
+	remove_token(&fruit_trie, "Yuzu");
+	assert(num_leaves(&fruit_trie) == 50);
+	remove_token(&fruit_trie, "Apple");
+	assert(num_leaves(&fruit_trie) == 49);
+	/* printf("leaves post removal: %d\n", num_leaves(&fruit_trie)); */
 	free(fruit);
 	fclose(fp);
 }

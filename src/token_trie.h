@@ -24,7 +24,7 @@ typedef struct trie_edge_t
 } trie_edge_t;
 
 
-// TODO: custom mallocs
+// TODO: custom mallocs & frees
 
 void add_token(trie_t* node, char* str, void* token);
 
@@ -36,7 +36,7 @@ uint32_t num_leaves(trie_t* node);
 
 char** completion_candidates(trie_t* node, uint32_t* num_candidates, char* prefix);
 
-void dump_dot(FILE* buf, trie_t* node);
+void dump_dot(FILE* buf, trie_t* node, char* root_label);
 
 void trie_tests(FILE* buf);
 
