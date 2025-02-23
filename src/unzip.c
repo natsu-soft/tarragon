@@ -10,7 +10,6 @@
 /* typedef struct archive archive_t; */
 /* typedef struct archive_entry archive_entry_t; */
 
-
 // this is PRIME for an arena malloc
 char* unzip(char* buf, size_t buf_len, uint32_t* out_len, unzip_malloc_t malloc_fn)
 {
@@ -80,4 +79,27 @@ char* unzip_file(FILE* file, uint32_t* out_len, unzip_malloc_t malloc_fn)
 bruh:
 	*out_len = 0;
 	return res;
+}
+
+extern unsigned char utility_functions_gz[];
+extern unsigned int utility_functions_gz_len;
+int unzip_test(int argc, char** argv)
+{
+	printf("testing unzip functions\n");
+	FILE* fp = fopen("file_sys.gz", "r");
+	uint32_t len;
+	char* file_sys_str = unzip_file(fp, &len, malloc);
+	fclose(fp);
+
+	/* printf("file_sys.c:\n%s\n", file_sys_str); */
+	/* free(file_sys_str); */
+	/* int zip_len; */
+	/* char* zip_str = fs_filestr(fs_abs_path("file_sys.gz"), &zip_len); */
+	uint32_t bruh_len;
+	char* bruh = unzip(&utility_functions_gz[0], utility_functions_gz_len, &bruh_len, malloc);
+	/* printf("unzip_res: %s\n", bruh); */
+	printf("archived_len: %d, full_len: %d, compression_ratio: %f\n", utility_functions_gz_len, bruh_len, 1.0f - (float)utility_functions_gz_len / (float)bruh_len);
+	free(file_sys_str);
+	free(bruh);
+	return 0;
 }

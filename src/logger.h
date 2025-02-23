@@ -1,6 +1,8 @@
 #ifndef LOGGER_H
 #define LOGGER_H
 
+#include <stdio.h>
+
 #ifdef _WIN32
 typedef struct _iobuf FILE;
 #else

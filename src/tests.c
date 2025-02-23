@@ -28,7 +28,7 @@ extern unsigned int utility_functions_gz_len;
 extern unsigned char default_config_json[];
 extern unsigned int default_config_json_len;
 
-int run_tests(int argc, char** argv)
+int lmao(int argc, char** argv)
 {
 	for (int i = 0; i < argc; ++i)
 	{
@@ -86,8 +86,8 @@ int run_tests(int argc, char** argv)
 	fp = fopen("test_stuff/bad_rpc", "r");
 	content_len = bp_receive(fp);
 	// LMAO: some real enterprise shit right here frfrfr
-	/* printf("%d", content_len); */
-	/* assertf(content_len == -1, "bp_content erroneously parsed bad base protocol"); */
+	printf("%d", content_len);
+	assertf(content_len == -1, "bp_content erroneously parsed bad base protocol");
 	bp_init();
 	/* int scanned = fscanf(fp, "Content-Length: %u\r\n\r\n", &decode_len); */
 	LOG("decoded: %d", content_len);
@@ -116,12 +116,12 @@ int run_tests(int argc, char** argv)
 	free(file_sys_str);
 	free(bruh);
 
-	printf("rudimentary trie testing\n");
-	FILE* fruit_dot = fopen("fruits.dot", "w");
-	trie_tests(fruit_dot);
-	fclose(fruit_dot);
-	LOG("finished tests!");
-	ENDLOG
-	printf("ATTN: TESTS SUCCEEDED!\n");
+	/* printf("rudimentary trie testing\n"); */
+	/* FILE* fruit_dot = fopen("fruits.dot", "w"); */
+	/* trie_tests(fruit_dot); */
+	/* fclose(fruit_dot); */
+	/* LOG("finished tests!"); */
+	/* ENDLOG */
+	/* printf("ATTN: TESTS SUCCEEDED!\n"); */
 	return 0;
 }

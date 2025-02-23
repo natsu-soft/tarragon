@@ -237,9 +237,9 @@ void dump_dot(FILE* buf, trie_t* node, char* root_label)
 	fprintf(buf, "}\n");
 }
 
-void trie_tests(FILE* buf)
+int token_trie_test(int argc, char** argv)
 {
-	/* printf("rudimentary trie testing\n"); */
+	printf("rudimentary trie testing\n");
 	FILE* fp = fopen("test_stuff/fruits.txt", "r");
 	trie_t fruit_trie = { 0 }; // u havin a giggle m8?
 	size_t lmao = 80;
@@ -250,6 +250,7 @@ void trie_tests(FILE* buf)
 		add_token(&fruit_trie, fruit, NULL);
 	}
 	/* printf("num leaves: %d\n", num_leaves(&fruit_trie)); */
+	FILE* buf = fopen("fruits.dot", "w");
 	if (buf != NULL)
 	{
 		dump_dot(buf, &fruit_trie, "FRUIT TRIE LMAO"); // works!
@@ -271,4 +272,5 @@ void trie_tests(FILE* buf)
 	/* printf("leaves post removal: %d\n", num_leaves(&fruit_trie)); */
 	free(fruit);
 	fclose(fp);
+	return 0;
 }

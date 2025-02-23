@@ -2,7 +2,6 @@
 CC := clang -std=gnu17
 CFLAGS := -Wall -Wextra -ggdb -O0
 LDFLAGS := -fuse-ld=lld -flto -ljansson ./libarchive/libarchive/libarchive.a -lz -static
-# LDFLAGS := -fuse-ld=mold -flto -ljansson ./libarchive/libarchive/libarchive.a -lz -static # kinda cool tbqh
 SRC := $(wildcard src/*.c)
 DEP := $(patsubst src/%.c,dep/%.d,$(SRC))
 CCMD := $(patsubst src/%.c,ccmd/%.json,$(SRC))
@@ -18,7 +17,7 @@ OBJ += $(HEX_OBJS) $(API_OBJS) $(JSON_OBJS) $(TSQUERY_OBJS)
 
 .PHONY: default test dependencies clean clean-dep clean-ts clean-emacs clean-api clean-all dep_dir obj_dirs lsp-test jansson-test
 
-default: tarragon
+default: test
 
 tarragon: $(OBJ)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
@@ -108,20 +107,30 @@ compile_commands.json: $(SRC) $(JSON_OBJ)
 # | rg -w '\-[co]' \
 # | jq -nR '[inputs|{command:., directory:".", file: match("\\-c [\\w\\-/]+\\.c").string[3:], output: match("\\-o [\\w\\-/]+\\.o").string[3:]}]' > compile_commands.json
 
+
 test: tarragon
 	@touch ../../bruh
 	@mkdir -p temp_testing
 	@cat src/file_sys.c | gzip -c - > file_sys.gz
 	@echo "CREATED: temporary testing files"
 	@${CURDIR}/tarragon -l tarragon.log -t
-	@rm ../../bruh ../../tarragon_config.json test_stuff/rpc_encode file_sys.gz
+	@echo "tests successful!"
+	@rm -f ../../bruh ../../tarragon_config.json test_stuff/rpc_encode file_sys.gz
 	@echo "CLEANED: temporary testing files"
+
+# @echo $@
+
+# @${CURDIR}/unit/%
+
+unit_dir:
+	@mkdir -p unit
+	@echo "*" > unit/.gitignore
 
 lsp-test: tarragon
 	@python test-tarragon.py
 
 test-parse: test-json-parser
-	@${CURDIR}/test-json-parser
+	@$CURDIR/test-json-parser
 
 jansson-test:
 	gcc $(CFLAGS) -o jt jansson_test.c  src/file_sys.c src/arena.c $(LIBRARIES)

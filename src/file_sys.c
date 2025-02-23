@@ -107,7 +107,7 @@ file_context_t* fs_find_upward(const char* name, char* dir)
 char* fs_dirname(const char* name)
 {
 	char* res;
-	for (int i = strlen(name) - 1; i >= 0; i--)
+	for (int i = strlen(name) - 1; i >= 0; --i)
 	{
 		switch (name[i])
 		{
@@ -118,6 +118,7 @@ char* fs_dirname(const char* name)
 			return res;
 		}
 	}
+	// TODO: whats going on here???
 	res = arena_alloc(fs_singleton(), strlen(name));
 	memmove(res, name, strlen(name));
 	res[strlen(name)] = '\0';
@@ -166,4 +167,31 @@ void fs_write(const char* abs_path, char* data)
 		fprintf(file, "%s", data);
 		fclose(file);
 	}
+}
+
+int file_sys_test(int argc, char** argv)
+{
+	#ifdef _WIN32
+	#define REPO_PATH "D:\\Repos\\tarragon"
+	#define URI "file:///d:/Repos/tarragon/test_stuff/str_file.txt"
+	#else
+	#define REPO_PATH "/home/jon/Repos/tarragon"
+	#define URI "file:////home/jon/Repos/tarragon/test_stuff/str_file.txt"
+	#endif
+	printf("testing file system functions\n");
+	int temp = 0;
+	char* str_file_abs_path = fs_abs_path( "test_stuff/str_file.txt");
+	char* str_file_uri = fs_abs_uri(str_file_abs_path);
+	assertf(!strcmp(URI, str_file_uri), "fs_abs_uri failed");
+	assertf(!strcmp(fs_filestr(str_file_abs_path, &temp), "hello!\n"), "str_file test failed"); // have to ! because strcmp returns 0 (false) if equal
+	// dirname test
+	/* const char* abs_arg0 = fs_abs_path(argv[0]); */
+	/* printf("%s\n", abs_arg0); */
+	char* cwd = fs_dirname(argv[0]);
+	/* printf("cwd: %s\n", cwd); */
+	assertf(!strcmp(cwd, REPO_PATH), "fs_dirname failed!");
+	// find upwards
+	file_context_t* context = fs_find_upward("bruh", cwd);
+	assertf(context, "find_upwards failed!");
+	return 0;
 }

@@ -223,3 +223,25 @@ char* ls_generate_config(const char* dir)
 	fs_write(config_name, (char*)&default_config_json[0]);
 	return config_name;
 }
+
+#include "error_macros.h"
+int language_server_test(int argc, char** argv)
+{
+	printf("testing language server functionality\n");
+	char* cwd = fs_dirname(argv[0]);
+	file_context_t* context = fs_find_upward("bruh", cwd);
+	printf("testing config file generation\n");
+	int config_len = 0;
+	char* default_config_file = fs_abs_path("default_config.json");
+	assertf(default_config_file, "default config file DNE!");
+	#ifdef _WIN32
+	printf("WINDOWS_HACK:\nthis is the baked string for the default config json:\n%s\n", &default_config_json); // the assert test does not work on windows, BUT AS WE CAN SEE IT OUTPUTS PROPERLY
+	printf("does it look good?\n");
+	#else
+	assertf(!strcmp( fs_filestr(default_config_file, &config_len), &default_config_json[0]), "default config file does not match hex dump!");
+	#endif
+	char* config_path = ls_generate_config(context->dir);
+	file_context_t* config_context = fs_find_upward(CONFIG_NAME, cwd);
+	assertf(config_context, "find_upwards failed to find %s!", CONFIG_NAME);
+	return 0;
+}

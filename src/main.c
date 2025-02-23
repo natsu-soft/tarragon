@@ -7,7 +7,7 @@
 #include "file_sys.h"
 #include "error_macros.h"
 #include "language_server.h"
-#include "tests.h"
+/* #include "tests.h" */
 #include "logger.h"
 #include "token_trie.h"
 
@@ -54,6 +54,8 @@ int generate_tarragon_json(char* dest, char* ext_api_path)
 	return 0;
 }
 
+int run_tests(int argc, char** argv);
+
 /*
  * IDEALIZED USER OPTIONS
  * -h
@@ -93,7 +95,7 @@ int main(int argc, char** argv) {
 			return 1;
 		}
 	}
-	trie_tests(stdout);
+	/* trie_tests(stdout); */
 	return 0;
 	LOG("initializing tarragon");
 	/* setbuf(stdin, NULL); */
@@ -114,7 +116,7 @@ int main(int argc, char** argv) {
 	if (getcwd(cwd, PATH_MAX) == NULL)
 	{
 		perror("Failed to get current working directory!");
-		exit(EXIT_FAILURE);
+		/* exit(EXIT_FAILURE); */
 	}
 	// search for project.godot upwards
 	// look for tarragon.json in found dir
@@ -150,7 +152,8 @@ int main(int argc, char** argv) {
 	/* 	exit(EXIT_SUCCESS); */
 	/* } */
 	perror("DID NOT FIND tarragon.json IN FILE HIEARCHY\n");
-	exit(EXIT_FAILURE);
+	return 1;
+	/* exit(EXIT_FAILURE); */
 	/* printf("argv[0]: %s\n", argv[0]); */
 	/* find_file_t res = { .file=NULL, .dir=NULL }; */
 	/* char* dir = dirname(argv[0]); */
@@ -166,4 +169,27 @@ int main(int argc, char** argv) {
 	/* 	fprintf(stderr, "did not find %s :(", CONFIG_JSON); */
 	/* } */
 	/* free(dir); */
+}
+
+/***********/
+/* TESTING */
+/***********/
+
+#define UNIT_TESTS \
+TEST(file_sys) \
+TEST(language_server) \
+TEST(base_protocol) \
+TEST(unzip) \
+TEST(token_trie)
+
+#define TEST(A) extern int A##_test(int argc, char** argv);
+UNIT_TESTS
+#undef TEST
+#define TEST(A) assert(A##_test(argc, argv) == 0);
+
+int run_tests(int argc, char** argv)
+{
+	UNIT_TESTS;
+	ENDLOG;
+	return 0;
 }

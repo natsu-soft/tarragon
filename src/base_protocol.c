@@ -249,3 +249,37 @@ void echo(uint32_t n, FILE* in, FILE* out)
 /* 	temp[*content_len] = '\0'; */
 /* 	*content = temp; */
 /* } */
+
+
+#include "error_macros.h"
+// segfalting
+int base_protocol_test(int argc, char** argv)
+{
+	printf("testing rpc encoding/decoding\n");
+	FILE* fp = fopen("test_stuff/rpc_encode", "w");
+	bp_send(fp, "{\"testing\": true}");
+	fclose(fp);
+	fp = fopen("test_stuff/rpc_encode", "r");
+	bp_init();
+	int32_t content_len = bp_receive(fp);
+	assertf(content_len == 17, "bp_consume length mismatch");
+	LOG("length: %d\ncontent: %s\n", content_len, bp_content());
+	assertf(!strcmp( "{\"testing\": true}", bp_content()), "bp_content content mismatch");
+	fclose(fp);
+	bp_init();
+	fp = fopen("test_stuff/bad_rpc", "r");
+	content_len = bp_receive(fp);
+	// LMAO: some real enterprise shit right here frfrfr
+	printf("%d", content_len);
+	assertf(content_len == -1, "bp_content erroneously parsed bad base protocol");
+	bp_init();
+	/* int scanned = fscanf(fp, "Content-Length: %u\r\n\r\n", &decode_len); */
+	LOG("decoded: %d", content_len);
+	fclose(fp);
+	fp = fopen("test_stuff/initialize_request.json", "r");
+	content_len = bp_receive(fp);
+	LOG("%s", bp_content());
+	fclose(fp);
+	bp_init();
+	return 0;
+}

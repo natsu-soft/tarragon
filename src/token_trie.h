@@ -38,6 +38,4 @@ char** completion_candidates(trie_t* node, uint32_t* num_candidates, char* prefi
 
 void dump_dot(FILE* buf, trie_t* node, char* root_label);
 
-void trie_tests(FILE* buf);
-
 #endif /* End TOKEN_TRIE_H */
