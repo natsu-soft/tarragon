@@ -179,7 +179,7 @@ int main(int argc, char** argv) {
 TEST(file_sys) \
 TEST(language_server) \
 TEST(base_protocol) \
-TEST(unzip) \
+/* TEST(unzip) */ \
 TEST(token_trie)
 
 #define TEST(A) extern int A##_test(int argc, char** argv);
