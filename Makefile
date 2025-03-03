@@ -1,10 +1,11 @@
 # CC := gcc -std=gnu17
 CC := clang -std=gnu17
 CFLAGS := -Wall -Wextra -ggdb -O0
-LDFLAGS := -fuse-ld=lld -flto -ljansson ./libarchive/libarchive/libarchive.a -lz -static
+# LDFLAGS := -fuse-ld=lld -flto -ljansson ./libarchive/libarchive/libarchive.a -lz -static
+# LDFLAGS := -fuse-ld=lld -flto -ljansson -larchive -lz -static
+LDFLAGS := -fuse-ld=lld -flto -ljansson -static
 SRC := $(wildcard src/*.c)
 DEP := $(patsubst src/%.c,dep/%.d,$(SRC))
-CCMD := $(patsubst src/%.c,ccmd/%.json,$(SRC))
 OBJ := $(patsubst src/%.c,obj/%.o,$(SRC))
 TREE-SITTER_INCLUDES = -I tree-sitter/lib/include -I tree-sitter/lib/src
 TREE_SITTER_OBJ := obj/ts/tree_sitter.o obj/ts/json_parser.o obj/ts/cpp_parser.o obj/ts/cpp_scanner.o
