@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include <string.h>
+#include "file_sys.h"
 
 void add_token(trie_t* node, char* str, void* token)
 {
@@ -244,7 +245,8 @@ int token_trie_test(int argc, char** argv)
 	trie_t fruit_trie = { 0 }; // u havin a giggle m8?
 	size_t lmao = 80;
 	char* fruit = malloc(lmao);
-	while(getline(&fruit, &lmao, fp) > 0)
+	/* while(getline(&fruit, &lmao, fp) > 0) */
+	while(fs_getline(fruit, lmao, fp) > 0)
 	{
 		fruit[strlen(fruit) - 1] = '\0'; // yeah I HATE newlines
 		add_token(&fruit_trie, fruit, NULL);
