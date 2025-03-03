@@ -26,7 +26,7 @@ char* fs_dirname(const char* name);
 
 char* fs_join(const char* dir, const char* filename);
 
-char* fs_filestr(const char* abs_path, int* out_len);
+char* fs_read(const char* abs_path, int* out_len);
 
 void fs_write(const char* abs_path, char* data);
 

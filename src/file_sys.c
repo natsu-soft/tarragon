@@ -5,7 +5,6 @@
 #include <string.h>
 #include "arena.h"
 #include "error_macros.h"
-/* #include <stdbool.h> */
 
 #ifdef _WIN32
 #define DIR_SEPERATOR '\\'
@@ -50,7 +49,6 @@ char* fs_abs_uri(const char* abs_path)
 	}
 }
 
-
 char *fs_abs_path(const char* rel_path)
 {
 	char *res = arena_alloc(fs_singleton(), PATH_MAX);
@@ -63,7 +61,6 @@ char *fs_abs_path(const char* rel_path)
 	arena_free(fs_singleton(), PATH_MAX - (strlen(res) + 1));
 	return res;
 }
-
 
 // oh yeah im just writing my own dir shit here BECAUSE THIS IS WHERE I USE IT GODDAMNIT
 file_context_t* fs_find_upward(const char* name, char* dir)
@@ -104,6 +101,7 @@ file_context_t* fs_find_upward(const char* name, char* dir)
 	return NULL;
 }
 
+// NOTE: EXCLUDES DIR SEPERATOR
 char* fs_dirname(const char* name)
 {
 	char* res;
@@ -118,8 +116,7 @@ char* fs_dirname(const char* name)
 			return res;
 		}
 	}
-	// TODO: whats going on here???
-	res = arena_alloc(fs_singleton(), strlen(name));
+	res = arena_alloc(fs_singleton(), strlen(name) + 1);
 	memmove(res, name, strlen(name));
 	res[strlen(name)] = '\0';
 	return res;
@@ -136,24 +133,29 @@ char* fs_join(const char* dir, const char* name)
 	return res;
 }
 
-// NOTE: HELLO, MEMORY MANAGER? WHERE'S THE ARENA???
-char* fs_filestr(const char* abs_path, int* out_len)
+char* fs_read(const char* path, int* len)
 {
-	char* res = NULL;
-	*out_len = 0;
-	FILE* file = fopen(abs_path, "r");
-	if (file)
+	*len = 0;
+	FILE* file = fopen(path, "r");
+	if (!file)
 	{
-		fseek(file, 0, SEEK_END);
-		*out_len = ftell(file);
-		fseek(file, 0, SEEK_SET);
-		res = malloc(*out_len + 1);
-		if (res)
-		{
-			fread(res, 1, *out_len, file);
-			res[*out_len] = '\0';
-		}
+		fprintf(stderr, "Failed to map file \"%s\"!\n", path);
+		return NULL;
 	}
+	else if ((fseek(file, 0, SEEK_END)) == -1) {
+		fprintf(stderr, "Failed to seek end of file \"%s\"!\n", path);
+		return NULL;
+	}
+	*len = ftell(file);
+	fseek(file, 0, SEEK_SET);
+	char *res = malloc(*len + 1);
+	if (!res)
+	{
+		fprintf(stderr, "Failed to allocate memory for file \"%s\"!\n", path);
+		return NULL;
+	}
+	fread(res, 1, *len, file);
+	res[*len] = '\0';
 	fclose(file);
 	return res;
 }
@@ -205,7 +207,7 @@ int file_sys_test(int argc, char** argv)
 	char* str_file_abs_path = fs_abs_path( "test_stuff/str_file.txt");
 	char* str_file_uri = fs_abs_uri(str_file_abs_path);
 	assertf(!strcmp(URI, str_file_uri), "fs_abs_uri failed");
-	assertf(!strcmp(fs_filestr(str_file_abs_path, &temp), "hello!\n"), "str_file test failed"); // have to ! because strcmp returns 0 (false) if equal
+	assertf(!strcmp(fs_read(str_file_abs_path, &temp), "hello!\n"), "str_file test failed"); // have to ! because strcmp returns 0 (false) if equal
 	// dirname test
 	/* const char* abs_arg0 = fs_abs_path(argv[0]); */
 	/* printf("%s\n", abs_arg0); */
