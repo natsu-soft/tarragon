@@ -1,5 +1,5 @@
-#ifndef RPC_H
-#define RPC_H
+#ifndef BASE_PROTOCOL_H
+#define BASE_PROTOCOL_H
 
 #include <stdint.h>
 
@@ -28,4 +28,4 @@ int32_t bp_receive_nosleep(FILE* stream);
 void echo(uint32_t n, FILE* in, FILE* out);
 
 
-#endif /* End RPC_H */
+#endif /* End BASE_PROTOCOL_H */
