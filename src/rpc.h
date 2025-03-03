@@ -1,5 +1,5 @@
-#ifndef JSONRPC_H
-#define JSONRPC_H
+#ifndef RPC_H
+#define RPC_H
 
 #include <stdint.h>
 
@@ -54,4 +54,4 @@ void rpc_deinit(void);
 
 const rpc_t* rpc_parse(char* json, int len);
 
-#endif /* End JSONRPC_H */
+#endif /* End RPC_H */

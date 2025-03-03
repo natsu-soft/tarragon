@@ -1,4 +1,4 @@
-#include "jsonrpc.h"
+#include "rpc.h"
 #include <stdio.h>
 #include <string.h>
 /* #include <tree_sitter/api.h> */
