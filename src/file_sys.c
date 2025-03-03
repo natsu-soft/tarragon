@@ -169,15 +169,37 @@ void fs_write(const char* abs_path, char* data)
 	}
 }
 
+// does not realloc if delim not encountered
+// dest must be allocated before calling!
+ssize_t fs_getline(char* dest, const size_t n, FILE* stream)
+{
+	for (size_t i = 0; i < n; ++i)
+	{
+		char c = fgetc(stream);
+		switch (c)
+		{
+		case '\n':
+			dest[i] = '\0';
+			return i;
+		case EOF:
+			dest[i] = '\0';
+			return EOF;
+		default:
+			dest[i] = c;
+		}
+	}
+	return EOF;
+}
+
 int file_sys_test(int argc, char** argv)
 {
-	#ifdef _WIN32
-	#define REPO_PATH "D:\\Repos\\tarragon"
-	#define URI "file:///d:/Repos/tarragon/test_stuff/str_file.txt"
-	#else
-	#define REPO_PATH "/home/jon/Repos/tarragon"
-	#define URI "file:////home/jon/Repos/tarragon/test_stuff/str_file.txt"
-	#endif
+#ifdef _WIN32
+#define REPO_PATH "D:\\Repos\\tarragon"
+#define URI "file:///d:/Repos/tarragon/test_stuff/str_file.txt"
+#else
+#define REPO_PATH "/home/jon/Repos/tarragon"
+#define URI "file:////home/jon/Repos/tarragon/test_stuff/str_file.txt"
+#endif
 	printf("testing file system functions\n");
 	int temp = 0;
 	char* str_file_abs_path = fs_abs_path( "test_stuff/str_file.txt");

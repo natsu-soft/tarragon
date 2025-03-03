@@ -1,8 +1,11 @@
 #ifndef FILE_SYS_H
 #define FILE_SYS_H
 
+
 #ifdef _WIN32
 typedef struct _iobuf FILE;
+typedef long long ssize_t;
+typedef unsigned long long size_t;
 #else
 typedef struct _IO_FILE FILE;
 #endif
@@ -26,5 +29,7 @@ char* fs_join(const char* dir, const char* filename);
 char* fs_filestr(const char* abs_path, int* out_len);
 
 void fs_write(const char* abs_path, char* data);
+
+ssize_t fs_getline(char* dest, const size_t n, FILE* stream);
 
 #endif
