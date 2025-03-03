@@ -5,7 +5,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <jansson.h>
-#include "jsonrpc.h"
+#include "rpc.h"
 #include "file_sys.h"
 #include "base_protocol.h"
 #include "logger.h"
