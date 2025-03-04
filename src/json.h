@@ -2,7 +2,6 @@
 #define JSON_H
 
 #include <stdint.h>
-#include "list.h"
 
 #ifdef _WIN32
 typedef struct _iobuf FILE;
@@ -27,27 +26,13 @@ enum
 };
 
 
-typedef struct json_tokens_t
-{
-	struct list_t list;
-	char* value;
-} json_tokens_t;
 
 typedef struct json_t
 {
-	json_tokens_t* tokens;
+	struct tokens_t* tokens;
 	uint32_t length;
 } json_t;
 
-
-int8_t json_parse_filep(FILE* fp, json_t* json);
-
-int8_t json_parse_str(char* src, json_t* json, const int n);
-
-int8_t next_elem(json_t* json);
-
-
-int8_t json_lex(char* src, json_t* json, const int n);
 
 
 #endif /* End JSON_H */
