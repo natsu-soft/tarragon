@@ -1,11 +1,11 @@
-# DisableFormat: true
-UseTab: Always
-IndentWidth: 4
-DerivePointerAlignment: true
-PointerAlignment: Left
-LineEndings: LF
-BreakBeforeBraces: Allman
-BreakStringLiterals: true
-AllowShortIfStatementsOnASingleLine: true
-IndentCaseLabels: false
-ColumnLimit: 0
+DisableFormat: true
+# UseTab: Always
+# IndentWidth: 4
+# DerivePointerAlignment: true
+# PointerAlignment: Left
+# LineEndings: LF
+# BreakBeforeBraces: Allman
+# BreakStringLiterals: true
+# AllowShortIfStatementsOnASingleLine: true
+# IndentCaseLabels: false
+# ColumnLimit: 0
