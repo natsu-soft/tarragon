@@ -135,7 +135,7 @@ char* fs_join(const char* dir, const char* name)
 
 char* fs_read(const char* path, int* len)
 {
-	*len = 0;
+	*len = -1;
 	FILE* file = fopen(path, "r");
 	if (!file)
 	{
@@ -157,6 +157,23 @@ char* fs_read(const char* path, int* len)
 	fread(res, 1, *len, file);
 	res[*len] = '\0';
 	fclose(file);
+	return res;
+}
+
+// NOTE: DOES NOT CLOSE STREAM
+char* fs_read_stream(FILE* fp, int* str_len)
+{
+	*str_len = -1;
+	if ((fseek(fp, 0, SEEK_END)) == -1)
+	{
+		perror("Failed to seek end of FILE*\n");
+		return NULL;
+	}
+	*str_len = ftell(fp);
+	fseek(fp, 0, SEEK_SET);
+	char* res = malloc(*str_len + 1);
+	fread(res, 1, *str_len, fp);
+	res[*str_len] = '\0';
 	return res;
 }
 

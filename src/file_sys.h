@@ -28,6 +28,8 @@ char* fs_join(const char* dir, const char* filename);
 
 char* fs_read(const char* abs_path, int* out_len);
 
+char* fs_read_stream(FILE* fp, int* str_len);
+
 void fs_write(const char* abs_path, char* data);
 
 ssize_t fs_getline(char* dest, const size_t n, FILE* stream);
