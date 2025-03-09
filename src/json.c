@@ -561,7 +561,7 @@ json_id_t json_next_key(json_t* json, char** key)
 			json->pos = i + 1;
 			return JSON_SUCCESS | id;
 		}
-		#define DEPTH_X json->pos = json->num_tokens; return JSON_OBJECT_END;
+		#define DEPTH_X json->pos = json->num_tokens; return json->ids[0] << 1; // BIG BRAIN
 		MATCH_DEPTH
 		#undef DEPTH_X
 	}
@@ -584,8 +584,7 @@ json_id_t json_next_value(json_t* json, json_t* value)
 				return JSON_SUCCESS | res;
 			}
 		}
-		/* #define DEPTH_X return JSON_OBJECT_END; */
-		#define DEPTH_X return json->ids[0] << 1; // BIG BRAIN
+		#define DEPTH_X json->pos = json->num_tokens; return json->ids[0] << 1; // BIG BRAIN
 		MATCH_DEPTH
 		#undef DEPTH_X
 	}
