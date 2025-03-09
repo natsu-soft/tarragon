@@ -11,3 +11,4 @@ tarragon
 test-json-parser
 jansson-test
 *.log
+/.gdb_history
