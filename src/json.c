@@ -653,7 +653,8 @@ json_id_t json_parse(json_t* json, const char* src)
 	if (res & JSON_SUCCESS)
 	{
 		json->tokens = malloc(num_tokens * sizeof *json->tokens);
-		for (uint32_t i = 0; i < num_tokens; ++i)
+		/* json->tokens = tokens; // DEVILISH */
+		for (uint32_t i = 1; i < num_tokens; ++i)
 		{
 			json->tokens[i] = tokens[i].string;
 		}
@@ -666,7 +667,7 @@ json_id_t json_parse(json_t* json, const char* src)
 	else
 	{
 		free(tokens);
-		// free(ids); NOTE: ids get allocated with tokens
+		free(ids);
 		return JSON_ERROR;
 	}
 }
