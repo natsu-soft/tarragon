@@ -676,6 +676,15 @@ int json_test(int argc, char** argv)
 {
 	printf("testing json tokenizing\n");
 	char* foo = "{ \"lmao\":true,\"lol\":[0,-1.022,null,{\"bruh\":\"L, loser\"},false], \"OwO\":\"UwU\"}";
+	char* bar = JS_OBJECT(
+		JS_MEMBER("lmao", JS_VALUE(true), ",")
+		JS_MEMBER("lol", JS_ARRAY(
+					  JS_VALUE(0, ",")
+					  JS_VALUE(-1.022, ",")
+					  JS_VALUE(null, ",")
+					  JS_OBJECT(JS_MEMBER("bruh", JS_VALUE("L, loser")), ", ")
+					  JS_VALUE(false)), ",")
+		JS_MEMBER("OwO", JS_VALUE("UwU")));
 	/* char* foo = "{ \"lmao\": true, \"lol\" :     null}"; */
 	/* token_t* tokens = NULL; */
 	/* json_id_t* ids = NULL; */
@@ -686,7 +695,7 @@ int json_test(int argc, char** argv)
 	/* } */
 	/* free(tokens); */
 	json_t json = {0};
-	json_id_t p_res = json_parse(&json, foo);
+	json_id_t p_res = json_parse(&json, bar);
 	printf("parse_result: %s\n", p_res & JSON_SUCCESS ? "SUCCESS!" : "error");
 	if (p_res & JSON_SUCCESS)
 	{
