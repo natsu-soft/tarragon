@@ -18,7 +18,7 @@ OBJ += $(HEX_OBJS) $(API_OBJS) $(JSON_OBJS) $(TSQUERY_OBJS)
 
 .PHONY: default test dependencies clean clean-dep clean-ts clean-emacs clean-api clean-all dep_dir obj_dirs lsp-test jansson-test
 
-default: test
+default: tarragon
 
 tarragon: $(OBJ)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
