@@ -55,10 +55,6 @@ typedef enum json_id_t
 // some useful shorthands that definitely wont confuse me later
 #define JSON_OBJECT JSON_OBJECT_START
 #define JSON_ARRAY JSON_ARRAY_START
-// NOTE: THESE ARE AWFUL DONT USE THEM
-/* #define JSON_NESTED_START (JSON_OBJECT_START | JSON_ARRAY_START) */
-/* #define JSON_SINGLE_TOKEN_VALUE (JSON_NUMBER | JSON_STRING | JSON_NULL | JSON_BOOL) */
-/* #define JSON_VALUE (JSON_NESTED_START | JSON_SINGLE_TOKEN_VALUE) */
 
 typedef struct json_t
 {
@@ -77,5 +73,18 @@ json_id_t json_next_value(json_t* json, json_t* value); // for both objects AND 
 uint8_t json_c_value(void* dest, const json_t* json);
 
 void json_free(json_t* json); // NOTE: have to free **tokens and *ids individually!
+
+/* NOTE
+ * These might come to bite me in the ass, but for now I like them.
+ * The real test is whether or not I can _encode_ rpc responses easily
+ * In which case, I see the value of either fprintf IMMEADIATELY &
+ * introducing (object/array)(open/close) macros
+ */
+
+// NOTE: https://xkcd.com/297/
+#define JS_OBJECT(BODY, ...) "{" BODY "}" __VA_ARGS__
+#define JS_ARRAY(BODY, ...) "[" BODY "]" __VA_ARGS__
+#define JS_MEMBER(KEY, VALUE, ...) #KEY ":" VALUE __VA_ARGS__
+#define JS_VALUE(VALUE, ...) #VALUE __VA_ARGS__
 
 #endif /* End JSON_H */
