@@ -1,13 +1,12 @@
 #ifndef FILE_SYS_H
 #define FILE_SYS_H
 
-
 #ifdef _WIN32
 typedef struct _iobuf FILE;
-typedef long long ssize_t;
 typedef unsigned long long size_t;
 #else
 typedef struct _IO_FILE FILE;
+typedef unsigned long size_t;
 #endif
 
 typedef struct file_context_t
@@ -32,6 +31,6 @@ char* fs_read_stream(FILE* fp, int* str_len);
 
 void fs_write(const char* abs_path, char* data);
 
-ssize_t fs_getline(char* dest, const size_t n, FILE* stream);
+size_t fs_getline(char* dest, const size_t n, FILE* stream);
 
 #endif

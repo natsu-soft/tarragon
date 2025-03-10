@@ -190,7 +190,7 @@ void fs_write(const char* abs_path, char* data)
 
 // does not realloc if delim not encountered
 // dest must be allocated before calling!
-ssize_t fs_getline(char* dest, const size_t n, FILE* stream)
+size_t fs_getline(char* dest, const size_t n, FILE* stream)
 {
 	for (size_t i = 0; i < n; ++i)
 	{
