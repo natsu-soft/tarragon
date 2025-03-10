@@ -64,7 +64,9 @@ typedef struct json_t
 	uint32_t pos;
 } json_t;
 
-json_id_t json_parse(json_t* json, const char* src);
+typedef struct arena_t arena_t;
+
+json_id_t json_parse(json_t* json, arena_t* arena, const char* src);
 
 json_id_t json_next_key(json_t* json, char** key);
 
@@ -72,7 +74,8 @@ json_id_t json_next_value(json_t* json, json_t* value); // for both objects AND 
 
 uint8_t json_c_value(void* dest, const json_t* json);
 
-void json_free(json_t* json); // NOTE: have to free **tokens and *ids individually!
+// NOTE: NEVER free--I'm arena chadding this, just REUSE the memory lmao
+/* void json_free(json_t* json); // NOTE: have to free **tokens and *ids individually! */
 
 /* NOTE
  * These might come to bite me in the ass, but for now I like them.

@@ -8,17 +8,19 @@
 #include "token.h"
 #include "arena.h"
 
-struct token_ll
-{
-	struct token_ll *next;
-	token_t* token;
-};
+/* struct token_ll */
+/* { */
+/* 	struct token_ll *next; */
+/* 	token_t* token; */
+/* }; */
 
-static uint16_t id_token(const token_t* token);
+static json_id_t id_token(const token_t* token);
 
-static struct token_ll* new_token(arena_t* arena, const char* src, const uint32_t n, const int line, const int col);
+/* static struct token_ll* new_token(arena_t* arena, const char* src, const uint32_t n, const int line, const int col); */
 
-static uint32_t tokenize(token_t** tokens, json_id_t** ids, const char* src, const int n);
+static void make_token(arena_t* token_arena, arena_t* id_arena, arena_t* char_arena, const char* src, const uint32_t n, const int line, const int col);
+
+static uint32_t tokenize(token_t** tokens, json_id_t** ids, arena_t* arena, const char* src, const int n);
 
 static uint32_t find_end(const json_id_t closing_id, const json_id_t* ids, const token_t* token, const uint32_t num);
 
@@ -70,27 +72,52 @@ static uint16_t analyze_array(json_id_t* ids, const token_t* tokens, const uint3
 	}
 
 
-static struct token_ll* new_token(arena_t* arena, const char* src, const uint32_t n, const int line, const int col)
+/* static struct token_ll* new_token(arena_t* arena, const char* src, const uint32_t n, const int line, const int col) */
+/* { */
+/* 	struct token_ll* res = arena_alloc(arena, sizeof *res); */
+/* 	res->next = NULL; */
+/* 	token_t* token = arena_alloc(arena, sizeof *token); */
+/* 	token->line = line; */
+/* 	token->col = col - n; */
+/* 	char* str = arena_alloc(arena, n + 1); */
+/* 	memcpy(str, src, n); */
+/* 	str[n] = '\0'; */
+/* 	token->string = str; */
+/* 	res->token = token; */
+/* 	return res; */
+/* } */
+
+static void make_token(arena_t* token_arena, arena_t* id_arena, arena_t* char_arena, const char* src, const uint32_t n, const int line, const int col)
 {
-	struct token_ll* res = arena_alloc(arena, sizeof *res);
-	res->next = NULL;
-	token_t* token = arena_alloc(arena, sizeof *token);
+	token_t* token = arena_alloc(token_arena, sizeof *token);
 	token->line = line;
 	token->col = col - n;
-	char* str = arena_alloc(arena, n + 1);
-	memcpy(str, src, n);
+	/* char* str = arena_alloc(char_arena, n + 1); */
+	char str[n + 1];
+	memcpy(&str[0], src, n);
 	str[n] = '\0';
-	token->string = str;
-	res->token = token;
-	return res;
+	token->string = &str[0];
+	json_id_t* id = arena_alloc(id_arena, sizeof *id);
+	*id = id_token(token);
+	if (*id == JSON_STRING)
+	{
+		token->string = arena_alloc(char_arena, n - 1);
+		memcpy(token->string, str + 1, n - 1);
+		token->string[n - 2] = '\0';
+	}
+	else
+	{
+		token->string = arena_alloc(char_arena, n + 1);
+		memcpy(token->string, str, n);
+		token->string[n - 1] = '\0';
+	}
 }
 
-static uint32_t tokenize(token_t** tokens, json_id_t** ids, const char* src, const int n)
+
+static uint32_t tokenize(token_t** tokens, json_id_t** ids, arena_t* arena, const char* src, const int n)
 {
-	if (src == NULL || *tokens != NULL) return 0;
-	arena_t a = { 0 };
-	// TODO: better upper bound for how much space the arena will need
-	arena_init(&a, 16 * n); // NOTE: if segfault just give it more memory why not fuck it we ball
+	/* printf("-- json size: %d bytes\n", n); */
+	if (arena == NULL || src == NULL || *tokens != NULL) return 0;
 	enum {
 		CHAR_TOKEN = 0x00,
 		BASIC_TOKEN,
@@ -99,10 +126,80 @@ static uint32_t tokenize(token_t** tokens, json_id_t** ids, const char* src, con
 	uint32_t pos = 0;
 	uint32_t num_tokens = 0;
 	uint32_t num_chars = 0;
-	struct token_ll** token = &a.memory; //  What do I use this for? PROPER LINKAGE
+	#define JSON_CHAR(C) c == C
+	for (int i = 0; i < n; ++i)
+	{
+		char c = src[i];
+		switch (token_flag)
+		{
+		case STRING_TOKEN:
+			if (c == '"' && src[i - 1] != '\\')
+			{
+				int len = i - pos + 1;
+				num_tokens += 1;
+				num_chars += len - 1; // NOTE: doing this to exclude the quotes around strings
+				token_flag = CHAR_TOKEN;
+            }
+            break;
+		case BASIC_TOKEN:
+			if(isspace(c) || JSON_CHARS(||))
+			{
+				int len = i - pos;
+				num_tokens += 1;
+				num_chars += len + 1;
+				token_flag = CHAR_TOKEN;
+				__attribute__((fallthrough));
+			}
+			else {
+				break;
+			}
+	   default:
+		   if (JSON_CHARS(||))
+		   {
+				num_tokens += 1;
+				num_chars += 2;
+		   }
+		   else if (!isspace(c))
+		   {
+			   pos = i;
+			   token_flag = c == '"' ? STRING_TOKEN : BASIC_TOKEN;
+		   }
+		}
+	}
+	const size_t req_size = num_tokens * (sizeof **tokens + sizeof **ids) + num_chars;
+	if (arena->cap < req_size)
+	{
+		printf("-- increasing arena size to: %zu bytes\n", req_size);
+		if (arena->memory != NULL)
+		{
+			free(arena->memory);
+		}
+		arena->memory = malloc(req_size);
+		arena->cap = req_size;
+	}
+	arena->size = 0;
+	// NOTE: has to be in THIS order or get fucked by alignment
+	arena_t token_arena =
+	{
+		.memory = arena->memory,
+		.cap = num_tokens * sizeof **tokens
+	};
+	arena_t id_arena =
+	{
+		.memory = token_arena.memory + token_arena.cap,
+		.cap = num_tokens * sizeof **ids
+	};
+	arena_t char_arena =
+	{
+		.memory = id_arena.memory + id_arena.cap,
+		.cap = num_chars
+	};
+	// TODO: better upper bound for how much space the arena will need
+	/* arena_init(&a, 16 * n); // NOTE: if segfault just give it more memory why not fuck it we ball */
+	/* struct token_ll** token = &a.memory; //  What do I use this for? PROPER LINKAGE */
 	uint32_t line = 1;
 	uint32_t col = 1;
-	#define JSON_CHAR(C) c == C
+	pos = 0;
 	for (int i = 0; i < n; ++i)
 	{
 		char c = src[i];
@@ -117,11 +214,12 @@ static uint32_t tokenize(token_t** tokens, json_id_t** ids, const char* src, con
 			if (c == '"' && src[i - 1] != '\\')
 			{
 				int len = i - pos + 1;
-				*token = new_token(&a, src + pos, len, line, col);
-				token = &(*token)->next;
-				num_tokens += 1;
+				/* *token = new_token(&a, src + pos, len, line, col); */
+				make_token(&token_arena, &id_arena, &char_arena, src + pos, len, line, col);
+				/* token = &(*token)->next; */
+				/* num_tokens += 1; */
 				/* num_chars += len + 1; */
-				num_chars += len - 1; // NOTE: doing this to exclude the quotes around strings
+				/* num_chars += len - 1; // NOTE: doing this to exclude the quotes around strings */
 				token_flag = CHAR_TOKEN;
             }
             break;
@@ -129,10 +227,11 @@ static uint32_t tokenize(token_t** tokens, json_id_t** ids, const char* src, con
 			if(isspace(c) || JSON_CHARS(||))
 			{
 				int len = i - pos;
-				*token = new_token(&a, src + pos, len, line, col);
-				token = &(*token)->next;
-				num_tokens += 1;
-				num_chars += len + 1;
+				make_token(&token_arena, &id_arena, &char_arena, src + pos, len, line, col);
+				/* *token = new_token(&a, src + pos, len, line, col); */
+				/* token = &(*token)->next; */
+				/* num_tokens += 1; */
+				/* num_chars += len + 1; */
 				token_flag = CHAR_TOKEN;
 				__attribute__((fallthrough));
 			}
@@ -142,10 +241,11 @@ static uint32_t tokenize(token_t** tokens, json_id_t** ids, const char* src, con
 	   default:
 		   if (JSON_CHARS(||))
 		   {
-				*token = new_token(&a, src + i, 1, line, col);
-				token = &(*token)->next;
-				num_tokens += 1;
-				num_chars += 2;
+				make_token(&token_arena, &id_arena, &char_arena, src + i, 1, line, col);
+				/* *token = new_token(&a, src + i, 1, line, col); */
+				/* token = &(*token)->next; */
+				/* num_tokens += 1; */
+				/* num_chars += 2; */
 		   }
 		   else if (!isspace(c))
 		   {
@@ -157,50 +257,50 @@ static uint32_t tokenize(token_t** tokens, json_id_t** ids, const char* src, con
 	}
 	#undef JSON_CHAR
 	// NOTE: ALIGNMENT!!!! WOW! ITS REAL!
-	arena_t token_arena =
-	{
-		.memory = malloc(num_tokens * sizeof **tokens),
-		.cap = num_tokens * sizeof **tokens
-	};
-	uint8_t* addr = malloc(num_chars + num_tokens * sizeof **ids);
-	arena_t id_arena =
-	{
-		.memory = addr,
-		.cap = num_tokens * sizeof(json_id_t)
-	};
-	arena_t char_arena =
-	{
-		.memory = id_arena.memory + id_arena.cap,
-		.cap = num_chars
-	};
-	for (struct token_ll* t = a.memory /* DOPAMINE DOPAMINE DOPAMINE */; t != NULL; t = t->next)
-	{
-		token_t* t_tok = t->token;
-		token_t* token = arena_alloc(&token_arena, sizeof *token);
-		json_id_t* id = arena_alloc(&id_arena, sizeof *id);
-		*id = id_token(t_tok);
-		token->col = t_tok->col;
-		token->line = t_tok->line;
-		int n = strlen(t_tok->string) + 1;
-		if (*id == JSON_STRING)
-		{
-			token->string = arena_alloc(&char_arena, n - 2);
-			memcpy(token->string, t_tok->string + 1, n - 2);
-			token->string[n - 3] = '\0';
-		}
-		else
-		{
-			token->string = arena_alloc(&char_arena, n);
-			memcpy(token->string, t_tok->string, n);
-		}
-	}
-	free(a.memory);
+	/* arena_t token_arena = */
+	/* { */
+	/* 	.memory = malloc(num_tokens * sizeof **tokens), */
+	/* 	.cap = num_tokens * sizeof **tokens */
+	/* }; */
+	/* uint8_t* addr = malloc(num_chars + num_tokens * sizeof **ids); */
+	/* arena_t id_arena = */
+	/* { */
+	/* 	.memory = addr, */
+	/* 	.cap = num_tokens * sizeof(json_id_t) */
+	/* }; */
+	/* arena_t char_arena = */
+	/* { */
+	/* 	.memory = id_arena.memory + id_arena.cap, */
+	/* 	.cap = num_chars */
+	/* }; */
+	/* for (struct token_ll* t = a.memory /\* DOPAMINE DOPAMINE DOPAMINE *\/; t != NULL; t = t->next) */
+	/* { */
+	/* 	token_t* t_tok = t->token; */
+	/* 	token_t* token = arena_alloc(&token_arena, sizeof *token); */
+	/* 	json_id_t* id = arena_alloc(&id_arena, sizeof *id); */
+	/* 	*id = id_token(t_tok); */
+	/* 	token->col = t_tok->col; */
+	/* 	token->line = t_tok->line; */
+	/* 	int n = strlen(t_tok->string) + 1; */
+	/* 	if (*id == JSON_STRING) */
+	/* 	{ */
+	/* 		token->string = arena_alloc(&char_arena, n - 2); */
+	/* 		memcpy(token->string, t_tok->string + 1, n - 2); */
+	/* 		token->string[n - 3] = '\0'; */
+	/* 	} */
+	/* 	else */
+	/* 	{ */
+	/* 		token->string = arena_alloc(&char_arena, n); */
+	/* 		memcpy(token->string, t_tok->string, n); */
+	/* 	} */
+	/* } */
+	/* free(a.memory); */
 	*tokens = token_arena.memory;
 	*ids = id_arena.memory;
 	return num_tokens;
 }
 
-static uint16_t id_token(const token_t* token)
+static json_id_t id_token(const token_t* token)
 {
 	char* str = token->string;
 	switch (str[0])
@@ -631,19 +731,19 @@ uint8_t json_c(void* dest, const json_t* json)
 	}
 }
 
-void json_free(json_t* json)
-{
-	free(json->tokens);
-	free(json->ids); // NOTE: remember the _actual_ token strings & ids are allocated in the same block as json->ids
-}
+/* void json_free(json_t* json) */
+/* { */
+/* 	free(json->tokens); */
+/* 	free(json->ids); // NOTE: remember the _actual_ token strings & ids are allocated in the same block as json->ids */
+/* } */
 
 
-json_id_t json_parse(json_t* json, const char* src)
+json_id_t json_parse(json_t* json, arena_t* arena, const char* src)
 {
 	if (json == NULL || src == NULL) return JSON_ERROR;
 	token_t* tokens = NULL;
 	json_id_t* ids = NULL;
-	const uint32_t num_tokens = tokenize(&tokens, &ids, src, strlen(src));
+	const uint32_t num_tokens = tokenize(&tokens, &ids, arena, src, strlen(src));
 	if (num_tokens == 0)
 	{
 		return JSON_ERROR;
@@ -651,8 +751,8 @@ json_id_t json_parse(json_t* json, const char* src)
 	json_id_t res = json_syntax_analysis(ids, tokens, num_tokens);
 	if (res & JSON_SUCCESS)
 	{
-		json->tokens = malloc(num_tokens * sizeof *json->tokens);
-		/* json->tokens = tokens; // DEVILISH */
+		/* json->tokens = malloc(num_tokens * sizeof *json->tokens); */
+		json->tokens = tokens; // DEVILISH
 		for (uint32_t i = 1; i < num_tokens; ++i)
 		{
 			json->tokens[i] = tokens[i].string;
@@ -660,13 +760,14 @@ json_id_t json_parse(json_t* json, const char* src)
 		json->ids = ids;
 		json->num_tokens = num_tokens;
 		json->pos = 0;
-		free(tokens);
+		/* free(tokens); */
 		return res;
 	}
 	else
 	{
-		free(tokens);
-		free(ids);
+		// NOTE: handle arena cleanup (if desired) in error handling
+		/* free(tokens); */
+		/* free(ids); NOTE: same allocation as tokens */
 		return JSON_ERROR;
 	}
 }
@@ -693,8 +794,9 @@ int json_test(int argc, char** argv)
 	/* 	printf("%d:%d:\t%#06x - %s\n", tokens[i].line, tokens[i].col, ids[i], tokens[i].string); */
 	/* } */
 	/* free(tokens); */
+	arena_t a = {0};
 	json_t json = {0};
-	json_id_t p_res = json_parse(&json, bar);
+	json_id_t p_res = json_parse(&json, &a, bar);
 	printf("parse_result: %s\n", p_res & JSON_SUCCESS ? "SUCCESS!" : "error");
 	if (p_res & JSON_SUCCESS)
 	{
@@ -727,6 +829,6 @@ int json_test(int argc, char** argv)
 			}
 		}
 	}
-	json_free(&json);
+	/* json_free(&json); */
 	return 0;
 }
