@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-typedef struct arena
+typedef struct arena_t
 {
 	uint32_t size;
 	size_t cap;
