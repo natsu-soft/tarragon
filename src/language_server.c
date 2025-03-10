@@ -238,7 +238,7 @@ int language_server_test(int argc, char** argv)
 	printf("WINDOWS_HACK:\nthis is the baked string for the default config json:\n%s\n", &default_config_json); // the assert test does not work on windows, BUT AS WE CAN SEE IT OUTPUTS PROPERLY
 	printf("does it look good?\n");
 	#else
-	assertf(!strcmp( fs_filestr(default_config_file, &config_len), &default_config_json[0]), "default config file does not match hex dump!");
+	assertf(!strcmp(fs_read(default_config_file, &config_len), &default_config_json[0]), "default config file does not match hex dump!");
 	#endif
 	char* config_path = ls_generate_config(context->dir);
 	file_context_t* config_context = fs_find_upward(CONFIG_NAME, cwd);
