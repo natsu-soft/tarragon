@@ -1,6 +1,7 @@
 # DisableFormat: true
-UseTab: Never
+UseTab: Always
 IndentWidth: 4
+TabWidth: 4
 DerivePointerAlignment: true
 PointerAlignment: Left
 LineEndings: LF
