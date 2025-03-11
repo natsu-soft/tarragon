@@ -6,9 +6,9 @@
 
 typedef struct arena_t
 {
-	uint32_t size;
 	size_t cap;
 	uint8_t* memory;
+	uint32_t size;
 } arena_t;
 
 void arena_init(arena_t* arena, size_t bytes);
