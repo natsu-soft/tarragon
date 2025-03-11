@@ -8,6 +8,8 @@
 #include "token.h"
 #include "arena.h"
 
+#define TOKENIZE_RESIZE_OVERHEAD 2048
+
 /* struct token_ll */
 /* { */
 /* 	struct token_ll *next; */
@@ -174,7 +176,7 @@ static uint32_t tokenize(token_t** tokens, json_id_t** ids, arena_t* arena, cons
 		{
 			free(arena->memory);
 		}
-		arena->memory = malloc(req_size);
+		arena->memory = malloc(req_size + TOKENIZE_RESIZE_OVERHEAD);
 		arena->cap = req_size;
 	}
 	arena->size = 0;
