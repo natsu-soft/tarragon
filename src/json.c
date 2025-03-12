@@ -171,7 +171,7 @@ static uint32_t tokenize(token_t** tokens, json_id_t** ids, arena_t* arena, cons
 	const size_t req_size = num_tokens * (sizeof **tokens + sizeof **ids) + num_chars;
 	if (arena->cap < req_size)
 	{
-		printf("-- increasing arena size to: %zu bytes\n", req_size);
+		printf("-- increasing arena size to: %zu bytes\n", req_size + TOKENIZE_RESIZE_OVERHEAD);
 		if (arena->memory != NULL)
 		{
 			free(arena->memory);
