@@ -7,13 +7,13 @@ LDFLAGS := -fuse-ld=lld -flto -ljansson -static
 SRC := $(wildcard src/*.c)
 DEP := $(patsubst src/%.c,dep/%.d,$(SRC))
 OBJ := $(patsubst src/%.c,obj/%.o,$(SRC))
-TREE-SITTER_INCLUDES = -I tree-sitter/lib/include -I tree-sitter/lib/src
-TREE_SITTER_OBJ := obj/ts/tree_sitter.o obj/ts/json_parser.o obj/ts/cpp_parser.o obj/ts/cpp_scanner.o
-OBJ += $(TREE_SITTER_OBJ)
+# TREE-SITTER_INCLUDES = -I tree-sitter/lib/include -I tree-sitter/lib/src
+# TREE_SITTER_OBJ := obj/ts/tree_sitter.o obj/ts/json_parser.o obj/ts/cpp_parser.o obj/ts/cpp_scanner.o
+# OBJ += $(TREE_SITTER_OBJ)
 HEX_OBJS := obj/supported_godot.o
 API_OBJS := obj/api/global_constants.o obj/api/global_enums.o obj/api/utility_functions.o obj/api/builtin_classes.o obj/api/classes.o obj/api/singletons.o obj/api/native_structures.o
 JSON_OBJS :=  obj/default_config.o
-TSQUERY_OBJS := obj/client_tsquery.o obj/params_tsquery.o
+# TSQUERY_OBJS := obj/client_tsquery.o obj/params_tsquery.o
 OBJ += $(HEX_OBJS) $(API_OBJS) $(JSON_OBJS) $(TSQUERY_OBJS)
 
 .PHONY: default test dependencies clean clean-dep clean-ts clean-emacs clean-api clean-all dep_dir obj_dirs lsp-test jansson-test
@@ -24,20 +24,20 @@ tarragon: $(OBJ)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 	file $@
 
-test-json-parser: test_json_parser.c ts_obj/tree_sitter.o ts_obj/json_parser.o obj/file_sys.o obj/arena.o $(TSQUERY_OBJS)
-	$(CC) $(CFLAGS) $(TREE-SITTER_INCLUDES) -o $@ $^
+# test-json-parser: test_json_parser.c ts_obj/tree_sitter.o ts_obj/json_parser.o obj/file_sys.o obj/arena.o $(TSQUERY_OBJS)
+	# $(CC) $(CFLAGS) $(TREE-SITTER_INCLUDES) -o $@ $^
 
 # test_json_parser.o: test_json_parser.c
 # 	$(CC) $(CFLAGS) $(TREE-SITTER_INCLDUES) -c $< -o $@
 
-obj/ts/tree_sitter.o: | obj_dirs
-	$(CC) $(CFLAGS) $(TREE-SITTER_INCLUDES) -c tree-sitter/lib/src/lib.c -o $@
+# obj/ts/tree_sitter.o: | obj_dirs
+# 	$(CC) $(CFLAGS) $(TREE-SITTER_INCLUDES) -c tree-sitter/lib/src/lib.c -o $@
 
-obj/ts/%_parser.o: | obj_dirs
-	$(CC) $(CFLAGS) $(TREE-SITTER_INCLDUES) -c tree-sitter-$*/src/parser.c -o $@ $(TARGET_OPT)
+# obj/ts/%_parser.o: | obj_dirs
+# 	$(CC) $(CFLAGS) $(TREE-SITTER_INCLDUES) -c tree-sitter-$*/src/parser.c -o $@ $(TARGET_OPT)
 
-obj/ts/cpp_scanner.o: | obj_dirs
-	$(CC) $(CFLAGS) $(TREE-SITTER_INCLDUES) -c tree-sitter-cpp/src/scanner.c -o $@ $(TARGET_OPT)
+# obj/ts/cpp_scanner.o: | obj_dirs
+# 	$(CC) $(CFLAGS) $(TREE-SITTER_INCLDUES) -c tree-sitter-cpp/src/scanner.c -o $@ $(TARGET_OPT)
 
 arg-parser: arg_parser.o src/find_file.o
 	$(CC) $(CFLAGS) -ggdb -o $@ $^
