@@ -54,8 +54,6 @@ int generate_tarragon_json(char* dest, char* ext_api_path)
 	return 0;
 }
 
-int run_tests(int argc, char** argv);
-
 /*
  * IDEALIZED USER OPTIONS
  * -h
@@ -67,7 +65,7 @@ int run_tests(int argc, char** argv);
  */
 int main(int argc, char** argv) {
 	int c;
-	while ((c = getopt(argc, argv, "l:tvhs")) != -1)
+	while ((c = getopt(argc, argv, "l:vhs")) != -1)
 	{
 		/* printf("opt: %c\n", c); */
 		switch(c)
@@ -76,8 +74,6 @@ int main(int argc, char** argv) {
 			log_fp = fopen(optarg , "w");
 			LOG("opened tarragon.log for logging");
 			break;
-		case 't':
-			return run_tests(argc, argv);
 		case 'v':
 			print_version();
 			return 0;
@@ -96,6 +92,7 @@ int main(int argc, char** argv) {
 		}
 	}
 	/* trie_tests(stdout); */
+	ENDLOG
 	return 0;
 	LOG("initializing tarragon");
 	/* setbuf(stdin, NULL); */
@@ -169,22 +166,4 @@ int main(int argc, char** argv) {
 	/* 	fprintf(stderr, "did not find %s :(", CONFIG_JSON); */
 	/* } */
 	/* free(dir); */
-}
-
-/***********/
-/* TESTING */
-/***********/
-
-#define UNIT_TESTS TEST(json)
-
-#define TEST(A) extern int A##_test(int argc, char** argv);
-UNIT_TESTS
-#undef TEST
-#define TEST(A) assert(A##_test(argc, argv) == 0);
-
-int run_tests(int argc, char** argv)
-{
-	UNIT_TESTS;
-	ENDLOG;
-	return 0;
 }
