@@ -27,6 +27,19 @@ void* arena_alloc(arena_t* arena, size_t bytes)
 	}
 }
 
+void* arena_alloc_aligned(arena_t* arena, size_t bytes, size_t alignment)
+{
+	// assert alignment is a power of 2 BECAUSE OTHERWISE THIS JUST DONT WORK
+	assert((alignment & (alignment - 1)) == 0);
+	size_t arena_addr = (size_t)arena->memory + arena->size;
+	size_t mod = arena_addr % (alignment - 1);
+	assert(arena->size + bytes + mod <= arena->cap);
+	void* addr = arena->memory + arena->size + mod;
+	arena->size += mod + bytes;
+	return addr;
+}
+
+
 void arena_free(arena_t* arena, size_t bytes)
 {
 	assert((int32_t)arena->size - (int32_t)bytes >= 0);
