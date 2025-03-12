@@ -4,7 +4,7 @@ CFLAGS := -Wall -Wextra -ggdb -O0
 # LDFLAGS := -fuse-ld=lld -flto -ljansson ./libarchive/libarchive/libarchive.a -lz -static
 # LDFLAGS := -fuse-ld=lld -flto -ljansson -larchive -lz -static
 LDFLAGS := -fuse-ld=lld -flto -ljansson -static
-MAINS := src/tarragon.c src/unit-tests.c
+MAINS := src/tarragon.c src/unit_tests.c
 ALL_SRC := $(wildcard src/*.c)
 SRC := $(filter-out $(MAINS), $(ALL_SRC))
 DEP := $(patsubst src/%.c,dep/%.d,$(SRC))
@@ -27,7 +27,7 @@ tarragon: $(OBJ) obj/tarragon.o
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 	file $@
 
-unit-tests: $(OBJ) obj/unit-tests.o
+unit-tests: $(OBJ) obj/unit_tests.o
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 # test-json-parser: test_json_parser.c ts_obj/tree_sitter.o ts_obj/json_parser.o obj/file_sys.o obj/arena.o $(TSQUERY_OBJS)
