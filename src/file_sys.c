@@ -190,11 +190,12 @@ void fs_write(const char* abs_path, char* data)
 
 // does not realloc if delim not encountered
 // dest must be allocated before calling!
-size_t fs_getline(char* dest, const size_t n, FILE* stream)
+int fs_getline(char* dest, const size_t n, FILE* stream)
 {
 	for (size_t i = 0; i < n; ++i)
 	{
 		char c = fgetc(stream);
+		/* printf("%c", c); */
 		switch (c)
 		{
 		case '\n':
@@ -202,7 +203,8 @@ size_t fs_getline(char* dest, const size_t n, FILE* stream)
 			return i;
 		case EOF:
 			dest[i] = '\0';
-			return EOF;
+			fflush(stream);
+			return i;
 		default:
 			dest[i] = c;
 		}

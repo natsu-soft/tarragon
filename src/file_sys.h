@@ -31,6 +31,6 @@ char* fs_read_stream(FILE* fp, int* str_len);
 
 void fs_write(const char* abs_path, char* data);
 
-size_t fs_getline(char* dest, const size_t n, FILE* stream);
+int fs_getline(char* dest, const size_t n, FILE* stream);
 
 #endif
