@@ -9,7 +9,7 @@
 #include "language_server.h"
 /* #include "tests.h" */
 #include "logger.h"
-#include "token_trie.h"
+#include "trie.h"
 
 #define CONFIG_JSON "tarragon.json"
 
