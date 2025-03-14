@@ -27,6 +27,13 @@ void* arena_alloc(arena_t* arena, size_t bytes)
 	}
 }
 
+void* arena_calloc(arena_t* arena, size_t bytes)
+{
+	void* res = arena_alloc(arena, bytes);
+	memset(res, 0, bytes);
+	return res;
+}
+
 void* arena_alloc_aligned(arena_t* arena, size_t bytes, size_t alignment)
 {
 	// assert alignment is a power of 2 BECAUSE OTHERWISE THIS JUST DONT WORK

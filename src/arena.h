@@ -15,6 +15,8 @@ void arena_init(arena_t* arena, size_t bytes);
 
 void* arena_alloc(arena_t* arena, size_t bytes);
 
+void* arena_calloc(arena_t* arena, size_t bytes);
+
 void* arena_alloc_aligned(arena_t* arena, size_t bytes, size_t alignment);
 
 void arena_free(arena_t* arena, size_t bytes);
