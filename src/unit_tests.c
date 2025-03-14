@@ -2,8 +2,12 @@
 #include <assert.h>
 #include "logger.h"
 
+
 #define UNIT_TESTS \
-	TEST(json)
+	TEST(file_sys) \
+	TEST(base_protocol) \
+	TEST(json) \
+	TEST(trie)
 
 #define TEST(A) extern int A##_test(int argc, char** argv);
 UNIT_TESTS
@@ -22,7 +26,7 @@ int main(int argc, char** argv)
 			break;
 		}
 	}
-	#define TEST(A) assert(A##_test(argc, argv) == 0);
+	#define TEST(A) assert(A##_test(argc, argv) == 0); printf("A-OK: " #A ".c\n");
 	UNIT_TESTS;
 	#undef TEST
 	ENDLOG;
