@@ -19,6 +19,6 @@ extern FILE* log_fp;
 #define LOG(M, ...) if (log_fp) fprintf(log_fp, "[tarragon] " M "\n", ##__VA_ARGS__); fflush(log_fp)
 #define ERROR(M, ...) if (log_fp) fprintf(log_fp, "[tarragon -- ERROR] " M "\n", ##__VA_ARGS__); fflush(log_fp)
 
-#define ENDLOG fclose(log_fp);
+#define ENDLOG if(log_fp) fclose(log_fp);
 
 #endif /* End LOGGER_H */
