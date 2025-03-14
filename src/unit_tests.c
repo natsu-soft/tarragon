@@ -5,6 +5,7 @@
 
 #define UNIT_TESTS \
 	TEST(file_sys) \
+	TEST(mem_sys) \
 	TEST(base_protocol) \
 	TEST(json) \
 	TEST(trie)
@@ -16,6 +17,7 @@ UNIT_TESTS
 int main(int argc, char** argv)
 {
 	int c;
+	log_fp = NULL;
 	while ((c = getopt(argc, argv, "l:")) != -1)
 	{
 		switch (c)
