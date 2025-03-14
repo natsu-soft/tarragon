@@ -21,7 +21,8 @@ typedef struct trie_edge_t
 	list_t list; // HAS to be first for BASED casting purposes
 	void* token; /* >:^) */
 	char c;
-} trie_edge_t;
+}trie_edge_t;
+/* } __attribute__((packed))trie_edge_t; */ // NOTE: reduces size by 7 bytes but FUCKS alignment
 
 
 // TODO: custom mallocs & frees
@@ -35,6 +36,16 @@ uint8_t trie_remove_token(trie_t* node, char* str);
 uint32_t trie_num_leaves(trie_t* node);
 
 char** trie_candidates(trie_t* node, uint32_t* num_candidates, char* prefix);
+
+void trie_free_nonlinear(trie_t* trie);
+
+void trie_information(trie_t* node, uint32_t* num_nodes, uint32_t* num_edges);
+
+void trie_defrag(trie_t** root, uint32_t* num_nodes, uint32_t* num_edges);
+
+void trie_serialize(FILE* fp, trie_t** root);
+
+trie_t* trie_deserialize(FILE* fp);
 
 void trie_dump_dot(FILE* buf, trie_t* node, char* root_label);
 
