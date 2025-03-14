@@ -41,9 +41,11 @@ void trie_free_nonlinear(trie_t* trie);
 
 void trie_information(trie_t* node, uint32_t* num_nodes, uint32_t* num_edges);
 
-void trie_defrag(trie_t** root, uint32_t* num_nodes, uint32_t* num_edges);
+void trie_defrag(trie_t** root);
 
-void trie_serialize(FILE* fp, trie_t** root);
+void trie_serialize(trie_t* root, FILE* fp);
+
+void trie_serialize_map(trie_t* root, char* filename);
 
 trie_t* trie_deserialize(FILE* fp);
 
