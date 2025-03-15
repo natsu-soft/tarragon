@@ -4,10 +4,10 @@ CFLAGS := -Wall -Wextra -ggdb -O0
 # LDFLAGS := -fuse-ld=lld -flto -ljansson ./libarchive/libarchive/libarchive.a -lz -static
 # LDFLAGS := -fuse-ld=lld -flto -ljansson -larchive -lz -static
 LDFLAGS := -fuse-ld=lld -flto -ljansson -static
-MAINS := src/tarragon.c src/unit_tests.c
+MAINS := src/tarragon.c src/unit_tests.c src/gdscript_parser.c
 ALL_SRC := $(wildcard src/*.c)
 SRC := $(filter-out $(MAINS), $(ALL_SRC))
-DEP := $(patsubst src/%.c,dep/%.d,$(SRC))
+DEP := $(patsubst src/%.c,dep/%.d,$(ALL_SRC))
 OBJ := $(patsubst src/%.c,obj/%.o,$(SRC))
 # TREE-SITTER_INCLUDES = -I tree-sitter/lib/include -I tree-sitter/lib/src
 # TREE_SITTER_OBJ := obj/ts/tree_sitter.o obj/ts/json_parser.o obj/ts/cpp_parser.o obj/ts/cpp_scanner.o
@@ -21,7 +21,10 @@ OBJ += $(HEX_OBJS) $(JSON_OBJS)
 
 .PHONY: default dependencies clean clean-dep clean-emacs clean-api clean-all dep_dir obj_dirs lsp-test jansson-test
 
-default: unit-tests
+default: gdscript-parser
+
+gdscript-parser: $(OBJ) obj/gdscript_parser.o
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 tarragon: $(OBJ) obj/tarragon.o
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
@@ -45,11 +48,11 @@ unit-tests: $(OBJ) obj/unit_tests.o
 # obj/ts/cpp_scanner.o: | obj_dirs
 # 	$(CC) $(CFLAGS) $(TREE-SITTER_INCLDUES) -c tree-sitter-cpp/src/scanner.c -o $@ $(TARGET_OPT)
 
-arg-parser: arg_parser.o src/find_file.o
-	$(CC) $(CFLAGS) -ggdb -o $@ $^
+# arg-parser: arg_parser.o src/find_file.o
+# 	$(CC) $(CFLAGS) -ggdb -o $@ $^
 
-arg_parser.o:
-	$(CC) $(CFLAGS) -c arg_parser.c -o $@
+# arg_parser.o:
+# 	$(CC) $(CFLAGS) -c arg_parser.c -o $@
 
 obj/%.o: src/%.c dep/%.d | obj_dirs
 	$(CC) $(CFLAGS) -c $< -o $@
