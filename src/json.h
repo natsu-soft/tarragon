@@ -9,8 +9,6 @@ typedef struct _iobuf FILE;
 typedef struct _IO_FILE FILE;
 #endif
 
-// NOTE: pls dont lex
-
 #define JSON_STRUCTURE_LIST	\
 	JSON_X('{', JSON_OBJECT_START) \
 	JSON_X('}', JSON_OBJECT_END) \
@@ -23,7 +21,7 @@ typedef struct _IO_FILE FILE;
 	JSON_X(JSON_ERROR,        0x0000)	\
 	JSON_X(JSON_OBJECT_START, 0x0004)	\
 	JSON_X(JSON_OBJECT_END,   0x0008)	\
-	JSON_X(JSON_ARRAY_START,  0x0010) \
+	JSON_X(JSON_ARRAY_START,  0x0010)   \
 	JSON_X(JSON_ARRAY_END,    0x0020)	\
 	JSON_X(JSON_NAME_SEP,     0x0040)	\
 	JSON_X(JSON_VALUE_SEP,    0x0080)	\
