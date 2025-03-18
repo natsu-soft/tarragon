@@ -156,6 +156,7 @@ char* fs_read(const char* path, int* len)
 	}
 	fread(res, 1, *len, file);
 	res[*len] = '\0';
+	fflush(file);
 	fclose(file);
 	return res;
 }
