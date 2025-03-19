@@ -19,12 +19,15 @@ JSON_OBJS :=  obj/default_config.o
 # OBJ += $(HEX_OBJS) $(API_OBJS) $(JSON_OBJS) $(TSQUERY_OBJS)
 OBJ += $(HEX_OBJS) $(JSON_OBJS)
 
-.PHONY: default dependencies clean clean-dep clean-emacs clean-api clean-all dep_dir obj_dirs lsp-test jansson-test
+.PHONY: default dependencies clean clean-dep clean-emacs clean-api clean-all dep_dir obj_dirs lsp-test jansson-test test test2
 
 default: gdscript-parser
 
 gdscript-parser: $(OBJ) obj/gdscript_parser.o
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+
+test: gdscript-parser
+	@${CURDIR}/$<
 
 tarragon: $(OBJ) obj/tarragon.o
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
@@ -102,7 +105,7 @@ compile_commands.json: $(SRC) $(JSON_OBJ)
     print("[\n{}\n]".format(f.read()[:-2]))' > compile_commands.json
 	rm temp *.o
 
-test: unit-tests
+test2: unit-tests
 	@touch ../../bruh
 	@mkdir -p temp_testing
 	@cat src/file_sys.c | gzip -c - > file_sys.gz
