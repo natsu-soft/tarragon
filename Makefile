@@ -1,6 +1,6 @@
-# CC := gcc -std=gnu17
-CC := clang -std=gnu17
-CFLAGS := -Wall -Wextra -ggdb -O0
+CC := gcc -std=gnu17
+# CC := clang -std=gnu17
+CFLAGS := -Wall -Wextra -Wno-incompatible-pointer-types -ggdb -O0
 # LDFLAGS := -fuse-ld=lld -flto -ljansson ./libarchive/libarchive/libarchive.a -lz -static
 # LDFLAGS := -fuse-ld=lld -flto -ljansson -larchive -lz -static
 LDFLAGS := -fuse-ld=lld -flto -ljansson -static
@@ -17,9 +17,10 @@ HEX_OBJS := obj/supported_godot.o
 JSON_OBJS :=  obj/default_config.o
 # TSQUERY_OBJS := obj/client_tsquery.o obj/params_tsquery.o
 # OBJ += $(HEX_OBJS) $(API_OBJS) $(JSON_OBJS) $(TSQUERY_OBJS)
+ALL_OBJ := $(patsubst src/%.c,obj/%.o,$(ALL_SRC))
 OBJ += $(HEX_OBJS) $(JSON_OBJS)
 
-.PHONY: default dependencies clean clean-dep clean-emacs clean-api clean-all dep_dir obj_dirs lsp-test jansson-test test test2
+.PHONY: default dependencies clean clean-dep clean-emacs clean-api clean-all dep_dir obj_dirs lsp-test jansson-test test test2 compile-commands
 
 default: gdscript-parser
 
@@ -58,7 +59,7 @@ unit-tests: $(OBJ) obj/unit_tests.o
 # 	$(CC) $(CFLAGS) -c arg_parser.c -o $@
 
 obj/%.o: src/%.c dep/%.d | obj_dirs
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@ $(LDFLAGS)
 
 dependencies: $(DEP)
 
@@ -99,11 +100,17 @@ clean-emacs:
 
 clean-all: clean clean-dep clean-ts clean-emacs clean-api
 
-compile_commands.json: $(SRC) $(JSON_OBJ)
-	$(CC) -MJ temp $(CFLAGS) $(TREE-SITTER_INCLUDES) -c $^ $(LDFLAGS)
-	python -c 'with open("temp", "r") as f:\
-    print("[\n{}\n]".format(f.read()[:-2]))' > compile_commands.json
-	rm temp *.o
+# compile_commands.json: $(SRC) $(JSON_OBJ)
+# 	$(CC) -MJ temp $(CFLAGS) $(TREE-SITTER_INCLUDES) -c $^ $(LDFLAGS)
+# 	python -c 'with open("temp", "r") as f:\
+#     print("[\n{}\n]".format(f.read()[:-2]))' > compile_commands.json
+# 	rm temp *.o
+
+compile_commands.json:
+	make $(ALL_OBJ) --always-make --dry-run \
+	| grep -w '$(CC)' \
+	| grep -w '\-[co]' \
+	| jq -nR '[inputs|{command:., directory:".", file: match("\\-c [\\w\\-/]+\\.c").string[3:], output: match("\\-o [\\w\\-/]+\\.o").string[3:]}]' > compile_commands.json
 
 test2: unit-tests
 	@touch ../../bruh
