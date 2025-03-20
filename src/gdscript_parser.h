@@ -171,6 +171,11 @@ typedef struct _IO_FILE FILE;
 	GDSCRIPT_X("INF",        GDSCRIPT_KEYWORD_INF) \
 	GDSCRIPT_X("NAN",        GDSCRIPT_KEYWORD_NAN)
 
+#define GDSCRIPT_LITERALS \
+	GDSCRIPT_X("null",        GDSCRIPT_LITERAL_NULL) \
+	GDSCRIPT_X("true",        GDSCRIPT_LITERAL_TRUE) \
+	GDSCRIPT_X("false",        GDSCRIPT_LITERAL_FALSE)
+
 #define GDSCRIPT_OPERATORS \
 	GDSCRIPT_BINARY_OPERATORS \
 	GDSCRIPT_UNARY_OPERATORS
@@ -183,7 +188,8 @@ typedef struct _IO_FILE FILE;
 	GDSCRIPT_STRUCTURE \
 	GDSCRIPT_BINARY_OPERATORS \
 	GDSCRIPT_UNARY_OPERATORS \
-	GDSCRIPT_KEYWORDS
+	GDSCRIPT_KEYWORDS \
+	GDSCRIPT_LITERALS
 
 typedef enum gdscript_id_t
 {
@@ -193,6 +199,7 @@ typedef enum gdscript_id_t
 	GDSCRIPT_BUILTIN_TOKENS
 	#undef GDSCRIPT_X
 	GDSCRIPT_BUILTIN_COUNT,
+	GDSCRIPT_LEADING_WHITESPACE,
 	GDSCRIPT_WHITESPACE,
 	GDSCRIPT_STRING,
 	GDSCRIPT_SCOPE_START,
@@ -205,7 +212,7 @@ typedef struct arena_t arena_t;
 
 uint32_t gdscript_tokenize(arena_t* arena, token_t** tokens, gdscript_id_t** ids, const char* str, const uint32_t n);
 
-uint32_t gdscript_classify(token_t* tokens, gdscript_id_t* ids, const uint32_t n);
+void gdscript_preprocess(token_t* tokens, gdscript_id_t* ids, uint32_t* num_tokens);
 
 
 #endif /* End GDSCRIPT_PARSER_H */

@@ -4,10 +4,11 @@
 #include <ctype.h>
 #include <string.h>
 #include "file_sys.h"
+#include "mem_sys.h"
 #include "token.h"
 #include "arena.h"
 
-#define TOKENIZE_RESIZE_OVERHEAD  2048
+#define TOKENIZE_RESIZE_OVERHEAD  4096
 
 #define STRING_ENDERS							\
 	STR_X("'''",    0x01, TRIPLE_SINGLE_QOUTE)	\
@@ -116,6 +117,10 @@
 				coords.col = column;									\
 				state = WSB_TOKEN;										\
 			}															\
+			else														\
+			{															\
+				do { HANDLE_WHITESPACE } while(0);						\
+			}															\
 			break;														\
 		case COMMENT:													\
 			switch (c)													\
@@ -156,6 +161,9 @@ static uint32_t string_starter(const char* str, const unsigned int n, uint8_t* s
 static uint32_t string_ender(const char* str, const unsigned int n, const uint8_t str_bitmask);
 static gdscript_id_t id_token(const char* str);
 static void new_token(arena_t* token_arena, arena_t* char_arena, const char* str, const int n, const uint32_t line, const uint32_t col);
+// NOTE: JUST DONT
+/* static uint32_t move_unclassified_to_front(token_t* tokens, gdscript_id_t* ids, const int n); */
+/* static void original_positions(token_t* tokens, gdscript_id_t* ids, const int n); */
 
 static uint32_t delimiting_token(const char* str, const unsigned int n)
 {
@@ -248,17 +256,18 @@ static gdscript_id_t id_token(const char* str)
 	return ID;									\
 	stop_##ID:
 	GDSCRIPT_BUILTIN_TOKENS
-	return GDSCRIPT_SYMBOL;
+	return GDSCRIPT_NONE;
 	#undef GDSCRIPT_X
 }
+
 
 
 static void new_token(arena_t* token_arena, arena_t* char_arena, const char* str, const int n, const uint32_t line, const uint32_t col)
 {
 	token_t* t = arena_alloc(token_arena, sizeof *t);
 	t->line = line;
-	/* t->col = col - n; */
-	t->col = col; // notices underflow OwO whats this
+	/* t->col = col - n; */ // notices underflow--OwO whats this?
+	t->col = col;
 	char* token_str = arena_alloc(char_arena, n + 1);
 	memcpy(token_str, str, n);
 	token_str[n] = '\0';
@@ -293,6 +302,9 @@ uint32_t gdscript_tokenize(arena_t* arena, token_t** tokens, gdscript_id_t** ids
 	#define HANDLE_LEADING_WHITESPACE \
 		num_tokens++;\
 		num_chars += 2;
+	#define HANDLE_WHITESPACE \
+		num_tokens++;\
+		num_chars += 2;
 	#define HANDLE_DELIMITING_TOKEN \
 		num_tokens++;\
 		num_chars += offset + 1;
@@ -316,6 +328,7 @@ uint32_t gdscript_tokenize(arena_t* arena, token_t** tokens, gdscript_id_t** ids
 	ITERATE_OVER_SOURCE
 
 	#undef HANDLE_LEADING_WHITESPACE
+	#undef HANDLE_WHITESPACE
 	#undef HANDLE_DELIMITING_TOKEN
 	#undef HANDLE_TOKEN
 	#undef HANDLE_COMMENT
@@ -327,6 +340,9 @@ uint32_t gdscript_tokenize(arena_t* arena, token_t** tokens, gdscript_id_t** ids
 		*ids = NULL;
 		return 0;
 	}
+	// append a final newline token in case someone is writing TITE gdscript
+	num_tokens++;
+	num_chars += 2;
 	// memory memery
 	size_t req_size = num_tokens * (sizeof **tokens + sizeof **ids) + num_chars;
 	if (arena->cap < req_size)
@@ -358,6 +374,10 @@ uint32_t gdscript_tokenize(arena_t* arena, token_t** tokens, gdscript_id_t** ids
 
 	#define HANDLE_LEADING_WHITESPACE \
 		gdscript_id_t* id = arena_alloc(&id_arena, sizeof *id); \
+		*id = GDSCRIPT_LEADING_WHITESPACE; \
+		new_token(&token_arena, &char_arena, str + i, 1, line, column);
+	#define HANDLE_WHITESPACE \
+		gdscript_id_t* id = arena_alloc(&id_arena, sizeof *id); \
 		*id = GDSCRIPT_WHITESPACE; \
 		new_token(&token_arena, &char_arena, str + i, 1, line, column);
 	#define HANDLE_DELIMITING_TOKEN \
@@ -387,18 +407,26 @@ uint32_t gdscript_tokenize(arena_t* arena, token_t** tokens, gdscript_id_t** ids
 	ITERATE_OVER_SOURCE
 
 	#undef HANDLE_LEADING_WHITESPACE
+	#undef HANDLE_WHITESPACE
 	#undef HANDLE_DELIMITING_TOKEN
 	#undef HANDLE_TOKEN
 	#undef HANDLE_COMMENT
 	#undef HANDLE_STRING
 	#undef HANDLE_TRAILING
+	token_t* t = arena_alloc(&token_arena, sizeof *t);
+	t->line = line;
+	t->col = column;
+	char* string = arena_alloc(&char_arena, 2);
+	memcpy(string, "\n", 2);
+	t->string = string;
+	/* token_t* t = arena_alloc(&token_arena, sizeof *t); */
 	*tokens = token_arena.memory;
 	*ids = id_arena.memory;
 	return num_tokens;
 }
 
 
-uint32_t gdscript_classify(token_t* tokens, gdscript_id_t* ids, const uint32_t n)
+static void classify_tokens(token_t* tokens, gdscript_id_t* ids, const uint32_t n)
 {
 	for (int i = 0; i < n; ++i)
 	{
@@ -408,6 +436,39 @@ uint32_t gdscript_classify(token_t* tokens, gdscript_id_t* ids, const uint32_t n
 			ids[i] = id_token(token.string);
 		}
 	}
+}
+
+static void coalesce_numbers(token_t* tokens, gdscript_id_t* ids, uint32_t* n)
+{
+	for (int i = 0; i < *n; ++i)
+	{
+	}
+}
+
+static void trim_nonleading_whitespace (token_t* tokens, gdscript_id_t* ids, uint32_t* num_tokens)
+{
+	uint32_t swap = 0;
+	const uint32_t n = *num_tokens;
+	gdscript_id_t swap_id;
+	token_t swap_token = {0};
+	for (int i = swap; i < n; ++i)
+	{
+		if (ids[i] != GDSCRIPT_WHITESPACE)
+		{
+			ms_buffer_swap(ids + i, ids + swap, &swap_id, sizeof swap_id);
+			ms_buffer_swap(tokens + i, tokens + swap, &swap_token, sizeof swap_token);
+			swap++;
+		}
+	}
+	*num_tokens = swap;
+}
+
+void gdscript_preprocess(token_t* tokens, gdscript_id_t* ids, uint32_t* num_tokens)
+{
+	classify_tokens(tokens, ids, *num_tokens);
+	/* coalesce_numbere(tokens, ids, num_tokens); */
+	trim_nonleading_whitespace(tokens, ids, num_tokens);
+	// replace lws with scopes
 }
 
 static void pv(const char* str, const int n)
@@ -434,6 +495,8 @@ static void pv(const char* str, const int n)
 	} str_bitmask = STR_BITMASK_NONE;
 	#define HANDLE_LEADING_WHITESPACE \
 		printf("%d:%d: leading ws\n", line, column);
+	#define HANDLE_WHITESPACE \
+		printf("%d:%d: ws\n", line, column);
 	#define HANDLE_DELIMITING_TOKEN \
 		char temp[offset + 1]; \
 		memcpy(temp, str + i, offset); \
@@ -486,12 +549,15 @@ int main(int argc, char** argv)
 	int src_len = 0;
 	char* src = fs_read("RewindAbility.gd", &src_len);
 	uint32_t num_tokens = gdscript_tokenize(&arena, &tokens, &ids, src, src_len);
-	gdscript_classify(tokens, ids, num_tokens);
+	printf("num_tokens0: %d\n", num_tokens);
+	gdscript_preprocess(tokens, ids, &num_tokens);
+	printf("num_tokens1: %d\n", num_tokens);
 	for (uint32_t i = 0; i < num_tokens; ++i)
 	{
 		token_t t = tokens[i];
 		gdscript_id_t id = ids[i];
 		printf("%d:%d:(%#06x) %s\n", t.line, t.col, id, t.string);
 	}
+	printf("SIZE: %zu\n", arena.cap);
 	return 0;
 }
