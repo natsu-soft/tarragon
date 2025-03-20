@@ -1,9 +1,11 @@
-CC := gcc -std=gnu17
+CC := gcc -std=gnu99
 # CC := clang -std=gnu17
-CFLAGS := -Wall -Wextra -Wno-incompatible-pointer-types -ggdb -O0
+# CFLAGS := -Wall -Wextra -Wno-incompatible-pointer-types -ggdb -O0
+CFLAGS := -Wall -Wextra -fpermissive -fdiagnostics-show-option -ggdb -O0
 # LDFLAGS := -fuse-ld=lld -flto -ljansson ./libarchive/libarchive/libarchive.a -lz -static
 # LDFLAGS := -fuse-ld=lld -flto -ljansson -larchive -lz -static
-LDFLAGS := -fuse-ld=lld -flto -ljansson -static
+LIBS := -ljansson
+LDFLAGS := -fuse-ld=mold -flto $(LIBS) -static
 MAINS := src/tarragon.c src/unit_tests.c src/gdscript_parser.c
 ALL_SRC := $(wildcard src/*.c)
 SRC := $(filter-out $(MAINS), $(ALL_SRC))
@@ -24,17 +26,17 @@ OBJ += $(HEX_OBJS) $(JSON_OBJS)
 
 default: gdscript-parser
 
-gdscript-parser: $(OBJ) obj/gdscript_parser.o
+gdscript-parser: obj/gdscript_parser.o $(OBJ)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 test: gdscript-parser
 	@${CURDIR}/$<
 
-tarragon: $(OBJ) obj/tarragon.o
+tarragon: obj/tarragon.o $(OBJ)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 	file $@
 
-unit-tests: $(OBJ) obj/unit_tests.o
+unit-tests: obj/unit_tests.o $(OBJ)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 # test-json-parser: test_json_parser.c ts_obj/tree_sitter.o ts_obj/json_parser.o obj/file_sys.o obj/arena.o $(TSQUERY_OBJS)
@@ -59,7 +61,7 @@ unit-tests: $(OBJ) obj/unit_tests.o
 # 	$(CC) $(CFLAGS) -c arg_parser.c -o $@
 
 obj/%.o: src/%.c dep/%.d | obj_dirs
-	$(CC) $(CFLAGS) -c $< -o $@ $(LDFLAGS)
+	$(CC) $(CFLAGS) -c $< -o $@ $(LIBS)
 
 dependencies: $(DEP)
 
