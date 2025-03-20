@@ -2,6 +2,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <assert.h>
+#include <stdint.h>
 #include "error_macros.h"
 
 #ifdef _WIN32
@@ -55,6 +56,21 @@ int ms_munmap_file(void* addr, size_t len, int fd)
 	int res = ms_munmap(addr, len);
 	assert(close(fd) == 0);
 	return res;
+}
+
+void ms_swap(void* a, void* b, const size_t len)
+{
+	uint8_t buf[len];
+	memcpy(buf, a, len);
+	memcpy(b, a, len);
+	memcpy(a, buf, len);
+}
+
+void ms_buffer_swap(void* a, void* b, void* buf, const size_t len)
+{
+	memcpy(buf, a, len);
+	memcpy(b, a, len);
+	memcpy(a, buf, len);
 }
 
 int mem_sys_test(int argc, char** argv)
