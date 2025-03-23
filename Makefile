@@ -1,5 +1,10 @@
-CC := gcc -std=gnu99
-# CC := clang -std=gnu17
+ifeq ($(OS),Windows_NT)
+	CC := clang -std=gnu99
+	RE := rg
+else
+	CC := gcc -std=gnu99
+	RE := grep
+endif
 # CFLAGS := -Wall -Wextra -Wno-incompatible-pointer-types -ggdb -O0
 CFLAGS := -Wall -Wextra -fpermissive -fdiagnostics-show-option -ggdb -O0
 # LDFLAGS := -fuse-ld=lld -flto -ljansson ./libarchive/libarchive/libarchive.a -lz -static
@@ -110,8 +115,8 @@ clean-all: clean clean-dep clean-ts clean-emacs clean-api
 
 compile_commands.json:
 	make $(ALL_OBJ) --always-make --dry-run \
-	| grep -w '$(CC)' \
-	| grep -w '\-[co]' \
+	| $(RE) -w '$(CC)' \
+	| $(RE) -w '\-[co]' \
 	| jq -nR '[inputs|{command:., directory:".", file: match("\\-c [\\w\\-/]+\\.c").string[3:], output: match("\\-o [\\w\\-/]+\\.o").string[3:]}]' > compile_commands.json
 
 test2: unit-tests
