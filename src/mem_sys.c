@@ -44,18 +44,26 @@ int ms_munmap(void* addr, size_t len)
 
 void* ms_map_file(char* filename, size_t len, int* out_filedes)
 {
+	#ifdef _WIN32
+	return NULL;
+	#else
 	int filedes = open(filename, O_RDWR | O_CREAT | O_APPEND, 0400 | 0200);
 	assertf(filedes != -1, "failed to get fd in ms_map_file().  Check the perms!\n");
 	assertf(ftruncate(filedes, len) != -1, "failed to truncate file %s to desired length: %zu\n", filename, len);
 	*out_filedes = filedes;
 	return ms_mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_SHARED, filedes, 0);
+	#endif
 }
 
 int ms_munmap_file(void* addr, size_t len, int fd)
 {
+	#ifdef _WIN32
+	return 0;
+	#else
 	int res = ms_munmap(addr, len);
 	assert(close(fd) == 0);
 	return res;
+	#endif
 }
 
 void ms_swap(void* a, void* b, const size_t len)
