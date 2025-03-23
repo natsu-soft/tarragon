@@ -16,4 +16,9 @@ void ms_swap(void* a, void* b, const size_t len);
 
 void ms_buffer_swap(void* a, void* b, void* buf, const size_t len);
 
+void ms_buffer_swap(void* a, void* b, void* buf, const size_t len);
+
+// just use memmove lmao
+/* size_t ms_resize_array(void* array, const unsigned int dest, const unsigned int src, const size_t item_size, const size_t n); */
+
 #endif /* End MEM_SYS_H */
