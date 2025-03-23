@@ -22,22 +22,22 @@ JSON_OBJS :=  obj/default_config.o
 ALL_OBJ := $(patsubst src/%.c,obj/%.o,$(ALL_SRC))
 OBJ += $(HEX_OBJS) $(JSON_OBJS)
 
-.PHONY: default dependencies clean clean-dep clean-emacs clean-api clean-all dep_dir obj_dirs lsp-test jansson-test test test2 compile-commands
+.PHONY: default dependencies clean clean-dep clean-emacs clean-api clean-all dep_dir obj_dirs lsp-test jansson-test test test2
 
 default: gdscript-parser
 
 gdscript-parser: obj/gdscript_parser.o $(OBJ)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+	$(CC) $(CFLAGS) -o $@ $^ $(LIBS) $(LDFLAGS)
 
 test: gdscript-parser
 	@${CURDIR}/$<
 
 tarragon: obj/tarragon.o $(OBJ)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+	$(CC) $(CFLAGS) -o $@ $^ $(LIBS) $(LDFLAGS)
 	file $@
 
 unit-tests: obj/unit_tests.o $(OBJ)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+	$(CC) $(CFLAGS) -o $@ $^ $(LIBS) $(LDFLAGS)
 
 # test-json-parser: test_json_parser.c ts_obj/tree_sitter.o ts_obj/json_parser.o obj/file_sys.o obj/arena.o $(TSQUERY_OBJS)
 	# $(CC) $(CFLAGS) $(TREE-SITTER_INCLUDES) -o $@ $^
