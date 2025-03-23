@@ -10,7 +10,11 @@ CFLAGS := -Wall -Wextra -fpermissive -fdiagnostics-show-option -ggdb -O0
 # LDFLAGS := -fuse-ld=lld -flto -ljansson ./libarchive/libarchive/libarchive.a -lz -static
 # LDFLAGS := -fuse-ld=lld -flto -ljansson -larchive -lz -static
 LIBS := -ljansson
+ifeq ($(OS),Windows_NT)
+LDFLAGS := -fuse-ld=lld -flto $(LIBS) -static
+else
 LDFLAGS := -fuse-ld=mold -flto $(LIBS) -static
+endif
 MAINS := src/tarragon.c src/unit_tests.c src/gdscript_parser.c
 ALL_SRC := $(wildcard src/*.c)
 SRC := $(filter-out $(MAINS), $(ALL_SRC))
