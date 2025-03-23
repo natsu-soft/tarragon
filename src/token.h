@@ -1,13 +1,14 @@
 #ifndef TOKEN_H
 #define TOKEN_H
 
-// NOTE: unused atm
+#include "stdint.h"
 
-typedef struct token_t
+/* typedef struct  token_t */
+typedef struct __attribute__((packed)) token_t // KINDA HOT TBQH
 {
 	char* string;
-	unsigned int line;
-	unsigned int col;
+	uint16_t line;
+	uint16_t col;
 } token_t;
 
 #endif /* End TOKEN_H */
