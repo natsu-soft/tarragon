@@ -3,11 +3,6 @@
 
 #include <stdint.h>
 
-#ifdef _WIN32
-typedef struct _iobuf FILE; #else
-typedef struct _IO_FILE FILE;
-#endif
-
 #define GDSCRIPT_TRIPLE_STRING_DELIMITERS \
 	GDSCRIPT_X("'''",    GDSCRIPT_TRIPLE_QUOTE) \
 	GDSCRIPT_X("\"\"\"", GDSCRIPT_TRIPLE_DOUBLE_QUOTE)
@@ -60,15 +55,15 @@ typedef struct _IO_FILE FILE;
 	/* GDSCRIPT_X("'",       GDSCRIPT_STRING_QUOTE) \ */
 	/* GDSCRIPT_X("\"",      GDSCRIPT_STRING_DOUBLE_QUOTE) */
 
-#define GDSCRIPT_BINARY_OPERATORS \
+#define GDSCRIPT_OPERATORS \
 	GDSCRIPT_X("**=", GDSCRIPT_OP_ASSIGNMENT_POWER) \
 	GDSCRIPT_X("**",  GDSCRIPT_OP_POWER) \
 	GDSCRIPT_X("*=",  GDSCRIPT_OP_ASSIGNMENT_PRODUCT) \
 	GDSCRIPT_X("*",   GDSCRIPT_OP_MULTIPLY) \
 	GDSCRIPT_X("+=",  GDSCRIPT_OP_ASSIGNMENT_SUM) \
-	GDSCRIPT_X("+",   GDSCRIPT_OP_ADDITION) \
+	GDSCRIPT_X("+",   GDSCRIPT_OP_SUM) \
 	GDSCRIPT_X("-=",  GDSCRIPT_OP_ASSIGNMENT_DIFFERENCE) \
-	GDSCRIPT_X("-",   GDSCRIPT_OP_SUBTRACTION) \
+	GDSCRIPT_X("-",   GDSCRIPT_OP_DIFFERENCE) \
 	GDSCRIPT_X("/=",  GDSCRIPT_OP_ASSIGNMENT_DIVISION) \
 	GDSCRIPT_X("/",   GDSCRIPT_OP_DIVISION) \
 	GDSCRIPT_X("%=",  GDSCRIPT_OP_ASSIGNMENT_MODULO) \
@@ -87,17 +82,19 @@ typedef struct _IO_FILE FILE;
 	GDSCRIPT_X("^",   GDSCRIPT_OP_BITWISE_XOR) \
 	GDSCRIPT_X("==",  GDSCRIPT_OP_EQUALS) \
 	GDSCRIPT_X("!=",  GDSCRIPT_OP_INEQUALS) \
+	GDSCRIPT_X("!",   GDSCRIPT_OP_BOOL_NOT) \
+	GDSCRIPT_X("~",   GDSCRIPT_OP_BITWISE_NOT) \
 	GDSCRIPT_X("<=",  GDSCRIPT_OP_LESS_THAN_EQUALS) \
 	GDSCRIPT_X("<",   GDSCRIPT_OP_LESS_THAN) \
 	GDSCRIPT_X(">=",  GDSCRIPT_OP_GREATER_THAN_EQUALS) \
 	GDSCRIPT_X(">",   GDSCRIPT_OP_GREATER_THAN) \
 	GDSCRIPT_X("=",   GDSCRIPT_OP_ASSIGNMENT)
 
-#define GDSCRIPT_UNARY_OPERATORS \
-	GDSCRIPT_X("~", GDSCRIPT_OP_BITWISE_NOT) \
-	GDSCRIPT_X("+", GDSCRIPT_OP_IDENTITY) \
-	GDSCRIPT_X("-", GDSCRIPT_OP_NEGATION) \
-	GDSCRIPT_X("!", GDSCRIPT_OP_BOOL_NOT)
+/* #define GDSCRIPT_UNARY_OPERATORS \ */
+/* 	GDSCRIPT_X("~", GDSCRIPT_OP_BITWISE_NOT) \ */
+/* 	GDSCRIPT_X("+", GDSCRIPT_OP_IDENTITY) \ */
+/* 	GDSCRIPT_X("-", GDSCRIPT_OP_NEGATION) \ */
+/* 	GDSCRIPT_X("!", GDSCRIPT_OP_BOOL_NOT) */
 
 /* #define GDSCRIPT_ANNOTATIONS \ */
 /* 	GDSCRIPT_X("@export",                     GDSCRIPT_EXPORT) \ */
@@ -176,9 +173,9 @@ typedef struct _IO_FILE FILE;
 	GDSCRIPT_X("true",        GDSCRIPT_LITERAL_TRUE) \
 	GDSCRIPT_X("false",        GDSCRIPT_LITERAL_FALSE)
 
-#define GDSCRIPT_OPERATORS \
-	GDSCRIPT_BINARY_OPERATORS \
-	GDSCRIPT_UNARY_OPERATORS
+/* #define GDSCRIPT_OPERATORS \ */
+/* 	GDSCRIPT_BINARY_OPERATORS \ */
+/* 	GDSCRIPT_UNARY_OPERATORS */
 
 #define GDSCRIPT_DELIMITING_TOKENS \
 	GDSCRIPT_STRUCTURE \
@@ -186,8 +183,7 @@ typedef struct _IO_FILE FILE;
 
 #define GDSCRIPT_BUILTIN_TOKENS \
 	GDSCRIPT_STRUCTURE \
-	GDSCRIPT_BINARY_OPERATORS \
-	GDSCRIPT_UNARY_OPERATORS \
+	GDSCRIPT_OPERATORS \
 	GDSCRIPT_KEYWORDS \
 	GDSCRIPT_LITERALS
 
@@ -205,6 +201,8 @@ typedef enum gdscript_id_t
 	GDSCRIPT_SCOPE_START,
 	GDSCRIPT_SCOPE_END,
 	GDSCRIPT_SYMBOL,
+	GDSCRIPT_NUMBER_CANDIDATE,
+	GDSCRIPT_NUMBER,
 } gdscript_id_t;
 
 typedef struct token_t token_t;
@@ -213,6 +211,12 @@ typedef struct arena_t arena_t;
 uint32_t gdscript_tokenize(arena_t* arena, token_t** tokens, gdscript_id_t** ids, const char* str, const uint32_t n);
 
 void gdscript_preprocess(token_t* tokens, gdscript_id_t* ids, uint32_t* num_tokens);
+
+void gdscript_note_token_func(void (*func_ptr)(token_t*));
+
+void gdscript_warn_token_func(void (*func_ptr)(token_t*));
+
+void gdscript_error_token_func(void (*func_ptr)(token_t*));
 
 
 #endif /* End GDSCRIPT_PARSER_H */

@@ -160,10 +160,20 @@ static uint32_t delimiting_token(const char* str, const unsigned int n);
 static uint32_t string_starter(const char* str, const unsigned int n, uint8_t* str_bitmask);
 static uint32_t string_ender(const char* str, const unsigned int n, const uint8_t str_bitmask);
 static gdscript_id_t id_token(const char* str);
-static void new_token(arena_t* token_arena, arena_t* char_arena, const char* str, const int n, const uint32_t line, const uint32_t col);
+static void new_token(arena_t* token_arena, arena_t* char_arena, const char* str, const int n, const uint16_t line, const uint32_t col);
+static gdscript_id_t verify_number(const char* str, const uint32_t n);
 // NOTE: JUST DONT
 /* static uint32_t move_unclassified_to_front(token_t* tokens, gdscript_id_t* ids, const int n); */
 /* static void original_positions(token_t* tokens, gdscript_id_t* ids, const int n); */
+
+static void do_nothing_with_token(token_t* t)
+{
+	return;
+}
+
+static void (*note_token_func)(token_t*) = do_nothing_with_token;
+static void (*warn_token_func)(token_t*) = do_nothing_with_token;
+static void (*error_token_func)(token_t*) = do_nothing_with_token;
 
 static uint32_t delimiting_token(const char* str, const unsigned int n)
 {
@@ -256,13 +266,20 @@ static gdscript_id_t id_token(const char* str)
 	return ID;									\
 	stop_##ID:
 	GDSCRIPT_BUILTIN_TOKENS
-	return GDSCRIPT_NONE;
+	if (isdigit(str[0]) || (str[0] == '.' && strlen(str) > 1))
+	{
+		return GDSCRIPT_NUMBER_CANDIDATE;
+	}
+	else
+	{
+		return GDSCRIPT_NONE;
+	}
 	#undef GDSCRIPT_X
 }
 
 
 
-static void new_token(arena_t* token_arena, arena_t* char_arena, const char* str, const int n, const uint32_t line, const uint32_t col)
+static void new_token(arena_t* token_arena, arena_t* char_arena, const char* str, const int n, const uint16_t line, const uint32_t col)
 {
 	token_t* t = arena_alloc(token_arena, sizeof *t);
 	t->line = line;
@@ -274,6 +291,170 @@ static void new_token(arena_t* token_arena, arena_t* char_arena, const char* str
 	t->string = token_str;
 }
 
+static gdscript_id_t verify_number(const char* str, const uint32_t n)
+{
+	enum {
+		NC_NONE = 0x00,
+		NC_HEX_FLAG = 0x01,
+		NC_BIN_FLAG = 0x02,
+		NC_FLOAT_FLAG = 0x04,
+		NC_SCI_FLAG = 0x08,
+		NC_NEGATIVE_FLAG = 0x10,
+		NC_POSITIVE_FLAG = 0x20
+	} flags = NC_NONE;
+	for (int i = 0; i < n; ++i)
+	{
+		char c = str[i];
+		/* printf("checking: %c\n", c); */
+		switch (c)
+		{
+		case ' ': return GDSCRIPT_NONE; // it's somewhat common tbqh
+		case '_':
+			switch(i)
+			{
+			case 0: return GDSCRIPT_NONE;
+			default: continue;
+			}
+			break;
+		case '-':
+			if (flags & (NC_POSITIVE_FLAG | NC_NEGATIVE_FLAG))
+			{
+				return GDSCRIPT_NONE;
+			}
+			else
+			{
+				switch (i)
+				{
+				case 0:
+					flags |= NC_NEGATIVE_FLAG;
+					continue;
+				default:
+					if (str[i - 1] == 'e' || str[i  - 1] == 'E')
+					{
+						flags |= NC_NEGATIVE_FLAG;
+						continue;
+					}
+					return GDSCRIPT_NONE;
+				}
+			}
+			break;
+		case '+':
+			if (flags & (NC_POSITIVE_FLAG | NC_NEGATIVE_FLAG))
+			{
+				return GDSCRIPT_NONE;
+			}
+			else
+			{
+				switch (i)
+				{
+				case 0:
+					flags |= NC_POSITIVE_FLAG;
+					continue;
+				default:
+					if (str[i - 1] == 'e' || str[i  - 1] == 'E')
+					{
+						flags |= NC_POSITIVE_FLAG;
+						continue;
+					}
+					return GDSCRIPT_NONE;
+				}
+			}
+			break;
+		case 'x':
+			if (flags ^ NC_HEX_FLAG && i == 1 && str[0] == '0')
+			{
+				flags |= NC_HEX_FLAG;
+				continue;
+			}
+			else
+			{
+				return GDSCRIPT_NONE;
+			}
+			break;
+		case 'b':
+			if (flags ^ NC_BIN_FLAG && i == 1 && str[0] == '0')
+			{
+				flags |= NC_BIN_FLAG;
+				continue;
+			}
+			else
+			{
+				return GDSCRIPT_NONE;
+			}
+			break;
+		case 'e': __attribute__((fallthrough));
+		case 'E':
+			if (flags & (NC_HEX_FLAG | NC_BIN_FLAG | NC_SCI_FLAG))
+			{
+				return GDSCRIPT_NONE;
+			}
+			else if (i == 0)
+			{
+				return GDSCRIPT_NONE;
+			}
+			else
+			{
+				flags |= NC_SCI_FLAG;
+				flags &= ~(NC_NEGATIVE_FLAG | NC_POSITIVE_FLAG);
+				continue;
+			}
+			break;
+		case '.':
+			if (flags & (NC_FLOAT_FLAG | NC_HEX_FLAG | NC_BIN_FLAG | NC_SCI_FLAG))
+			{
+				return GDSCRIPT_NONE;
+			}
+			else
+			{
+				flags |= NC_FLOAT_FLAG;
+				continue;
+			}
+			break;
+		default:
+			if (flags | NC_HEX_FLAG)
+			{
+				uint8_t valid = '0' <= c && c <= '9';
+				valid |= 'a' <= c && c <= 'f';
+				valid |= 'A' <= c && c <= 'F';
+				if (valid)
+				{
+					continue;
+				}
+				else
+				{
+					return GDSCRIPT_NONE;
+				}
+			}
+			else if (flags | NC_BIN_FLAG)
+			{
+				uint8_t valid = c == '0' || c == '1';
+				if (valid)
+				{
+					continue;
+				}
+				else
+				{
+					return GDSCRIPT_NONE;
+				}
+			}
+			else
+			{
+				uint8_t valid = '0' <= c && c <= '9';
+				if (valid)
+				{
+					continue;
+				}
+				else
+				{
+					return GDSCRIPT_NONE;
+				}
+			}
+		}
+	}
+	return GDSCRIPT_NUMBER;
+}
+
+
 
 uint32_t gdscript_tokenize(arena_t* arena, token_t** tokens, gdscript_id_t** ids, const char* str, const uint32_t n)
 {
@@ -281,8 +462,8 @@ uint32_t gdscript_tokenize(arena_t* arena, token_t** tokens, gdscript_id_t** ids
 	uint32_t num_tokens = 0;
 	struct
 	{
-		uint32_t line;
-		uint32_t col;
+		uint16_t line;
+		uint16_t col;
 	} coords = {0};
 	enum __attribute__((packed))
 	{
@@ -322,8 +503,9 @@ uint32_t gdscript_tokenize(arena_t* arena, token_t** tokens, gdscript_id_t** ids
 		num_chars += n - pos + 1;
 	uint32_t offset;
 	uint32_t pos;
-	uint32_t line;
-	uint32_t column;
+	uint16_t line;
+	uint16_t column;
+
 
 	ITERATE_OVER_SOURCE
 
@@ -340,7 +522,7 @@ uint32_t gdscript_tokenize(arena_t* arena, token_t** tokens, gdscript_id_t** ids
 		*ids = NULL;
 		return 0;
 	}
-	// append a final newline token in case someone is writing TITE gdscript
+	// ju
 	num_tokens++;
 	num_chars += 2;
 	// memory memery
@@ -438,14 +620,115 @@ static void classify_tokens(token_t* tokens, gdscript_id_t* ids, const uint32_t 
 	}
 }
 
-static void coalesce_numbers(token_t* tokens, gdscript_id_t* ids, uint32_t* n)
+static void coalesce_numbers(token_t* tokens, gdscript_id_t* ids, uint32_t* num_tokens)
 {
-	for (int i = 0; i < *n; ++i)
+	uint32_t n = *num_tokens;
+	for (int i = 0; i < n; ++i)
 	{
+		gdscript_id_t id = ids[i];
+		uint8_t attempt_flag = id == GDSCRIPT_NUMBER_CANDIDATE;
+		attempt_flag |= id == GDSCRIPT_OP_SUM;
+		attempt_flag |= id == GDSCRIPT_OP_DIFFERENCE;
+		if (attempt_flag)
+		{
+			/* continue; */
+			int index = -1;
+			int len = 0;
+			for (int j = i; j < n; ++j)
+			{
+				len += strlen(tokens[j].string);
+				char temp[len];
+				int cum  = 0;
+				for (int k = i; k <= j; ++k)
+				{
+					char* str = tokens[k].string;
+					int str_len = strlen(str);
+					memmove(temp + cum, str, str_len);
+					cum += str_len;
+				}
+				if (verify_number(temp, len))
+				{
+					index = j;
+				}
+				else
+				{
+					break;
+				}
+			}
+			if (index >= i)
+			{
+				ids[i] = GDSCRIPT_NUMBER;
+				for (int j = i + 1; j <= index; ++j)
+				{
+					int token_len = strlen(tokens[i].string);
+					memmove(tokens[i].string + token_len, tokens[j].string, strlen(tokens[j].string) + 1);
+				}
+				if (i < index && index < n - 1)
+				{
+					size_t k = n - index;
+					memmove(tokens + i + 1, tokens + index + 1, k * sizeof *tokens);
+					memmove(ids + i + 1, ids + index + 1, k * sizeof *ids);
+				}
+				n -= index - i;
+			}
+		}
 	}
+	*num_tokens = n;
 }
 
-static void trim_nonleading_whitespace (token_t* tokens, gdscript_id_t* ids, uint32_t* num_tokens)
+static void leading_whitespace_to_scope(token_t* tokens, gdscript_id_t* ids, uint32_t* num_tokens)
+{
+	enum {
+		LWS_ACTIVE,
+		LWS_IGNORE,
+		LWS_WAITING,
+	} state = LWS_ACTIVE;
+	uint32_t n = *num_tokens;
+	// if someone overflows this they desserve the parser to break
+	uint8_t depth = 0;
+	uint8_t code_depth = 0;
+	for (uint32_t i = 0; i < n; ++i)
+	{
+		switch (ids[i])
+		{
+		case GDSCRIPT_COMMENT: continue;
+		case GDSCRIPT_LINE_CONTINUE:
+			state = LWS_IGNORE;
+			break;
+		case GDSCRIPT_LEADING_WHITESPACE:
+			if (state == LWS_ACTIVE)
+			{
+				depth++;
+			}
+			break;
+		case GDSCRIPT_LINE_END:
+			switch (state)
+			{
+			case LWS_IGNORE:
+				state = LWS_WAITING;
+				break;
+			case LWS_WAITING:
+				depth = 0;
+				state = LWS_ACTIVE;
+			}
+			break;
+		default:
+			if (code_depth != depth)
+			{
+				int tail = n - i;
+				memmove(tokens + i + 1, tokens + i, tail * sizeof *tokens);
+				memmove(ids + i + 1, ids + i, tail * sizeof *ids);
+				ids[i] = depth > code_depth ? GDSCRIPT_SCOPE_START : GDSCRIPT_SCOPE_END;
+				n += 1;
+			}
+			code_depth = depth;
+			state = LWS_WAITING;
+		}
+	}
+	*num_tokens = n;
+}
+
+static void trim_token (token_t* tokens, gdscript_id_t* ids, uint32_t* num_tokens, const gdscript_id_t trim_token)
 {
 	uint32_t swap = 0;
 	const uint32_t n = *num_tokens;
@@ -453,7 +736,8 @@ static void trim_nonleading_whitespace (token_t* tokens, gdscript_id_t* ids, uin
 	token_t swap_token = {0};
 	for (int i = swap; i < n; ++i)
 	{
-		if (ids[i] != GDSCRIPT_WHITESPACE)
+		gdscript_id_t id = ids[i];
+		if (id != trim_token)
 		{
 			ms_buffer_swap(ids + i, ids + swap, &swap_id, sizeof swap_id);
 			ms_buffer_swap(tokens + i, tokens + swap, &swap_token, sizeof swap_token);
@@ -466,17 +750,23 @@ static void trim_nonleading_whitespace (token_t* tokens, gdscript_id_t* ids, uin
 void gdscript_preprocess(token_t* tokens, gdscript_id_t* ids, uint32_t* num_tokens)
 {
 	classify_tokens(tokens, ids, *num_tokens);
-	/* coalesce_numbere(tokens, ids, num_tokens); */
-	trim_nonleading_whitespace(tokens, ids, num_tokens);
-	// replace lws with scopes
+	coalesce_numbers(tokens, ids, num_tokens);
+	printf("coalesce_numbers: %d\n", *num_tokens);
+	trim_token(tokens, ids, num_tokens, GDSCRIPT_WHITESPACE);
+	printf("trim_whitespace: %d\n", *num_tokens);
+	leading_whitespace_to_scope(tokens, ids, num_tokens);
+	printf("leading_whitespace_to_scope: %d\n", *num_tokens);
+	trim_token(tokens, ids, num_tokens, GDSCRIPT_LEADING_WHITESPACE);
+	printf("trim_leading_whitespace: %d\n", *num_tokens);
+	// NOTE: something about trimming line continuation tokens
 }
 
 static void pv(const char* str, const int n)
 {
 	struct
 	{
-		uint32_t line;
-		uint32_t col;
+		uint16_t line;
+		uint16_t col;
 	} coords = {0};
 	enum __attribute__((packed))
 	{
@@ -528,8 +818,8 @@ static void pv(const char* str, const int n)
 		printf("%d:%d: trailing: %s\n", coords.line, coords.col, temp);
 	uint32_t offset;
 	uint32_t pos;
-	uint32_t line;
-	uint32_t column;
+	uint16_t line;
+	uint16_t column;
 
 	ITERATE_OVER_SOURCE
 
@@ -540,6 +830,22 @@ static void pv(const char* str, const int n)
 	#undef HANDLE_STRING
 	#undef HANDLE_TRAILING
 }
+
+void gdscript_note_token_func(void (*func_ptr)(token_t*))
+{
+	note_token_func = func_ptr;
+}
+
+void gdscript_warn_token_func(void (*func_ptr)(token_t*))
+{
+	warn_token_func = func_ptr;
+}
+
+void gdscript_error_token_func(void (*func_ptr)(token_t*))
+{
+	error_token_func = func_ptr;
+}
+
 
 int main(int argc, char** argv)
 {
@@ -559,5 +865,7 @@ int main(int argc, char** argv)
 		printf("%d:%d:(%#06x) %s\n", t.line, t.col, id, t.string);
 	}
 	printf("SIZE: %zu\n", arena.cap);
+	printf("GDSCRIPT_SCOPE_START: %#06x\n", GDSCRIPT_SCOPE_START);
+	printf("GDSCRIPT_SCOPE_END: %#06x\n", GDSCRIPT_SCOPE_END);
 	return 0;
 }
