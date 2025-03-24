@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <string.h>
+#include "benchmark.h"
 #include "file_sys.h"
 #include "mem_sys.h"
 #include "token.h"
@@ -804,6 +805,14 @@ void gdscript_preprocess(token_t* tokens, gdscript_id_t* ids, uint32_t* num_toke
 	printf("trim_comments: %d\n", *num_tokens);
 	cull_redundant_line_ends(tokens, ids, num_tokens);
 	printf("cull_redundant_line_ends: %d\n", *num_tokens);
+	/* NANOTIME(classify_tokens(tokens, ids, *num_tokens);) */
+	/* NANOTIME(coalesce_numbers(tokens, ids, num_tokens);) */
+	/* NANOTIME(trim_token(tokens, ids, num_tokens, GDSCRIPT_WHITESPACE);) */
+	/* NANOTIME(cull_line_continuations(tokens, ids, num_tokens);) */
+	/* NANOTIME(leading_whitespace_to_scope(tokens, ids, num_tokens);) */
+	/* NANOTIME(trim_token(tokens, ids, num_tokens, GDSCRIPT_LEADING_WHITESPACE);) */
+	/* NANOTIME(trim_token(tokens, ids, num_tokens, GDSCRIPT_COMMENT);) */
+	/* NANOTIME(cull_redundant_line_ends(tokens, ids, num_tokens);) */
 }
 
 static void pv(const char* str, const int n)
@@ -908,7 +917,7 @@ int main(int argc, char** argv)
 	{
 		token_t t = tokens[i];
 		gdscript_id_t id = ids[i];
-		printf("%d:%d:(%#06x) %s\n", t.line, t.col, id, t.string);
+		// printf("%d:%d:(%#06x) %s\n", t.line, t.col, id, t.string);
 	}
 	printf("SIZE: %zu\n", arena.cap);
 	printf("GDSCRIPT_SCOPE_START: %#06x\n", GDSCRIPT_SCOPE_START);
