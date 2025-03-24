@@ -162,18 +162,20 @@ static uint32_t string_ender(const char* str, const unsigned int n, const uint8_
 static gdscript_id_t id_token(const char* str);
 static void new_token(arena_t* token_arena, arena_t* char_arena, const char* str, const int n, const uint16_t line, const uint32_t col);
 static gdscript_id_t verify_number(const char* str, const uint32_t n);
-// NOTE: JUST DONT
+
 /* static uint32_t move_unclassified_to_front(token_t* tokens, gdscript_id_t* ids, const int n); */
 /* static void original_positions(token_t* tokens, gdscript_id_t* ids, const int n); */
 
-static void do_nothing_with_token(token_t* t)
+static void cull_line_continuations(token_t* tokens, gdscript_id_t* ids, uint32_t* num_tokens);
+
+static void do_nothing_with_token(const token_t* t, const char* message)
 {
 	return;
 }
 
-static void (*note_token_func)(token_t*) = do_nothing_with_token;
-static void (*warn_token_func)(token_t*) = do_nothing_with_token;
-static void (*error_token_func)(token_t*) = do_nothing_with_token;
+static void (*note_token_func)(const token_t*, const char* message) = do_nothing_with_token;
+static void (*warn_token_func)(const token_t*, const char* message) = do_nothing_with_token;
+static void (*error_token_func)(const token_t*, const char* message) = do_nothing_with_token;
 
 static uint32_t delimiting_token(const char* str, const unsigned int n)
 {
@@ -454,7 +456,44 @@ static gdscript_id_t verify_number(const char* str, const uint32_t n)
 	return GDSCRIPT_NUMBER;
 }
 
+static void cull_line_continuations(token_t* tokens, gdscript_id_t* ids, uint32_t* num_tokens)
+{
+	/* error_token_func(tokens + i); */
+	uint32_t n = *num_tokens;
+	for (int i = 0; i < n; ++i) {
+		if (ids[i] == GDSCRIPT_LINE_CONTINUE && ids[i + 1] == GDSCRIPT_LINE_END)
+		{
+			size_t k = n - (i + 2);
+			memmove(tokens + i, tokens + 2, k * sizeof *tokens);
+			memmove(ids + i, ids + 2, k * sizeof *ids);
+			n -= 2;
+		}
+	}
+	*num_tokens = n;
+}
 
+void cull_redundant_line_ends(token_t* tokens, gdscript_id_t* ids, uint32_t* num_tokens)
+{
+	uint32_t n = *num_tokens;
+	for (int i = 0; i < n - 1; ++i)
+	{
+		if (ids[i] == GDSCRIPT_LINE_END && ids[i + 1] == GDSCRIPT_LINE_END)
+		{
+			for (int j = i + 2; j < n; ++j)
+			{
+				if (ids[j] != GDSCRIPT_LINE_END)
+				{
+					int k = n - j;
+					memmove(tokens + i + 1, tokens + j, k * sizeof *tokens);
+					memmove(ids + i + 1, ids + j, k * sizeof *ids);
+					n -= j - i;
+					break;
+				}
+			}
+		}
+	}
+	*num_tokens = n;
+}
 
 uint32_t gdscript_tokenize(arena_t* arena, token_t** tokens, gdscript_id_t** ids, const char* str, const uint32_t n)
 {
@@ -522,8 +561,9 @@ uint32_t gdscript_tokenize(arena_t* arena, token_t** tokens, gdscript_id_t** ids
 		*ids = NULL;
 		return 0;
 	}
-	// ju
-	num_tokens++;
+	/* num_tokens += 12; */
+	/* num_chars += 24; */
+	num_tokens += 1;
 	num_chars += 2;
 	// memory memery
 	size_t req_size = num_tokens * (sizeof **tokens + sizeof **ids) + num_chars;
@@ -626,10 +666,11 @@ static void coalesce_numbers(token_t* tokens, gdscript_id_t* ids, uint32_t* num_
 	for (int i = 0; i < n; ++i)
 	{
 		gdscript_id_t id = ids[i];
-		uint8_t attempt_flag = id == GDSCRIPT_NUMBER_CANDIDATE;
-		attempt_flag |= id == GDSCRIPT_OP_SUM;
-		attempt_flag |= id == GDSCRIPT_OP_DIFFERENCE;
-		if (attempt_flag)
+		/* uint8_t attempt_flag = id == GDSCRIPT_NUMBER_CANDIDATE; */
+		/* attempt_flag |= id == GDSCRIPT_OP_SUM; */
+		/* attempt_flag |= id == GDSCRIPT_OP_DIFFERENCE; */
+		/* if (attempt_flag) */
+		if (id == GDSCRIPT_NUMBER_CANDIDATE)
 		{
 			/* continue; */
 			int index = -1;
@@ -679,9 +720,8 @@ static void coalesce_numbers(token_t* tokens, gdscript_id_t* ids, uint32_t* num_
 static void leading_whitespace_to_scope(token_t* tokens, gdscript_id_t* ids, uint32_t* num_tokens)
 {
 	enum {
-		LWS_ACTIVE,
-		LWS_IGNORE,
-		LWS_WAITING,
+		LWS_ACTIVE = 0x01,
+		LWS_WAITING = 0x02,
 	} state = LWS_ACTIVE;
 	uint32_t n = *num_tokens;
 	// if someone overflows this they desserve the parser to break
@@ -692,22 +732,15 @@ static void leading_whitespace_to_scope(token_t* tokens, gdscript_id_t* ids, uin
 		switch (ids[i])
 		{
 		case GDSCRIPT_COMMENT: continue;
-		case GDSCRIPT_LINE_CONTINUE:
-			state = LWS_IGNORE;
-			break;
 		case GDSCRIPT_LEADING_WHITESPACE:
-			if (state == LWS_ACTIVE)
+			if (state & LWS_ACTIVE)
 			{
 				depth++;
 			}
 			break;
 		case GDSCRIPT_LINE_END:
-			switch (state)
+			if(state & LWS_WAITING)
 			{
-			case LWS_IGNORE:
-				state = LWS_WAITING;
-				break;
-			case LWS_WAITING:
 				depth = 0;
 				state = LWS_ACTIVE;
 			}
@@ -725,9 +758,16 @@ static void leading_whitespace_to_scope(token_t* tokens, gdscript_id_t* ids, uin
 			state = LWS_WAITING;
 		}
 	}
-	*num_tokens = n;
+	// NOTE: this CAN fuck you up
+	for (uint8_t i = 0; i < code_depth; ++i)
+	{
+		tokens[n + i] = tokens[n];
+		ids[n + i] = GDSCRIPT_SCOPE_END;
+	}
+	*num_tokens = n + code_depth;
 }
 
+// TODO: backwards iterate
 static void trim_token (token_t* tokens, gdscript_id_t* ids, uint32_t* num_tokens, const gdscript_id_t trim_token)
 {
 	uint32_t swap = 0;
@@ -750,6 +790,8 @@ static void trim_token (token_t* tokens, gdscript_id_t* ids, uint32_t* num_token
 void gdscript_preprocess(token_t* tokens, gdscript_id_t* ids, uint32_t* num_tokens)
 {
 	classify_tokens(tokens, ids, *num_tokens);
+	cull_line_continuations(tokens, ids, num_tokens);
+	printf("cull_line_continuations: %d\n", *num_tokens);
 	coalesce_numbers(tokens, ids, num_tokens);
 	printf("coalesce_numbers: %d\n", *num_tokens);
 	trim_token(tokens, ids, num_tokens, GDSCRIPT_WHITESPACE);
@@ -758,7 +800,10 @@ void gdscript_preprocess(token_t* tokens, gdscript_id_t* ids, uint32_t* num_toke
 	printf("leading_whitespace_to_scope: %d\n", *num_tokens);
 	trim_token(tokens, ids, num_tokens, GDSCRIPT_LEADING_WHITESPACE);
 	printf("trim_leading_whitespace: %d\n", *num_tokens);
-	// NOTE: something about trimming line continuation tokens
+	trim_token(tokens, ids, num_tokens, GDSCRIPT_COMMENT);
+	printf("trim_comments: %d\n", *num_tokens);
+	cull_redundant_line_ends(tokens, ids, num_tokens);
+	printf("cull_redundant_line_ends: %d\n", *num_tokens);
 }
 
 static void pv(const char* str, const int n)
@@ -831,17 +876,17 @@ static void pv(const char* str, const int n)
 	#undef HANDLE_TRAILING
 }
 
-void gdscript_note_token_func(void (*func_ptr)(token_t*))
+void gdscript_note_token_func(void (*func_ptr)(const token_t*, const char* message))
 {
 	note_token_func = func_ptr;
 }
 
-void gdscript_warn_token_func(void (*func_ptr)(token_t*))
+void gdscript_warn_token_func(void (*func_ptr)(const token_t*, const char* message))
 {
 	warn_token_func = func_ptr;
 }
 
-void gdscript_error_token_func(void (*func_ptr)(token_t*))
+void gdscript_error_token_func(void (*func_ptr)(const token_t*, const char* message))
 {
 	error_token_func = func_ptr;
 }
@@ -855,6 +900,7 @@ int main(int argc, char** argv)
 	int src_len = 0;
 	char* src = fs_read("RewindAbility.gd", &src_len);
 	uint32_t num_tokens = gdscript_tokenize(&arena, &tokens, &ids, src, src_len);
+	const uint32_t n0 = num_tokens;
 	printf("num_tokens0: %d\n", num_tokens);
 	gdscript_preprocess(tokens, ids, &num_tokens);
 	printf("num_tokens1: %d\n", num_tokens);
@@ -867,5 +913,6 @@ int main(int argc, char** argv)
 	printf("SIZE: %zu\n", arena.cap);
 	printf("GDSCRIPT_SCOPE_START: %#06x\n", GDSCRIPT_SCOPE_START);
 	printf("GDSCRIPT_SCOPE_END: %#06x\n", GDSCRIPT_SCOPE_END);
+	printf("unused bytes between tokens & ids: %zu\n", (n0 - num_tokens) * sizeof *tokens);
 	return 0;
 }

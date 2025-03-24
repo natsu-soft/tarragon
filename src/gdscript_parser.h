@@ -212,11 +212,11 @@ uint32_t gdscript_tokenize(arena_t* arena, token_t** tokens, gdscript_id_t** ids
 
 void gdscript_preprocess(token_t* tokens, gdscript_id_t* ids, uint32_t* num_tokens);
 
-void gdscript_note_token_func(void (*func_ptr)(token_t*));
+void gdscript_note_token_func(void (*func_ptr)(const token_t*, const char* message));
 
-void gdscript_warn_token_func(void (*func_ptr)(token_t*));
+void gdscript_warn_token_func(void (*func_ptr)(const token_t*, const char* message));
 
-void gdscript_error_token_func(void (*func_ptr)(token_t*));
+void gdscript_error_token_func(void (*func_ptr)(const token_t*, const char* message));
 
 
 #endif /* End GDSCRIPT_PARSER_H */
