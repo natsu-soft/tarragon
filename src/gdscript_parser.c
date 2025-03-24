@@ -790,12 +790,12 @@ static void trim_token (token_t* tokens, gdscript_id_t* ids, uint32_t* num_token
 void gdscript_preprocess(token_t* tokens, gdscript_id_t* ids, uint32_t* num_tokens)
 {
 	classify_tokens(tokens, ids, *num_tokens);
-	cull_line_continuations(tokens, ids, num_tokens);
-	printf("cull_line_continuations: %d\n", *num_tokens);
 	coalesce_numbers(tokens, ids, num_tokens);
 	printf("coalesce_numbers: %d\n", *num_tokens);
 	trim_token(tokens, ids, num_tokens, GDSCRIPT_WHITESPACE);
 	printf("trim_whitespace: %d\n", *num_tokens);
+	cull_line_continuations(tokens, ids, num_tokens);
+	printf("cull_line_continuations: %d\n", *num_tokens);
 	leading_whitespace_to_scope(tokens, ids, num_tokens);
 	printf("leading_whitespace_to_scope: %d\n", *num_tokens);
 	trim_token(tokens, ids, num_tokens, GDSCRIPT_LEADING_WHITESPACE);
