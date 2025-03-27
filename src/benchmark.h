@@ -3,13 +3,15 @@
 
 #include <sys/time.h>
 
-#define NANOTIME(FUNC_CALL) \
+#define MICROTIME(BODY) \
 	{ \
-		struct timeval micro_start, micro_stop;	\
+		struct timeval micro_start; \
+		struct timeval micro_stop;	\
 		gettimeofday(&micro_start, NULL); \
-		do {FUNC_CALL} while(0);		  \
+		do {BODY} while(0); \
 		gettimeofday(&micro_stop, NULL); \
-		printf("[NANOTIME] "#FUNC_CALL": %dus\n", micro_stop.tv_usec - micro_start.tv_usec); \
+		unsigned long long delta_ms = 1e6 * (micro_start.tv_sec - micro_stop.tv_sec) + micro_stop.tv_usec - micro_start.tv_usec; \
+		printf("[MICROTIME] "#BODY " %06dus\n", delta_ms);	\
 	}
 
 #endif /* End BENCHMARK_H */
