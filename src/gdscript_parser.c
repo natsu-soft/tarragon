@@ -838,7 +838,6 @@ static void coalesce_numbers(token_t* tokens, gdscript_id_t* ids, uint32_t* num_
 /* 	} */
 /* } */
 
-// TODO: backwards iterate
 static void trim_token (token_t* tokens, gdscript_id_t* ids, uint32_t* num_tokens, const gdscript_id_t trim_token)
 {
 	uint32_t swap = 0;
@@ -850,8 +849,8 @@ static void trim_token (token_t* tokens, gdscript_id_t* ids, uint32_t* num_token
 		gdscript_id_t id = ids[i];
 		if (id != trim_token)
 		{
-			ms_buffer_swap(ids + i, ids + swap, &swap_id, sizeof swap_id);
-			ms_buffer_swap(tokens + i, tokens + swap, &swap_token, sizeof swap_token);
+			ms_buffer_swap(ids + swap, ids + i, &swap_id, sizeof swap_id);
+			ms_buffer_swap(tokens + swap, tokens + i, &swap_token, sizeof swap_token);
 			swap++;
 		}
 	}
@@ -986,7 +985,7 @@ int main(int argc, char** argv)
 	{
 		token_t t = tokens[i];
 		gdscript_id_t id = ids[i];
-		/* printf("%d:%d:(%#06x) %s\n", t.line, t.col, id, t.string); */
+		printf("%d:%d:(%#06x) %s\n", t.line, t.col, id, t.string);
 	}
 	printf("SIZE: %zu\n", arena.cap);
 	printf("GDSCRIPT_EOF: %#06x\n", GDSCRIPT_EOF);
