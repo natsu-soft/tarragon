@@ -76,7 +76,7 @@ void ms_swap(void* a, void* b, const size_t len)
 
 void ms_buffer_swap(void* a, void* b, void* buf, const size_t len)
 {
-	memcpy(buf, a, len);
+	memcpy(buf, b, len);
 	memcpy(b, a, len);
 	memcpy(a, buf, len);
 }
