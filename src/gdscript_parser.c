@@ -520,26 +520,28 @@ void cull_pointless_lines(token_t* tokens, gdscript_id_t* ids, uint32_t* num_tok
 			cull_flag = 0;
 		}
 	}
-	gdscript_id_t swap_id;
-	token_t swap_token = {0};
-	for (int i = 0; i < n - 1; ++i)
+	if (n > 0)
 	{
-		if (ids[i] == GDSCRIPT_LINE_END && ids[i + 1] == GDSCRIPT_LINE_END)
+		uint32_t swap = 0;
+		gdscript_id_t swap_id;
+		token_t swap_token;
+		for (int i = swap + 1; i < n; ++i)
 		{
-			for (int j = i + 2; j < n; ++j)
+			if (ids[swap] != GDSCRIPT_LINE_END || ids[i] != GDSCRIPT_LINE_END)
 			{
-				if(ids[j] != GDSCRIPT_LINE_END)
-				{
-					int k = n - j;
-					memmove(tokens + i + 1, tokens + j, k * sizeof *tokens);
-					memmove(ids + i + 1, ids + j, k * sizeof *ids);
-					n -= j - i - 1;
-					break;
-				}
+				swap++;
+				ms_buffer_swap(ids + swap, ids + i, &swap_id, sizeof swap_id);
+				ms_buffer_swap(tokens + swap, tokens + i, &swap_token, sizeof swap_token);
+				/* memcpy(ids + swap, ids + i, sizeof *ids); */
+				/* memcpy(tokens + swap, tokens + i, sizeof *tokens); */
 			}
 		}
+		*num_tokens = swap + 1;
 	}
-	*num_tokens = n;
+	else
+	{
+		*num_tokens = 0;
+	}
 }
 
 uint32_t gdscript_tokenize(arena_t* arena, token_t** tokens, gdscript_id_t** ids, const char* str, const uint32_t n)
@@ -914,7 +916,7 @@ int main(int argc, char** argv)
 	{
 		token_t t = tokens[i];
 		gdscript_id_t id = ids[i];
-		printf("%d:%d:(%#06x) %s\n", t.line, t.col, id, t.string);
+		/* printf("%d:%d:(%#06x) %s\n", t.line, t.col, id, t.string); */
 	}
 	printf("SIZE: %zu\n", arena.cap);
 	printf("GDSCRIPT_EOF: %#06x\n", GDSCRIPT_EOF);
