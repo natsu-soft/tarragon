@@ -1,6 +1,19 @@
 #ifndef RB_TREE_H
 #define RB_TREE_H
 
+
+/**********************************************************************************
+ * PROPERTIES
+ * 1. every node is either RED or BLACK
+ * 2. all NULL nodes are cosidered BLACK
+ * 3. a RED node does not have a RED child
+ * 4. every path from a given node to any of its NULL descendants goes through
+ *    the same number of BLACK nodes
+ * LEMMA. If a node N has exactly one child, the child must be RED, because
+ * 	if it were BLACK, its NULL descendants would sit at a different black
+ * 	depth than N's NULL child
+ **********************************************************************************/
+
 typedef enum rb_color_t
 {
 	RB_BLACK = 0x00,
