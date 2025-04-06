@@ -916,7 +916,7 @@ int main(int argc, char** argv)
 	{
 		token_t t = tokens[i];
 		gdscript_id_t id = ids[i];
-		printf("%d:%d:(%#06x) %s\n", t.line, t.col, id, t.string);
+		/* printf("%d:%d:(%#06x) %s\n", t.line, t.col, id, t.string); */
 	}
 	printf("SIZE: %zu\n", arena.cap);
 	printf("GDSCRIPT_EOF: %#06x\n", GDSCRIPT_EOF);
