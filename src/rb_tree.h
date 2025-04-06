@@ -2,6 +2,8 @@
 #define RB_TREE_H
 
 
+// https://adtinfo.org/libavl.html/Red_002dBlack-Trees.html#Red_002dBlack-Trees
+
 /**********************************************************************************
  * PROPERTIES
  * 1. every node is either RED or BLACK
@@ -14,6 +16,8 @@
  * 	depth than N's NULL child
  **********************************************************************************/
 
+#include <stddef.h>
+
 typedef enum rb_color_t
 {
 	RB_BLACK = 0x00,
@@ -25,12 +29,12 @@ typedef struct rb_node_t
 	struct rb_node_t* parent;
 	struct rb_node_t* lhs;
 	struct rb_node_t* rhs;
-	void* ptr;
+	int value;
 	rb_color_t color;
 } rb_node_t;
 
-rb_node_t* rbt_insert(rb_node_t* node, void* ptr);
+void rb_insert(rb_node_t** root, rb_node_t* node);
 
-rb_node_t* rbt_remove(rb_node_t* node, void* ptr);
+void rb_remove(rb_node_t** root, rb_node_t* node);
 
 #endif /* End RB_TREE_H */

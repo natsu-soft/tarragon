@@ -19,6 +19,7 @@
 	X(AST_DECL_CLASS, class_decl)
 
 #define AST_NODES \
+	X(AST_ERROR, error) \
 	X(AST_IDEINTIFIER, identifier) \
 	X(AST_FUNC_CALL, func_call) \
 	AST_EXPRESSIONS \
@@ -31,6 +32,10 @@ AST_NODES
 #undef X
 
 typedef union ast_expr_t ast_expr_t;
+
+typedef struct ast_error_t
+{
+} ast_error_t;
 
 typedef struct ast_identifier_t
 {
