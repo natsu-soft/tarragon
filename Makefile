@@ -6,7 +6,12 @@ else
 	RE := grep
 endif
 # CFLAGS := -Wall -Wextra -Wno-incompatible-pointer-types -ggdb -O0
-CFLAGS := -Wall -Wextra -fpermissive -fdiagnostics-show-option -ggdb -Og
+CFLAGS := -Wall -Wextra  -fpermissive -fdiagnostics-show-option -ggdb
+ifeq ($(OS),Windows_NT)
+CFLAGS += -Wno-int-conversion -O0
+else
+CFLAGS += -Og
+endif
 # LDFLAGS := -fuse-ld=lld -flto -ljansson ./libarchive/libarchive/libarchive.a -lz -static
 # LDFLAGS := -fuse-ld=lld -flto -ljansson -larchive -lz -static
 LIBS := -ljansson
@@ -37,6 +42,7 @@ default: gdscript-parser
 
 gdscript-parser: obj/gdscript_parser.o $(OBJ)
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS) $(LDFLAGS)
+
 
 test: gdscript-parser
 	@${CURDIR}/$<

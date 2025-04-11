@@ -105,7 +105,7 @@ typedef union ast_expr_t
 		#define X(ENUM, NAME) ast_##NAME##_t NAME;
 		AST_EXPRESSIONS
 		#undef X
-	} expression;
+	};
 	enum
 	{
 		#define X(ENUM, NAME) ENUM,
