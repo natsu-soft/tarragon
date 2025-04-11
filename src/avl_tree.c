@@ -268,6 +268,10 @@ avl_node_t* avl_find_min_gte(avl_node_t* node, const size_t value)
 
 void avl_relative_ptrs(avl_node_t* node)
 {
+	if (node->parent != NULL)
+	{
+		node->parent = (void*)((size_t)node->parent - (size_t)node);
+	}
 	for (int i = 0; i < 2; ++i)
 	{
 		if (node->child[i] != NULL)
@@ -280,6 +284,10 @@ void avl_relative_ptrs(avl_node_t* node)
 
 void avl_absolute_ptrs(avl_node_t* node)
 {
+	if (node->parent != NULL)
+	{
+		node->parent = (void*)((size_t)node->parent + (size_t)node);
+	}
 	for (int i = 0; i < 2; ++i)
 	{
 		node->child[i] = (void*)((size_t)node->child[i] + (size_t)node);
