@@ -43,13 +43,15 @@ default: gdscript-parser
 gdscript-parser: obj/gdscript_parser.o $(OBJ)
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS) $(LDFLAGS)
 
-
 test: gdscript-parser
 	@${CURDIR}/$<
 
 tarragon: obj/tarragon.o $(OBJ)
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS) $(LDFLAGS)
 	file $@
+
+# avl-tree: obj/avl_tree.o $(OBJ)
+# 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS) $(LDFLAGS)
 
 unit-tests: obj/unit_tests.o $(OBJ)
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS) $(LDFLAGS)
