@@ -1,13 +1,18 @@
 #include "mem_sys.h"
+#include <minwindef.h>
 #include <string.h>
 #include <unistd.h>
 #include <assert.h>
 #include <stdint.h>
+#include <winnt.h>
 #include "error_macros.h"
 
 #ifdef _WIN32
-// TODO: VirtualAlloc support
-// #include <memoryapi.h>
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
+#include <winbase.h>
+#include <handleapi.h>
+#include <memoryapi.h>
 #else
 #include <sys/mman.h>
 // for open()
@@ -15,55 +20,58 @@
 #import <fcntl.h>
 #endif
 
+// TODO: TEST WINDOWS
+
+void* ms_mmap(void* addr, size_t len);
+{
 #ifdef _WIN32
-void* ms_mmap(void* addr, size_t len, int prot, int flags, int fildes, off_t offset)
-{
 	return NULL;
-}
 #else
-void* ms_mmap(void* addr, size_t len, int prot, int flags, int fildes, off_t offset)
-{
-	void* ptr = mmap(addr, len, prot, flags, fildes, offset);
+	void* ptr = mmap(addr, len, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 	assertf(ptr != MAP_FAILED, "mmap() failed!\n");
 	return ptr;
-}
 #endif
+}
 
+int ms_munmap(void* addr, size_t len)
+{
 #ifdef _WIN32
-int ms_munmap(void* addr, size_t len)
-{
-	return 0;
-}
-#else
-int ms_munmap(void* addr, size_t len)
-{
-	return munmap(addr, len);
-}
-#endif
-
-
-void* ms_map_file(char* filename, size_t len, int* out_filedes)
-{
-	#ifdef _WIN32
 	return NULL;
-	#else
+#else
+	return munmap(addr, len);
+#endif
+}
+
+
+void* ms_map_file(char* filename, size_t len, handle_t* out_handle)
+{
+#ifdef _WIN32
+	HANDLE h_file = OpenFileMappingA(FILE_MAP_READ | FILE_MAP_WRITE, FALSE, filename);
+	assertf(h_file != NULL, "OpenFileMapping to file %s failed with error %lu\n", filename, GetLastError());
+	*out_handle = h_file;
+	LPVOID res = MapViewOfFile(h_file, FILE_MAP_READ | FILE_MAP_WRITE, 0x00, 0x00, len);
+	assertf(res != NULL, "MapViewOfFile failed with error %lu\n", GetLastError());
+	return res;
+#else
 	int filedes = open(filename, O_RDWR | O_CREAT | O_APPEND, 0400 | 0200);
 	assertf(filedes != -1, "failed to get fd in ms_map_file().  Check the perms!\n");
 	assertf(ftruncate(filedes, len) != -1, "failed to truncate file %s to desired length: %zu\n", filename, len);
-	*out_filedes = filedes;
-	return ms_mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_SHARED, filedes, 0);
-	#endif
+	*out_handle = filedes;
+	return mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_SHARED, filedes, 0);
+#endif
 }
 
-int ms_munmap_file(void* addr, size_t len, int fd)
+int ms_munmap_file(void* addr, size_t len, handle_t handle)
 {
-	#ifdef _WIN32
-	return 0;
-	#else
+#ifdef _WIN32
+	BOOL res = UnmapViewOfFile(addr);
+	res &= CloseHandle(handle);
+	return 1 - res;
+#else
 	int res = ms_munmap(addr, len);
-	assert(close(fd) == 0);
+	assert(close(handle) == 0);
 	return res;
-	#endif
+#endif
 }
 
 void ms_swap(void* a, void* b, const size_t len)
