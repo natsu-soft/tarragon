@@ -133,6 +133,25 @@ char* fs_join(const char* dir, const char* name)
 	return res;
 }
 
+
+int fs_size(const char* path)
+{
+	FILE* file = fopen(path, "r");
+	if (!file)
+	{
+		fprintf(stderr, "Failed to map file \"%s\"!\n", path);
+		return NULL;
+	}
+	else if ((fseek(file, 0, SEEK_END)) == -1) {
+		fprintf(stderr, "Failed to seek end of file \"%s\"!\n", path);
+		return NULL;
+	}
+	const int size = ftell(file);
+	fseek(file, 0, SEEK_SET);
+	fclose(file);
+	return size;
+}
+
 char* fs_read(const char* path, int* len)
 {
 	*len = -1;
@@ -159,6 +178,7 @@ char* fs_read(const char* path, int* len)
 	fflush(file);
 	fclose(file);
 	return res;
+}
 }
 
 // NOTE: DOES NOT CLOSE STREAM
