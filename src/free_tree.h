@@ -38,4 +38,8 @@ void free_tree_free(free_tree_t* tree, const void* ptr);
 
 void free_tree_free_all(free_tree_t* tree);
 
+void free_tree_serialize(free_tree_t* tree, void* destination);
+
+void free_tree_deserialize(free_tree_t* tree, void* source);
+
 #endif /* End FREE_TREE_H */

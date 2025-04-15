@@ -129,3 +129,45 @@ void free_tree_free_all(free_tree_t* tree)
 	root->value = tree->size;
 	tree->root = root;
 }
+
+
+static void relative(free_tree_t* tree)
+{
+	avl_relative_ptrs(tree->root);
+	tree->root = (void*)((size_t)tree->root - (size_t)tree->memory);
+}
+
+static void absolute(free_tree_t* tree)
+{
+	tree->root = (void*)((size_t)tree->root + (size_t)tree->memory);
+	avl_absolute_ptrs(tree->root);
+}
+
+
+void free_tree_serialize(free_tree_t* tree, void* destination)
+{
+	uint8_t* dest = destination;
+	relative(tree);
+	memcpy(dest , &tree->root, sizeof tree->root);
+	size_t offset = sizeof tree->root;
+	memcpy(dest + offset, &tree->size, sizeof tree->size);
+	offset += sizeof tree->size;
+	memcpy(dest + offset, tree->memory, tree->size);
+	absolute(tree);
+}
+
+void free_tree_deserialize(free_tree_t* tree, void* source)
+{
+	uint8_t* src = source;
+	if (tree->memory != NULL)
+	{
+		free(tree->memory);
+	}
+	memcpy(&tree->root, src, sizeof tree->root);
+	size_t offset = sizeof tree->root;
+	memcpy(&tree->size, src + offset, sizeof tree->size);
+	offset += sizeof tree->size;
+	tree->memory = malloc(tree->size);
+	memcpy(tree->memory, src + offset, tree->size);
+	absolute(tree);
+}
