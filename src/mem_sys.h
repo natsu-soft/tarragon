@@ -4,6 +4,18 @@
 #include <stddef.h>
 #include <stdio.h>
 
+// DOES IT SPARK JOY?
+typedef struct filemap_t
+{
+	void* ptr;
+	size_t len;
+	#if _WIN32
+	void* handle;
+	#else
+	int handle;
+	#endif
+} filemap_t;
+
 #if _WIN32
 typedef void* handle_t;
 #else
@@ -18,6 +30,10 @@ int ms_munmap(void* addr, size_t len);
 void* ms_map_file(char* filename, size_t len, handle_t* out_handle);
 
 int ms_munmap_file(void* addr, size_t len, handle_t handle);
+
+void* ms_map_file2(char* filename, size_t len, filemap_t* out_filemap);
+
+int ms_munmap_file2(filemap_t* filemap);
 
 void ms_swap(void* a, void* b, const size_t len);
 

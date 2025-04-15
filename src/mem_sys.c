@@ -1,28 +1,28 @@
 #include "mem_sys.h"
-#include <minwindef.h>
 #include <string.h>
 #include <unistd.h>
 #include <assert.h>
 #include <stdint.h>
-#include <winnt.h>
 #include "error_macros.h"
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
+// TODO: minimize all this
 #include <Windows.h>
+#include <winnt.h>
+#include <minwindef.h>
 #include <winbase.h>
 #include <handleapi.h>
 #include <memoryapi.h>
 #else
 #include <sys/mman.h>
-// for open()
 #import <sys/stat.h>
 #import <fcntl.h>
 #endif
 
 // TODO: TEST WINDOWS
 
-void* ms_mmap(void* addr, size_t len);
+void* ms_mmap(void* addr, size_t len)
 {
 #ifdef _WIN32
 	return NULL;
@@ -68,11 +68,42 @@ int ms_munmap_file(void* addr, size_t len, handle_t handle)
 	res &= CloseHandle(handle);
 	return 1 - res;
 #else
-	int res = ms_munmap(addr, len);
+	int res = munmap(addr, len);
 	assert(close(handle) == 0);
 	return res;
 #endif
 }
+
+// DOES IT SPARK JOY?
+void* ms_map_file2(char* filename, size_t len, filemap_t* out_filemap)
+{
+#ifdef _WIN32
+#else
+	int filedes = open(filename, O_RDWR | O_CREAT | O_APPEND, 0400 | 0200);
+	assertf(filedes != -1, "failed to get fd in ms_map_file().  Check the perms!\n");
+	assertf(ftruncate(filedes, len) != -1, "failed to truncate file %s to desired length: %zu\n", filename, len);
+	void* res = mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_SHARED, filedes, 0);
+	out_filemap->ptr = res;
+	out_filemap->len = len;
+	out_filemap->handle = filedes;
+	return res;
+#endif
+}
+
+// DOES IT SPARK JOY?
+int ms_munmap_file2(filemap_t* filemap)
+{
+#ifdef _WIN32
+	BOOL res = UnmapViewOfFile(filemap->ptr);
+	res &= CloseHandle(filemap->handle);
+	return 1 - res;
+#else
+	int res = munmap(filemap->ptr, filemap->len);
+	close(filemap->handle);
+	return res;
+#endif
+}
+
 
 void ms_swap(void* a, void* b, const size_t len)
 {
