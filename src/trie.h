@@ -25,8 +25,6 @@ typedef struct trie_edge_t
 /* } __attribute__((packed))trie_edge_t; */ // NOTE: reduces size by 7 bytes but FUCKS alignment
 
 
-// TODO: custom mallocs & frees
-
 void trie_add_token(trie_t* node, char* str, void* token);
 
 void* trie_get_token(trie_t* node, char* str);
