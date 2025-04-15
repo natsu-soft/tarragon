@@ -179,7 +179,6 @@ char* fs_read(const char* path, int* len)
 	fclose(file);
 	return res;
 }
-}
 
 // NOTE: DOES NOT CLOSE STREAM
 char* fs_read_stream(FILE* fp, int* str_len)
