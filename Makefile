@@ -6,12 +6,12 @@ else
 	RE := grep
 endif
 # CFLAGS := -Wall -Wextra -Wno-incompatible-pointer-types -ggdb -O0
-CFLAGS := -Wall -Wextra  -fpermissive -fdiagnostics-show-option -ggdb
-ifeq ($(OS),Windows_NT)
-CFLAGS += -Wno-int-conversion -O0
-else
-CFLAGS += -Og
-endif
+CFLAGS := -Wall -Wextra -Wno-int-conversion -fpermissive -fdiagnostics-show-option -ggdb -O0
+# ifeq ($(OS),Windows_NT)
+# CFLAGS += -Wno-int-conversion -O0
+# else
+# CFLAGS += -Og
+# endif
 # LDFLAGS := -fuse-ld=lld -flto -ljansson ./libarchive/libarchive/libarchive.a -lz -static
 # LDFLAGS := -fuse-ld=lld -flto -ljansson -larchive -lz -static
 LIBS := -ljansson
@@ -38,20 +38,17 @@ OBJ += $(HEX_OBJS) $(JSON_OBJS)
 
 .PHONY: default dependencies clean clean-dep clean-emacs clean-api clean-all dep_dir obj_dirs lsp-test jansson-test test test2
 
-default: gdscript-parser
+default: unit-tests
 
 gdscript-parser: obj/gdscript_parser.o $(OBJ)
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS) $(LDFLAGS)
 
-test: gdscript-parser
+test: unit-tests
 	@${CURDIR}/$<
 
 tarragon: obj/tarragon.o $(OBJ)
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS) $(LDFLAGS)
 	file $@
-
-# avl-tree: obj/avl_tree.o $(OBJ)
-# 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS) $(LDFLAGS)
 
 unit-tests: obj/unit_tests.o $(OBJ)
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS) $(LDFLAGS)

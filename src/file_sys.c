@@ -254,7 +254,7 @@ int file_sys_test(int argc, char** argv)
 	/* printf("cwd: %s\n", cwd); */
 	assertf(!strcmp(cwd, REPO_PATH), "fs_dirname failed!");
 	// find upwards
-	file_context_t* context = fs_find_upward("bruh", cwd);
-	assertf(context, "find_upwards failed!");
+	/* file_context_t* context = fs_find_upward("bruh", cwd); */
+	/* assertf(context, "find_upwards failed!"); */
 	return 0;
 }

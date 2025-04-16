@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "error_macros.h"
+#include "pointer_memes.h"
 
 typedef enum __attribute__((packed)) dir_t
 {
@@ -90,6 +91,8 @@ static void insert(avl_node_t* node, avl_node_t* new_node)
 		child = &node->child[dir];
 	}
 	new_node->parent = node;
+	/* new_node->left = NULL; */
+	/* new_node->right = NULL; */
 	*child = new_node;
 }
 
@@ -220,6 +223,7 @@ void avl_insert(avl_node_t** root, avl_node_t* node)
 {
 	if (*root != NULL)
 	{
+		/* printf("inserting addr: %x\n", (size_t)node % sizeof(size_t)); */
 		insert(*root, node);
 		avl_node_t* parent = node->parent;
 		update_depth(parent);
@@ -245,6 +249,10 @@ void avl_remove(avl_node_t** root, avl_node_t* node)
 
 avl_node_t* avl_find_min_gte(avl_node_t* node, const size_t value)
 {
+	if (node == NULL)
+	{
+		return NULL;
+	}
 	avl_node_t* res = node->value >= value ? node : NULL;
 	while (node != NULL)
 	{
@@ -270,15 +278,18 @@ void avl_relative_ptrs(avl_node_t* node)
 {
 	if (node->parent != NULL)
 	{
-		node->parent = (void*)((size_t)node->parent - (size_t)node);
+		point_relative(&node->parent);
 	}
+	/* else{ */
+	/* 	node->parent = 0x00; */
+	/* } */
 	for (int i = 0; i < 2; ++i)
 	{
 		if (node->child[i] != NULL)
 		{
 			avl_relative_ptrs(node->child[i]);
+			point_relative(&node->child[i]);
 		}
-		node->child[i] = (void*)((size_t)node->child[i] - (size_t)node);
 	}
 }
 
@@ -286,22 +297,37 @@ void avl_absolute_ptrs(avl_node_t* node)
 {
 	if (node->parent != NULL)
 	{
-		node->parent = (void*)((size_t)node->parent + (size_t)node);
+		point_absolute(&node->parent);
 	}
 	for (int i = 0; i < 2; ++i)
 	{
-		node->child[i] = (void*)((size_t)node->child[i] + (size_t)node);
 		if (node->child[i] != NULL)
 		{
+			/* printf("RELATIVE node->child[i]: %zu\n", (size_t)node->child[i]); */
+			point_absolute(&node->child[i]);
+			/* printf("ABSOLUTE node->child[i]: %zu\n", (size_t)node->child[i]); */
 			avl_absolute_ptrs(node->child[i]);
 		}
 	}
 }
 
-/* #define STANDALONE_AVL_TREE_C */
-#ifdef STANDALONE_AVL_TREE_C
+size_t avl_value_sum(avl_node_t* node)
+{
+	size_t cum = node->value;
+	for (int i = 0; i < 2; ++i)
+	{
+		if (node->child[i] != NULL)
+		{
+			cum += avl_value_sum(node->child[i]);
+		}
+	}
+	return cum;
+}
 
-int main(int argc, char** argv)
+
+/* #define STANDALONE_AVL_TREE_C */
+
+int avl_tree_test(int argc, char** argv)
 {
 	#define NUM 10000
 	avl_node_t* nodes = alloca(NUM * sizeof *nodes);
@@ -316,10 +342,10 @@ int main(int argc, char** argv)
 		const int r_balance = balance(root);
 		assertf(-2 < r_balance && r_balance < 2, "ur fukt: %d", i);
 	}
-	printf("insertion: OK!\n");
+	/* printf("insertion: OK!\n"); */
 	avl_relative_ptrs(root);
 	avl_absolute_ptrs(root);
-	printf("ptrs: OK!\n");
+	/* printf("ptrs: OK!\n"); */
 	for (int i = 0; i < NUM - 1; ++i)
 	{
 		/* printf("\n===================== i: %d =====================\n\n", i); */
@@ -330,8 +356,8 @@ int main(int argc, char** argv)
 	}
 	avl_remove(&root, nodes + NUM - 1);
 	assert(root == NULL);
-	printf("removal: OK!\n");
+	/* printf("removal: OK!\n"); */
 	return 0;
 }
 
-#endif
+/* #endif */

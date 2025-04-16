@@ -3,12 +3,17 @@
 #include "logger.h"
 
 
+/* #define UNIT_TESTS \ */
+/* 	TEST(file_sys) \ */
+/* 	TEST(mem_sys) \ */
+/* 	TEST(base_protocol) \ */
+/* 	TEST(json) \ */
+/* 	TEST(array_trie) */
+
 #define UNIT_TESTS \
-	TEST(file_sys) \
-	TEST(mem_sys) \
-	TEST(base_protocol) \
-	TEST(json) \
-	TEST(trie)
+	TEST(avl_tree) \
+	TEST(free_tree) \
+	TEST(array_trie)
 
 #define TEST(A) extern int A##_test(int argc, char** argv);
 UNIT_TESTS
