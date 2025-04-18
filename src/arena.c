@@ -59,3 +59,10 @@ void arena_free(arena_t* arena, size_t bytes)
 		arena->size -= bytes;
 	}
 }
+
+void* arena_pop(arena_t* arena, size_t bytes)
+{
+	assert((int32_t)arena->size - (int32_t)bytes >= 0);
+	arena->size -= bytes;
+	return arena->memory + arena->size;
+}

@@ -14,4 +14,5 @@
 		printf("[MICROTIME] "#BODY " %06dus\n", delta_ms);	\
 	}
 
+
 #endif /* End BENCHMARK_H */

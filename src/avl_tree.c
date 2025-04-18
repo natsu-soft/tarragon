@@ -5,6 +5,7 @@
 #include <string.h>
 #include "error_macros.h"
 #include "pointer_memes.h"
+#include "arena.h"
 
 typedef enum __attribute__((packed)) dir_t
 {
@@ -13,34 +14,31 @@ typedef enum __attribute__((packed)) dir_t
 } dir_t;
 
 
-static void struggle_print(avl_node_t* node, const int depth)
+void avl_print(avl_node_t* node, const unsigned int depth)
 {
-	uint8_t flags = node->left ? 0x01 : 0x00;
-	flags |= node->right ? 0x02 : 0x00;
-	if (node->right)
+	if (node != NULL)
 	{
-		struggle_print(node->right, depth + 1);
-	}
-	for (int i = 0; i < depth; ++i)
-	{
-		printf("    ");
-	}
-	switch (flags)
-	{
-	case 0x03: printf("%4zu───┤\n", node->value); break;
-	case 0x02: printf("%4zu───┘\n", node->value); break;
-	case 0x01: printf("%4zu───┐\n", node->value); break;
-	case 0x00: printf("%4zu\n", node->value); break;
-	}
-	if (node->left)
-	{
-		struggle_print(node->left, depth + 1);
+		uint8_t flags = node->left ? 0x01 : 0x00;
+		flags |= node->right ? 0x02 : 0x00;
+		avl_print(node->right, depth + 1);
+		for (int i = 0; i < depth; ++i)
+		{
+			printf("    ");
+		}
+		switch (flags)
+		{
+		case 0x03: printf("%4zu───┤\n", node->value); break;
+		case 0x02: printf("%4zu───┘\n", node->value); break;
+		case 0x01: printf("%4zu───┐\n", node->value); break;
+		case 0x00: printf("%4zu\n", node->value); break;
+		}
+		avl_print(node->left, depth + 1);
 	}
 }
 
 static inline int balance(avl_node_t* node)
 {
-	return (node->right != NULL ? node->right->depth : 0) - (node->left != NULL ? node->left->depth : 0);
+	return (node->right != NULL ? 1 + node->right->depth : 0) - (node->left != NULL ? 1 + node->left->depth : 0);
 }
 
 static void update_depth(avl_node_t* node)
@@ -188,18 +186,23 @@ static void retrace(avl_node_t** root, avl_node_t* node)
 	for (/* :^) */; node != NULL; node = node->parent)
 	{
 		const int n_balance = balance(node);
+		/* printf("node_balance: %d\n", n_balance); */
 		flags &= ROTATED;
 		flags |= n_balance > 1 ? RIGHT_HEAVY : NONE;
 		flags |= n_balance < -1 ? LEFT_HEAVY : NONE;
+		/* printf("flags: %x\n", flags); */
 		const dir_t dir = n_balance > 0 ? RIGHT : LEFT;
 		if (flags & QUEUE_ROTATE)
 		{
+			/* printf("\n\nPRE-ROTATE\n"); */
+			/* struggle_print(*root, 0); */
 			avl_node_t* child = node->child[dir];
 			const int c_balance = balance(child);
 			if (n_balance * c_balance < 0)
 			{
 				/* if (verbose) printf(">> R0T %s\n", dir == RIGHT ? "RIGHT" : "LEFT"); */
 				rotate(&child, dir);
+				/* printf("%s-", dir ? "RIGHT" : "LEFT"); */
 			}
 			/* if (verbose) printf("> ROT %s\n", 1 - dir == RIGHT ? "RIGHT" : "LEFT"); */
 			/* if (verbose && node->parent == NULL && node != *root) */
@@ -207,11 +210,22 @@ static void retrace(avl_node_t** root, avl_node_t* node)
 			/* 	printf("HOLY SHIT UR FUKT"); */
 			/* } */
 			rotate(&node, 1 - dir);
+			/* printf("%s ROTATION\n", 1 - dir ? "RIGHT" : "LEFT"); */
 			flags |= ROTATED;
+			/* printf("\n\nPOST-ROTATE\n"); */
+			/* struggle_print(*root, 0); */
 		}
 		n0 = node;
 	}
 	*root = n0;
+	/* if (flags & ROTATED) */
+	/* { */
+	/* 	printf("\nROTATED\n"); */
+	/* 	avl_relative_ptrs(*root); */
+	/* 	point_relative(root); */
+	/* 	point_absolute(root); */
+	/* 	avl_absolute_ptrs(*root); */
+	/* } */
 	/* if (verbose && flags & ROTATED) */
 	/* { */
 	/* 	printf("\n"); */
@@ -226,9 +240,9 @@ void avl_insert(avl_node_t** root, avl_node_t* node)
 		/* printf("inserting addr: %x\n", (size_t)node % sizeof(size_t)); */
 		insert(*root, node);
 		avl_node_t* parent = node->parent;
-		update_depth(parent);
-		/* struggle_print(*root, 0); */
+		update_depth(node);
 		retrace(root, parent->parent);
+		/* struggle_print(*root, 0); */
 	}
 	else
 	{
@@ -253,15 +267,15 @@ avl_node_t* avl_find_min_gte(avl_node_t* node, const size_t value)
 	{
 		return NULL;
 	}
-	avl_node_t* res = node->value >= value ? node : NULL;
+	avl_node_t* res = NULL;
 	while (node != NULL)
 	{
-		const size_t v = node->value;
-		if (v == value)
+		const size_t node_val = node->value;
+		if (node_val == value)
 		{
 			return node;
 		}
-		else if (v > value)
+		else if (node_val > value)
 		{
 			res = node;
 			node = node->left;
@@ -276,37 +290,105 @@ avl_node_t* avl_find_min_gte(avl_node_t* node, const size_t value)
 
 void avl_relative_ptrs(avl_node_t* node)
 {
-	if (node->parent != NULL)
-	{
-		point_relative(&node->parent);
-	}
-	/* else{ */
-	/* 	node->parent = 0x00; */
-	/* } */
+	const size_t debug_depth  = node->depth;
+	/* printf("%#zx: ", node); */
+	/* fflush(stdout); */
+	/* printf("%+#10zx %+#10zx %+#10zx\n", node->left, node->right, node->parent); */
 	for (int i = 0; i < 2; ++i)
 	{
 		if (node->child[i] != NULL)
 		{
+			/* const size_t child_addr = (size_t)(node->child[i]); */
+			/* const size_t child_alt = child_addr - (size_t)&node->child[i]; */
+			/* const size_t child_mod = child_addr % (sizeof *node); */
 			avl_relative_ptrs(node->child[i]);
 			point_relative(&node->child[i]);
 		}
+	}
+	if (node->parent)
+	{
+		/* const size_t parent_addr = (size_t)(node->parent); */
+		/* const size_t parent_mod = parent_addr & (sizeof(size_t) - 1); */
+		/* const size_t abs_parent = (size_t) node->parent; */
+		point_relative(&node->parent);
+		/* const size_t rel_parent = (size_t) node->parent; */
 	}
 }
 
 void avl_absolute_ptrs(avl_node_t* node)
 {
-	if (node->parent != NULL)
-	{
-		point_absolute(&node->parent);
-	}
+	/* const size_t debug_depth  = node->depth; */
 	for (int i = 0; i < 2; ++i)
 	{
 		if (node->child[i] != NULL)
 		{
-			/* printf("RELATIVE node->child[i]: %zu\n", (size_t)node->child[i]); */
 			point_absolute(&node->child[i]);
-			/* printf("ABSOLUTE node->child[i]: %zu\n", (size_t)node->child[i]); */
 			avl_absolute_ptrs(node->child[i]);
+		}
+	}
+	if (node->parent)
+	{
+		point_absolute(&node->parent);
+	}
+}
+
+// lmao these dont work
+void avl_relative_ptrs_stack(avl_node_t* node)
+{
+	const size_t size = sizeof(avl_node_t*);
+	const size_t max_size = (node->depth + 1) * size;
+	arena_t stack =
+	{
+		.cap = max_size,
+		.memory = alloca(max_size),
+		.size = size
+	};
+	memcpy(stack.memory, &node, size);
+	for (avl_node_t** top = arena_pop(&stack, size); stack.size > 0; top = arena_pop(&stack, size))
+	{
+		node = *top;
+		if (node->parent != NULL)
+		{
+			point_relative(&node->parent);
+		}
+		for (int i = 0; i < 2; ++i)
+		{
+			if (node->child[i] != NULL)
+			{
+				top = arena_alloc(&stack, size);
+				memcpy(top, node->child[i], size);
+				point_relative(&node->child[i]);
+			}
+		}
+	}
+}
+
+void avl_absolute_ptrs_stack(avl_node_t* node)
+{
+	const size_t size = sizeof(avl_node_t*);
+	const size_t max_size = (node->depth + 1) * size;
+	arena_t stack =
+	{
+		.cap = max_size,
+		.memory = alloca(max_size),
+		.size = size
+	};
+	memcpy(stack.memory, &node, size);
+	for (avl_node_t** top = arena_pop(&stack, size); stack.size > 0; top = arena_pop(&stack, size))
+	{
+		node = *top;
+		if (node->parent != NULL)
+		{
+			point_absolute(&node->parent);
+		}
+		for (int i = 0; i < 2; ++i)
+		{
+			if (node->child[i] != NULL)
+			{
+				point_absolute(&node->child[i]);
+				top = arena_alloc(&stack, size);
+				memcpy(top, node->child[i], size);
+			}
 		}
 	}
 }
@@ -329,34 +411,56 @@ size_t avl_value_sum(avl_node_t* node)
 
 int avl_tree_test(int argc, char** argv)
 {
-	#define NUM 10000
-	avl_node_t* nodes = alloca(NUM * sizeof *nodes);
+	#define NUM 9999
+	avl_node_t* nodes = malloc(NUM * sizeof *nodes);
+	avl_node_t* other_nodes = malloc(NUM * sizeof *nodes);
+	/* printf("%d, %d\n", (size_t)nodes & (sizeof(size_t) - 1), (size_t)other_nodes & (sizeof(size_t) - 1)); */
+	/* printf("alloca: [%#zx, %#zx)\n", (size_t)nodes, (size_t)nodes + NUM * sizeof *nodes); */
 	memset(nodes, 0x00, NUM * sizeof *nodes);
+	printf("  -- insertion:");
 	avl_node_t* root = NULL;
 	for (int i = 0; i < NUM; ++i)
 	{
-		/* printf("\n===================== i: %d =====================\n\n", i); */
 		nodes[i].value = i;
 		avl_insert(&root, nodes + i);
+		/* printf("\n===================== i: %d =====================\n\n", i); */
 		/* struggle_print(root, 0); */
 		const int r_balance = balance(root);
 		assertf(-2 < r_balance && r_balance < 2, "ur fukt: %d", i);
 	}
-	/* printf("insertion: OK!\n"); */
+	printf(" GOOD!\n");
+	printf("  -- translation:");
 	avl_relative_ptrs(root);
+	point_relative_offset(&root, nodes - 1);
+	memcpy(other_nodes, nodes, NUM * sizeof *nodes);
+	free(nodes); // HIT ME WITH THE SEGFAULT
+	nodes = NULL;
+	point_absolute_offset(&root, other_nodes - 1);
 	avl_absolute_ptrs(root);
+	printf(" GOOD!\n");
+	/* printf("  -- stress relative to absolute: "); */
+	/* for (int i = 0; i < 999; ++i) */
+	/* { */
+	/* 	avl_relative_ptrs(root); */
+	/* 	point_relative_offset(&root, other_nodes - 1); */
+	/* 	point_absolute_offset(&root, other_nodes - 1); */
+	/* 	avl_absolute_ptrs(root); */
+	/* } */
+	/* printf(" GOOD!\n"); */
+	printf("  -- removal:");
 	/* printf("ptrs: OK!\n"); */
 	for (int i = 0; i < NUM - 1; ++i)
 	{
+		avl_remove(&root, other_nodes + i);
 		/* printf("\n===================== i: %d =====================\n\n", i); */
-		avl_remove(&root, nodes + i);
 		/* struggle_print(root, 0); */
 		const int r_balance = balance(root);
 		assertf(-2 < r_balance && r_balance < 2, "ur fukt2: %d", i);
 	}
-	avl_remove(&root, nodes + NUM - 1);
+	avl_remove(&root, other_nodes + NUM - 1);
 	assert(root == NULL);
-	/* printf("removal: OK!\n"); */
+	free(other_nodes);
+	printf(" GOOD!\n");
 	return 0;
 }
 

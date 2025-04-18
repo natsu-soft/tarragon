@@ -9,8 +9,88 @@
 #include "mem_sys.h"
 #include "pointer_memes.h"
 
-#define ARENA_RESIZE_OVERHEAD 2048
+#define RESIZE_SCALE 1.618
+#define RESIZE_OVERHEAD 4096
 
+static void trie_traverse_relative(trie_node_t* node)
+{
+	for (int i = 0; i < node->num_edges; ++i)
+	{
+		const trie_edge_t* edge = node->edges + i;
+		const char c = edge->c;
+		if (c != '\0')
+		{
+			trie_traverse_relative(edge->token);
+			point_relative_offset(&edge->token, node);
+		}
+		else
+		{
+			// TODO
+		}
+	}
+	point_relative(&node->edges);
+}
+
+static void trie_traverse_absolute(trie_node_t* node)
+{
+	point_absolute(&node->edges);
+	for (int i = 0; i < node->num_edges; ++i)
+	{
+		const trie_edge_t* edge = node->edges + i;
+		const char c = edge->c;
+		if (c != '\0')
+		{
+			point_absolute_offset(&edge->token, node);
+			trie_traverse_absolute(edge->token);
+		}
+		else
+		{
+			// TODO
+		}
+	}
+}
+
+static void trie_relative_ptrs(trie_t* trie)
+{
+	trie_traverse_relative(trie->root);
+	point_relative_offset(&trie->root, trie->support->memory);
+}
+
+static void trie_absolute_ptrs(trie_t* trie)
+{
+	point_absolute_offset(&trie->root, trie->support->memory);
+	trie_traverse_absolute(trie->root);
+}
+
+static void* trie_alloc(trie_t* trie, const size_t size, void** work_ptr)
+{
+	free_tree_t* free_tree = trie->support;
+	void* res = free_tree_alloc(free_tree, size);
+	uint8_t work_flag = work_ptr != NULL;
+	if (res == NULL)
+	{
+		/* printf(">> RESIZING!!!\n"); */
+
+		trie_relative_ptrs(trie);
+		if (work_flag)
+		{
+			point_relative_offset(work_ptr, free_tree->memory);
+		}
+		do
+		{
+			free_tree_grow(free_tree, RESIZE_SCALE * free_tree->size + RESIZE_OVERHEAD);
+			res = free_tree_alloc(free_tree, size);
+		}
+		while (res == NULL);
+		/* printf(">> POST-RESIZE RELATIVE ROOT: %zu\n", (size_t)trie->root); */
+		trie_absolute_ptrs(trie);
+		if (work_flag)
+		{
+			point_absolute_offset(work_ptr, free_tree->memory);
+		}
+	}
+	return res;
+}
 
 void trie_add_token(trie_t* trie, char* str, void* token)
 {
@@ -21,17 +101,22 @@ void trie_add_token(trie_t* trie, char* str, void* token)
 		return;
 	}
 	free_tree_t* free_tree = trie->support;
-	if (trie->root == NULL)
-	{
-		trie->root = free_tree_alloc(free_tree, sizeof *trie->root);
-		memset(trie->root, 0x00, sizeof *trie->root);
-		printf("WHAT: %ld\n", (size_t)trie->root - (size_t)free_tree->memory);
-	}
 	trie_node_t* node = trie->root;
+	const size_t node_size = sizeof *node;
+	if (node == NULL)
+	{
+		trie->root = trie_alloc(trie, node_size, NULL);
+		node = trie->root;
+		memset(trie->root, 0x00, node_size);
+		/* printf("\n>> INITIAL RELATIVE ROOT: %ld\n", (size_t)trie->root - (size_t)free_tree->memory); */
+	}
+	const size_t edge_size = sizeof *node->edges;
 	for (int i = 0; i < strlen(str) + 1; ++i)
 	{
 		const char c = str[i];
-		for (int j = 0; j < node->num_edges; ++j)
+		/* printf("c: %c\n", c); */
+		const int n = node->num_edges;
+		for (int j = 0; j < n; ++j)
 		{
 			const trie_edge_t* edge = node->edges + j;
 			if (c == edge->c)
@@ -40,15 +125,22 @@ void trie_add_token(trie_t* trie, char* str, void* token)
 				goto next_char;
 			}
 		}
-		const int n = node->num_edges;
-		node->edges = free_tree_realloc(free_tree, node->edges, (n + 1) * sizeof *node->edges);
-		node->num_edges++;
-		trie_edge_t* edge = node->edges + n;
-		edge->c = c;
+		trie_edge_t* edge = trie_alloc(trie, (n + 1) * edge_size, &node);
+		if (n > 0)
+		{
+			memcpy(edge, node->edges, n * node_size); // if this segfaults im SCREAMING
+			free_tree_free(free_tree, node->edges);
+		}
+		node->num_edges = n + 1;
+		node->edges = edge;
+		edge = edge + n;
+		edge->c = '\0'; // stops invalid traversal in below trie_alloc()
 		if (c != '\0')
 		{
-			node = free_tree_alloc(free_tree, sizeof *node);
-			memset(node, 0x00, sizeof *node);
+			const char c0 = c0;
+			node = trie_alloc(trie, node_size, &edge);
+			edge->c = c;
+			memset(node, 0x00, node_size);
 			edge->token = node;
 		}
 		else
@@ -98,6 +190,7 @@ uint8_t trie_remove_token(trie_t* trie, char* str)
 	assert(trie);
 	assert(trie->root);
 	trie_node_t* node = trie->root;
+	free_tree_t* free_tree = trie->support;
 	for (int i = 0; i < strlen(str) + 1; ++i)
 	{
 		const char c = str[i];
@@ -114,11 +207,9 @@ uint8_t trie_remove_token(trie_t* trie, char* str)
 				else
 				{
 					const int n = node->num_edges;
-					trie_edge_t* temp = alloca((n - 1) * sizeof *edge);
-					memcpy(temp, node->edges, j * sizeof *edge);
-					memcpy(temp + j, node->edges + j + 1, (n - j -1) * sizeof *edge);
-					node->edges = free_tree_realloc(trie->support, node->edges, (n - 1) * sizeof *edge);
-					memcpy(node->edges, temp, (n - 1) * sizeof *edge);
+					const size_t edge_size = sizeof *edge;
+					memmove(node->edges + j, node->edges + j + 1, (n - j -1) * edge_size);
+					node->edges = free_tree_dealloc(free_tree, node->edges, edge_size);
 					node->num_edges--;
 					return 1;
 				}
@@ -181,7 +272,7 @@ void subtrie_leaf_strings(const trie_node_t* node, const char* prefix, const uin
 					temp = (void*)((size_t)temp - (size_t)str_arena->memory);
 					memcpy(str_arena->memory + i, temp, sizeof(char*));
 				}
-				str_arena->memory = realloc(str_arena->memory, str_arena->cap + char_arena->size + n + ARENA_RESIZE_OVERHEAD);
+				str_arena->memory = realloc(str_arena->memory, str_arena->cap + char_arena->size + n + RESIZE_OVERHEAD);
 				for (size_t i = 0; i < str_arena->size; i += sizeof(char*))
 				{
 					char* temp = str_arena->memory + i;
@@ -189,7 +280,7 @@ void subtrie_leaf_strings(const trie_node_t* node, const char* prefix, const uin
 					memcpy(str_arena->memory + i, temp, sizeof(char*));
 				}
 				char_arena->memory = str_arena->memory + char_offset;
-				char_arena->cap = char_arena->size + n + ARENA_RESIZE_OVERHEAD;
+				char_arena->cap = char_arena->size + n + RESIZE_OVERHEAD;
 			}
 			char* leaf_str = arena_alloc(char_arena, n);
 			memcpy(leaf_str, str, n);
@@ -238,8 +329,7 @@ char** trie_candidates(const trie_t* trie, arena_t* arena, const char* prefix, u
 	const size_t arena_size = n * (sizeof(char*) + prefix_len + 16);
 	if (arena->cap < arena_size)
 	{
-		free(arena->memory);
-		arena->memory = malloc(arena_size + ARENA_RESIZE_OVERHEAD);
+		arena->memory = realloc(arena->memory, arena_size + RESIZE_OVERHEAD);
 	}
 	arena->size = 0;
 	arena_t str_arena =
@@ -256,69 +346,18 @@ char** trie_candidates(const trie_t* trie, arena_t* arena, const char* prefix, u
 	return (char**)str_arena.memory;
 }
 
-static void relative_ptrs(trie_node_t* node, const void* base)
-{
-	for (int i = 0; i < node->num_edges; ++i)
-	{
-		trie_edge_t* edge = node->edges + i;
-		if (edge->c != '\0')
-		{
-			relative_ptrs(edge->token, base);
-		}
-		if (edge->token != NULL)
-		{
-			point_relative(&edge->token);
-		}
-		/* edge->token = (void*)((size_t)edge->token - (size_t)&edge->token); */
-	}
-	point_relative(&node->edges);
-	/* node->edges = (void*)((size_t)node->edges - (size_t)&node->edges); */
-}
-
-static void absolute_ptrs(trie_node_t* node, const void* base)
-{
-	/* assertf(node != NULL, "B R U H"); */
-	point_absolute(&node->edges);
-	/* printf("num_edges: %d\n", node->num_edges); */
-	/* node->edges = (void*)((size_t)node->edges + (size_t)&node->edges); */
-	for (int i = 0; i < node->num_edges; ++i)
-	{
-		trie_edge_t* edge = node->edges + i;
-		if (edge->token != NULL)
-		{
-			point_absolute(&edge->token);
-		}
-		/* edge->token = (void*)((size_t)edge->token + (size_t)&edge->token); */
-		if (edge->c != '\0')
-		{
-			absolute_ptrs(edge->token, base);
-		}
-	}
-}
-
 void trie_serialize(trie_t* trie, char* filename)
 {
 	assert(trie);
-	printf("edges0: %zu\n", trie->root->num_edges);
-	free_tree_t* support = trie->support;
-	const size_t len = sizeof trie->root + sizeof support->root + sizeof support->size + support->size;
-	relative_ptrs(trie->root, support->memory);
-	printf("absolute trie root0: %zu\n", (size_t)trie->root);
-	/* point_relative_to(&trie->root, trie->support->memory); */
-	point_relative_to(&trie->root, support->memory);
-	printf("support0: %zu\n", (size_t)support->memory);
-	printf("relative trie root0: %ld\n", (int64_t)trie->root);
+	free_tree_t* free_tree = trie->support;
+	const size_t len = sizeof trie->root + sizeof free_tree->root + sizeof free_tree->size + free_tree->size;
+	trie_relative_ptrs(trie);
 	filemap_t filemap = {0};
 	uint8_t* map = ms_map_file2(filename, len, &filemap);
 	memcpy(map, &trie->root, sizeof trie->root);
-	free_tree_serialize(trie->support, map + sizeof trie->root);
+	free_tree_serialize(free_tree, map + sizeof trie->root);
 	ms_munmap_file2(&filemap);
-	point_absolute_to(&trie->root, trie->support->memory);
-	/* memcpy(trie->root, temp, sizeof *trie->root); */
-	printf("edges1: %zu\n", trie->root->num_edges);
-	absolute_ptrs(trie->root, trie->support->memory);
-	printf("absolute trie root1: %zu\n", (size_t)trie->root);
-	/* printf("util0: %f%%\n", 100.0f * free_tree_utilization(trie->memory)); */
+	trie_absolute_ptrs(trie);
 }
 
 void trie_deserialize(trie_t* trie, char* filename)
@@ -328,21 +367,13 @@ void trie_deserialize(trie_t* trie, char* filename)
 	trie->support = malloc(sizeof *trie->support);
 	memset(trie->support, 0x00, sizeof *trie->support);
 	const size_t len = fs_size(filename);
-	/* free_tree_init(trie->memory, len - sizeof trie->root); */
 	filemap_t filemap = {0};
 	uint8_t* map = ms_map_file2(filename, len, &filemap);
 	memcpy(&trie->root, map, sizeof trie->root);
 	free_tree_deserialize(trie->support, map + sizeof trie->root);
-	free_tree_t* support = trie->support;
-	printf("support1: %zu\n", (size_t)support->memory);
-	/* free_tree_t* support = trie->support; */
-	printf("relative trie root1: %ld\n", (int64_t)trie->root);
+	const free_tree_t* free_tree = trie->support;
 	ms_munmap_file2(&filemap);
-	point_absolute_to(&trie->root, trie->support->memory);
-	printf("absolute trie root2: %zu\n", (size_t)trie->root);
-	/* printf("lmao: %zx\n", (int32_t)trie->root->edges); */
-	printf("edges2: %zu\n", trie->root->num_edges);
-	absolute_ptrs(trie->root, trie->support->memory);
+	trie_absolute_ptrs(trie);
 }
 
 static void dump_dot(FILE* dest, trie_node_t* node, uint32_t* id)
@@ -374,31 +405,34 @@ void trie_dump_dot(FILE* dest, trie_t* trie, const char* root_label)
 
 int array_trie_test(int argc, char** argv)
 {
-	printf("testing trie behavior\n");
+	/* printf("testing trie behavior\n"); */
 	/* printf("sizeof(trie_t): %lu\nsizeof(trie_node_t): %lu\nsizeof(trie_edge_t): %lu\n", sizeof(trie_t), sizeof(trie_node_t), sizeof(trie_edge_t)); */
 	FILE* fp = fopen("test_stuff/fruits.txt", "r");
 	free_tree_t free_tree = {};
-	free_tree_init(&free_tree, 1024);
+	free_tree_init(&free_tree, 4096);
 	trie_t fruit_trie =
 	{
 		.support = &free_tree
 	};
 	size_t lmao = 69;
 	char fruit[lmao];
+	printf("  -- insertion: ");
 	while (fs_getline(fruit, lmao, fp) > 0)
 	{
 		trie_add_token(&fruit_trie, fruit, NULL);
 	}
+	printf("GOOD!\n");
 	fflush(fp);
 	fclose(fp);
-	printf("WHAT2: %ld\n", (size_t)fruit_trie.root - (size_t)fruit_trie.support->memory);
 	/* THIS NEEDS TO WORK */
-	printf("serialization test\n");
+	const uint8_t cache_num = fruit_trie.root->num_edges;
+	printf("  -- translation: ");
 	trie_serialize(&fruit_trie, "fruit_fmap.bin");
 	trie_t io_trie = {};
-	printf("deserialization test\n");
 	trie_deserialize(&io_trie, "fruit_fmap.bin");
-	printf("dot test\n");
+	assert(io_trie.root->num_edges == cache_num);
+	printf("GOOD!\n");
+	printf("  -- dot: ");
 	FILE* buf = fopen("fruits.dot", "w");
 	if (buf != NULL)
 	{
@@ -406,21 +440,27 @@ int array_trie_test(int argc, char** argv)
 		fflush(buf);
 		fclose(buf);
 	}
-	printf("candidate test\n");
+	printf("GOOD!\n");
+	printf("  -- candidate: ");
 	uint32_t num_fruits = 0;
 	arena_t candidate_arena = {};
 	arena_init(&candidate_arena, 512);
-	char** all_fruits = trie_candidates(&fruit_trie, &candidate_arena, NULL, &num_fruits);
-	for (int i = 0; i < num_fruits; ++i)
-	{
-		printf("%d: %s\n", i, all_fruits[i]);
-	}
-	printf("> using %f%% of %zu bytes\n", 100.f * free_tree_utilization(&free_tree), free_tree.size);
-	printf("removal test\n");
+	char** all_fruits = trie_candidates(&io_trie, &candidate_arena, NULL, &num_fruits);
+	/* for (int i = 0; i < num_fruits; ++i) */
+	/* { */
+	/* 	printf("%d: %s\n", i, all_fruits[i]); */
+	/* } */
+	assert(num_fruits == 51);
+	assert(strcmp(all_fruits[0], "Apple") == 0);
+	assert(strcmp(all_fruits[50], "Yuzu") == 0);
+	printf("GOOD!\n");
+	printf("> using %f%% of %zu bytes\n", 100.f * (1.0f - free_tree_coverage(&free_tree)), free_tree.size);
+	printf("  -- removal: ");
 	assert(trie_remove_token(&fruit_trie, "Yuzu"));
 	assert(trie_remove_token(&fruit_trie, "Yuzu") == 0);
+	printf("GOOD!\n");
 	free(candidate_arena.memory);
-	/* free(io_trie.memory); */
+	free(io_trie.support);
 	free(free_tree.memory);
 	return 0;
 }

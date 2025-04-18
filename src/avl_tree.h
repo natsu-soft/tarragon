@@ -20,11 +20,18 @@ typedef struct avl_node_t
 	size_t depth;
 } avl_node_t;
 
+void avl_print(avl_node_t* node, const unsigned int depth);
+
 void avl_insert(avl_node_t** root, avl_node_t* node);
 
 void avl_remove(avl_node_t** root, avl_node_t* node);
 
 avl_node_t* avl_find_min_gte(avl_node_t* node, const size_t value);
+
+// NOTE: these do not work
+void avl_relative_ptrs_stack(avl_node_t* root);
+
+void avl_absolute_ptrs_stack(avl_node_t* root);
 
 void avl_relative_ptrs(avl_node_t* node);
 

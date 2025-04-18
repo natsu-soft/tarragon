@@ -21,4 +21,7 @@ void* arena_alloc_aligned(arena_t* arena, size_t bytes, size_t alignment);
 
 void arena_free(arena_t* arena, size_t bytes);
 
+// for stack-like behavior
+void* arena_pop(arena_t* arena, size_t bytes);
+
 #endif /* End ARENA_H */
