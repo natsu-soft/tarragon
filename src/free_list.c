@@ -142,7 +142,23 @@ void free_list_coalesce(free_list_t* fl)
 	{
 		size_t num = 0;
 		for(sorted_list_t* l = fl->head; l != NULL; l = l->next) { ++num; }
-		sorted_list_t** list = alloca(num * sizeof(sorted_list_t**));
+		const size_t list_size = num * sizeof(sorted_list_t**) + sizeof(sorted_list_t);
+		sorted_list_t** list;
+		const uint8_t based_flag = fl->head->value >= list_size;
+		// D E V I L I S H T A C T I C S: ideally store the list within itself
+		// NOTE: have to offset because you don't want to overwrite the struct fields whilestve ordering it, because you need that data
+		if (based_flag)
+		{
+			printf("\n\nATTN: BASEDBASEDBASEDBASEDBASEDBASEDBASEDBASEDBASEDBASEDBASEDBASEDBASED\n");
+			list = fl->head + 1;
+		}
+		else
+		{
+			// otherwise malloc :(
+			printf("\n\nWARNING: CINGE\n");
+			list = malloc(num * sizeof(sorted_list_t**)); // LMAO YOU CAN RUN OUT OF MEMORY HERE
+			assert(list);
+		}
 		// 1. populate the list
 		size_t i = 0;
 		for(sorted_list_t* l = fl->head; l != NULL; l = l->next)
@@ -177,6 +193,10 @@ void free_list_coalesce(free_list_t* fl)
 		for (i = 0; i < num; ++i)
 		{
 			sorted_list_insert(&fl->head, list[i]);
+		}
+		if (!based_flag)
+		{
+			free(list);
 		}
 	}
 }
@@ -311,7 +331,8 @@ int free_list_test(int argc, char** argv)
 	printf("  -- grow: ");
 	const char spinner[4] = { '\\', '-', '/', '|' };
 	fflush(stdout);
-#define LIMIT 0x400000000
+/* #define LIMIT 0x400000000 */
+#define LIMIT 0x100000000 // slightly less because this machine only has 16gigs ram LMAO
 	const float resize_scale = 1.618f;
 	const size_t resize_overhead = 4096;
 	for (int i = 0; i <= 999999; ++i)
@@ -328,9 +349,13 @@ int free_list_test(int argc, char** argv)
 	printf("GOOD!\n");
 	/* print_chunks(fl); */
 
-/* #define STRESS_TEST 99999 */
+#define STRESS_TEST 1000000
 #ifdef STRESS_TEST
 	printf("  -- stress test: ");
+	printf("allocating");
+	buffer = malloc(fl->size);
+	assert(buffer); // do this first in case you run out of memory
+	printf("\b\b\b\b\b\b\b\b\b\b");
 	printf("fragmenting");
 	fflush(stdout);
 	for (int i = 0; i < STRESS_TEST; ++i)
@@ -361,8 +386,6 @@ int free_list_test(int argc, char** argv)
 	printf("\b\b\b\b\b\b\b\b\b\b\b");
 	printf("translating");
 	fflush(stdout);
-	buffer = malloc(fl->size);
-	assert(buffer);
 	free_list_point_relative(fl);
 	memcpy(buffer, fl->memory, fl->size);
 	free(fl->memory);
@@ -379,7 +402,7 @@ int free_list_test(int argc, char** argv)
 	free(values);
 	printf("\b\b\b\b\b\b\b\b\b\b\b");
 	printf("GOOD!      \n");
-	printf("  > stress tested succesfully translated %zu accessible memory chunks\n", num);
+	printf("  > succesfully translated %zu accessible memory chunks\n", num);
 	printf("  > size: %zu GB (%zu bytes)\n", fl->size / 0x40000000, fl->size);
 #endif
 	/* print_chunks(fl); */
