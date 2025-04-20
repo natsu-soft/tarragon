@@ -321,9 +321,9 @@ int free_tree_test(int argc, char** argv)
 	/* printf("\n\nPOST CLEAR\n"); */
 	/* avl_print(tree->root, 0); */
 
+	printf("  -- free: ");
 	foo = free_tree_alloc(tree, 512);
 	char* bar = free_tree_alloc(tree, 256);
-	printf("  -- free: ");
 	free_tree_free(tree, bar);
 	free_tree_free(tree, foo);
 	printf("GOOD!\n");

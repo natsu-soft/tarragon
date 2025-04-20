@@ -1,6 +1,7 @@
 #include <unistd.h>
 #include <assert.h>
 #include "logger.h"
+#include "benchmark.h"
 
 
 /* #define UNIT_TESTS \ */
@@ -11,9 +12,11 @@
 /* 	TEST(array_trie) */
 
 #define UNIT_TESTS \
-	TEST(avl_tree) \
-	TEST(free_tree) \
+	TEST(free_list) \
 	TEST(array_trie)
+	/* TEST(avl_tree) \ */
+	/* TEST(free_tree) \ */
+	/* TEST(array_trie) */
 
 #define TEST(A) extern int A##_test(int argc, char** argv);
 UNIT_TESTS
