@@ -1,5 +1,6 @@
 #include "free_list.h"
 #include <stdlib.h>
+#include "scratch.h"
 #include "error_macros.h"
 #include "pointer_memes.h"
 #include "sorted_list.h"
@@ -156,7 +157,7 @@ void free_list_coalesce(free_list_t* fl)
 		{
 			// otherwise malloc :(
 			printf("\n\nWARNING: CINGE\n");
-			list = malloc(num * sizeof(sorted_list_t**)); // LMAO YOU CAN RUN OUT OF MEMORY HERE
+			list = scratch_alloc(num * sizeof(sorted_list_t**)); // LMAO YOU CAN RUN OUT OF MEMORY HERE
 			assert(list);
 		}
 		// 1. populate the list
@@ -196,7 +197,7 @@ void free_list_coalesce(free_list_t* fl)
 		}
 		if (!based_flag)
 		{
-			free(list);
+			scratch_free(list);
 		}
 	}
 }
