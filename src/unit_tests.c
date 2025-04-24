@@ -12,11 +12,11 @@
 /* 	TEST(array_trie) */
 
 #define UNIT_TESTS \
-	TEST(free_list)
-	/* TEST(free_list) \ */
+	TEST(free_tree)
 	/* TEST(array_trie) */
-	/* TEST(avl_tree) \ */
+	/* TEST(free_list) */
 	/* TEST(free_tree) \ */
+	/* TEST(free_list) \ */
 	/* TEST(array_trie) */
 
 #define TEST(A) extern int A##_test(int argc, char** argv);

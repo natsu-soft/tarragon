@@ -23,7 +23,7 @@ void print_chunks(const free_list_t* fl)
 	}
 }
 
-const size_t align(const void* ptr, const size_t pow2)
+static const size_t align(const void* ptr, const size_t pow2)
 {
 	const size_t modulo = (size_t)ptr & (pow2 - 1);
 	return modulo > 0 ? pow2 - modulo : 0;
@@ -350,24 +350,28 @@ int free_list_test(int argc, char** argv)
 	printf("GOOD!\n");
 	/* print_chunks(fl); */
 
-#define STRESS_TEST 1000000
+#define STRESS_TEST 10000000
 #ifdef STRESS_TEST
 	printf("  -- stress test: ");
 	printf("allocating");
 	buffer = malloc(fl->size);
 	assert(buffer); // do this first in case you run out of memory
 	printf("\b\b\b\b\b\b\b\b\b\b");
-	printf("fragmenting");
+	printf("fragmenting: ");
 	fflush(stdout);
 	for (int i = 0; i < STRESS_TEST; ++i)
 	{
+		printf("%06.2f%%", 100.0f * (float)i / (float)STRESS_TEST);
+		fflush(stdout);
 		void* ptr = free_list_alloc(fl, 69);
 		if (ptr == NULL)
 		{
+			printf("\b\b\b\b\b\b\b");
 			break;
 		}
 		ptr = free_list_dealloc(fl, ptr, 17);
 		ptr = free_list_free(fl, ptr);
+		printf("\b\b\b\b\b\b\b");
 	}
 	printf("\b\b\b\b\b\b\b\b\b\b\b");
 	printf("caching    ");

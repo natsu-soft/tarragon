@@ -6,6 +6,9 @@
 #include "error_macros.h"
 #include "pointer_memes.h"
 #include "arena.h"
+#include "scratch.h"
+
+#define BALANCE
 
 typedef enum __attribute__((packed)) dir_t
 {
@@ -43,19 +46,11 @@ static inline int balance(avl_node_t* node)
 
 static void update_depth(avl_node_t* node)
 {
-	int depth = 0;
 	for (/* :^) */; node != NULL; node = node->parent)
 	{
-		if (node->left)
-		{
-			depth = node->left->depth + 1;
-		}
-		if (node->right)
-		{
-			const int right_depth = node->right->depth + 1;
-			depth = right_depth > depth ? right_depth : depth;
-		}
-		node->depth = depth;
+		const size_t left_depth = node->left != NULL ? node->left->depth + 1: 0;
+		const size_t right_depth = node->right != NULL ? node->right->depth + 1: 0;
+		node->depth = right_depth > left_depth ? right_depth : left_depth;
 	}
 }
 
@@ -71,9 +66,9 @@ static void rotate(avl_node_t** node, const dir_t dir)
 		parent->child[n_dir] = child;
 	}
 	n->child[opp_dir] = child->child[dir];
+	n->parent = child;
 	child->child[dir] = n;
 	child->parent = parent;
-	n->parent = child;
 	update_depth(n);
 	*node = child;
 }
@@ -89,8 +84,6 @@ static void insert(avl_node_t* node, avl_node_t* new_node)
 		child = &node->child[dir];
 	}
 	new_node->parent = node;
-	/* new_node->left = NULL; */
-	/* new_node->right = NULL; */
 	*child = new_node;
 }
 
@@ -101,7 +94,6 @@ static void delete(avl_node_t** root, avl_node_t** node)
 		NONE = 0x00,
 		HAS_LEFT_CHILD = 0x01,
 		HAS_RIGHT_CHILD = 0x02,
-		HAS_A_CHILD = 0x03,
 		HAS_SUCCESSOR = 0x04,
 		HAS_PARENT = 0x08,
 	};
@@ -114,45 +106,87 @@ static void delete(avl_node_t** root, avl_node_t** node)
 	flags |= parent != NULL ? HAS_PARENT : NONE;
 	flags |= flags & HAS_RIGHT_CHILD && right->left != NULL ? HAS_SUCCESSOR : NONE;
 	const dir_t dir = flags & HAS_PARENT && parent->right == n ? RIGHT : LEFT;
-	if (flags & HAS_SUCCESSOR)
+	avl_node_t* successor = right;
+	avl_node_t* temp;
+	switch (flags)
 	{
-		avl_node_t* successor = right->left;
-		for (; successor->left != NULL; successor = successor->left); // DEVILISH
-		const int value = successor->value;
-		avl_node_t* successor_parent = successor->parent;
-		successor_parent->left = successor->right;
-		if (successor->right != NULL)
+	case HAS_SUCCESSOR:
+		for (/* :^) */; successor->left != NULL; successor = successor->left);
+		temp = successor->parent;
+		temp->left = successor->right;
+		successor->right->parent = temp;
+		successor->right = right;
+		__attribute__((fallthrough));
+	case HAS_RIGHT_CHILD:
+		*node = successor;
+		successor->parent = parent;
+		successor->left = left;
+		if (flags & HAS_LEFT_CHILD)
 		{
-			successor->right->parent = successor_parent;
+			left->parent = *node;
 		}
-		memcpy(successor, n, sizeof *n);
-		successor->value = value;
-		if (flags & HAS_RIGHT_CHILD)
+		break;
+	case HAS_LEFT_CHILD:
+		left->parent = parent;
+		n = left;
+		*node = left;
+		break;
+	default:
+		n = parent;
+		*node = NULL;
+	}
+	if (flags & HAS_PARENT)
+	{
+		parent->child[dir] = *node;
+	}
+	else
+	{
+		*root = *node;
+	}
+	update_depth(n);
+}
+
+static void delete2(avl_node_t** root, avl_node_t** node)
+{
+	enum __attribute__((packed))
+	{
+		NONE = 0x00,
+		HAS_LEFT_CHILD = 0x01,
+		HAS_RIGHT_CHILD = 0x02,
+		HAS_PARENT = 0x08,
+	};
+	avl_node_t* n = *node;
+	avl_node_t* parent = n->parent;
+	avl_node_t* left = n->left;
+	avl_node_t* right = n->right;
+	uint8_t flags = left != NULL ? HAS_LEFT_CHILD : NONE;
+	flags |= right != NULL ? HAS_RIGHT_CHILD : NONE;
+	flags |= parent != NULL ? HAS_PARENT : NONE;
+	const dir_t dir = flags & HAS_PARENT && parent->right == n ? RIGHT : LEFT;
+	if (flags & HAS_RIGHT_CHILD)
+	{
+		avl_node_t* successor = right;
+		for(/* lol */; successor->left != NULL; successor = successor->left);
+		n = successor->right != NULL ? successor->right : successor;
+		if (successor != right)
 		{
-			right->parent = successor;
+			avl_node_t* temp = successor->parent;
+			temp->left = successor->right;
+			successor->right->parent = temp;
+			successor->right = right; // WOOPSIES
 		}
+		*node = successor;
+		successor->parent = parent;
+		successor->left = left;
 		if (flags & HAS_LEFT_CHILD)
 		{
 			left->parent = successor;
 		}
-		*node = successor;
-		n = successor_parent;
 	}
-	else if (flags & HAS_RIGHT_CHILD)
+	else if (flags & HAS_LEFT_CHILD) // ok
 	{
-		right->parent = parent;
-		if (flags & HAS_LEFT_CHILD)
-		{
-			left->parent = right;
-		}
-		n = right;
-		*node = right;
-	}
-	else if (flags & HAS_LEFT_CHILD)
-	{
-		// actually yeah this is it
 		left->parent = parent;
-		n = left;
+		n = parent;
 		*node = left;
 	}
 	else
@@ -171,66 +205,96 @@ static void delete(avl_node_t** root, avl_node_t** node)
 	update_depth(n);
 }
 
-static void retrace(avl_node_t** root, avl_node_t* node)
+// HONESTLY, this looks ok
+static void delete3(avl_node_t** root, avl_node_t** node)
 {
-	avl_node_t* n0 = *root;
 	enum __attribute__((packed))
 	{
 		NONE = 0x00,
-		LEFT_HEAVY = 0x01,
-		RIGHT_HEAVY = 0x02,
-		QUEUE_ROTATE = 0x03,
-		ROTATED = 0x04,
+		HAS_LEFT_CHILD = 0x01,
+		HAS_RIGHT_CHILD = 0x02,
+		HAS_TWO_CHILDREN = 0x03,
+		HAS_A_PARENT = 0x04,
 	};
-	uint8_t flags = NONE;
+	avl_node_t* n = *node;
+	avl_node_t* temp = NULL;
+	avl_node_t* parent = n->parent;
+	avl_node_t* left = n->left;
+	avl_node_t* right = n->right;
+	const uint8_t flags = (left != NULL) |
+		((right != NULL) << 1) |
+		((parent != NULL) << 2);
+	/* uint8_t flags = left != NULL ? HAS_LEFT_CHILD : NONE; */
+	/* flags |= right != NULL ? HAS_RIGHT_CHILD : NONE; */
+	/* flags |= parent != NULL ? HAS_A_PARENT : NONE; */
+	const dir_t dir = flags & HAS_A_PARENT && parent->right == n ? RIGHT : LEFT;
+	switch (flags & HAS_TWO_CHILDREN)
+	{
+	case HAS_TWO_CHILDREN:
+		for (n = right; n->left != NULL; n = n->left);
+		if (n != right)
+		{
+			temp = n->parent;
+			temp->left = n->right;
+			if (n->right != NULL)
+			{
+				n->right->parent = temp;
+				temp = n->right;
+			}
+			n->right = right;
+			right->parent = n;
+		}
+		else
+		{
+			temp = n;
+		}
+		n->left = left;
+		left->parent = n;
+		n->parent = parent;
+		break;
+	case HAS_LEFT_CHILD: __attribute__((fallthrough));
+	case HAS_RIGHT_CHILD:
+		n = n->child[flags & HAS_RIGHT_CHILD ? RIGHT : LEFT];
+		n->parent = parent;
+		temp = n;
+		break;
+	default:
+		temp = parent;
+		n = NULL;
+	}
+	if (parent != NULL)
+	{
+		parent->child[dir] = n;
+	}
+	else
+	{
+		*root = n;
+	}
+	update_depth(temp);
+	*node = n;
+}
+
+// probably ok
+static void retrace(avl_node_t** root, avl_node_t* node)
+{
+	avl_node_t* n0 = *root;
 	for (/* :^) */; node != NULL; node = node->parent)
 	{
-		const int n_balance = balance(node);
-		/* printf("node_balance: %d\n", n_balance); */
-		flags &= ROTATED;
-		flags |= n_balance > 1 ? RIGHT_HEAVY : NONE;
-		flags |= n_balance < -1 ? LEFT_HEAVY : NONE;
-		/* printf("flags: %x\n", flags); */
-		const dir_t dir = n_balance > 0 ? RIGHT : LEFT;
-		if (flags & QUEUE_ROTATE)
+		const int n_balane = balance(node);
+		const dir_t dir = n_balane > 0 ? RIGHT : LEFT;
+		if (n_balane < -1 || 1 < n_balane )
 		{
-			/* printf("\n\nPRE-ROTATE\n"); */
-			/* struggle_print(*root, 0); */
 			avl_node_t* child = node->child[dir];
 			const int c_balance = balance(child);
-			if (n_balance * c_balance < 0)
+			if (n_balane * c_balance < 0)
 			{
-				/* if (verbose) printf(">> R0T %s\n", dir == RIGHT ? "RIGHT" : "LEFT"); */
 				rotate(&child, dir);
-				/* printf("%s-", dir ? "RIGHT" : "LEFT"); */
 			}
-			/* if (verbose) printf("> ROT %s\n", 1 - dir == RIGHT ? "RIGHT" : "LEFT"); */
-			/* if (verbose && node->parent == NULL && node != *root) */
-			/* { */
-			/* 	printf("HOLY SHIT UR FUKT"); */
-			/* } */
 			rotate(&node, 1 - dir);
-			/* printf("%s ROTATION\n", 1 - dir ? "RIGHT" : "LEFT"); */
-			flags |= ROTATED;
-			/* printf("\n\nPOST-ROTATE\n"); */
-			/* struggle_print(*root, 0); */
 		}
 		n0 = node;
 	}
 	*root = n0;
-	/* if (flags & ROTATED) */
-	/* { */
-	/* 	printf("\nROTATED\n"); */
-	/* 	avl_relative_ptrs(*root); */
-	/* 	point_relative(root); */
-	/* 	point_absolute(root); */
-	/* 	avl_absolute_ptrs(*root); */
-	/* } */
-	/* if (verbose && flags & ROTATED) */
-	/* { */
-	/* 	printf("\n"); */
-	/* 	struggle_print(*root, 0); */
-	/* } */
 }
 
 void avl_insert(avl_node_t** root, avl_node_t* node)
@@ -241,11 +305,15 @@ void avl_insert(avl_node_t** root, avl_node_t* node)
 		insert(*root, node);
 		avl_node_t* parent = node->parent;
 		update_depth(node);
+		#ifdef BALANCE
 		retrace(root, parent->parent);
+		#endif
 		/* struggle_print(*root, 0); */
 	}
 	else
 	{
+		node->left = NULL;
+		node->right = NULL;
 		*root = node;
 		/* struggle_print(*root, 0); */
 	}
@@ -256,62 +324,69 @@ void avl_remove(avl_node_t** root, avl_node_t* node)
 	if (*root != NULL)
 	{
 		avl_node_t* parent = node->parent;
-		delete(root, &node);
+		/* delete(root, &node); */
+		/* delete2(root, &node); */
+		delete3(root, &node);
+		#ifdef BALANCE
 		retrace(root, node != NULL ? node : parent);
+		#endif
 	}
 }
 
 avl_node_t* avl_find_min_gte(avl_node_t* node, const size_t value)
 {
-	if (node == NULL)
+	enum __attribute__((packed))
 	{
-		return NULL;
-	}
+		EQUAL = 0x00,
+		LESS_THAN = 0x01,
+		GREATER_THAN = 0x02,
+	};
 	avl_node_t* res = NULL;
 	while (node != NULL)
 	{
 		const size_t node_val = node->value;
-		if (node_val == value)
+		const uint8_t flags = (node_val < value) | ((node_val > value) << 1);
+		switch (flags)
 		{
-			return node;
-		}
-		else if (node_val > value)
-		{
+		case LESS_THAN:
+			node = node->right;
+			break;
+		case GREATER_THAN:
 			res = node;
 			node = node->left;
-		}
-		else
-		{
-			node = node->right;
+			break;
+		default:
+			return node;
 		}
 	}
 	return res;
 }
 
+avl_node_t* avl_first_gte(avl_node_t* node, const size_t value)
+{
+	for(; node != NULL; node = node->right)
+	{
+		if (node->value >= value)
+		{
+			return node;
+		}
+	}
+	return NULL;
+}
+
 void avl_relative_ptrs(avl_node_t* node)
 {
-	const size_t debug_depth  = node->depth;
-	/* printf("%#zx: ", node); */
-	/* fflush(stdout); */
-	/* printf("%+#10zx %+#10zx %+#10zx\n", node->left, node->right, node->parent); */
 	for (int i = 0; i < 2; ++i)
 	{
 		if (node->child[i] != NULL)
 		{
-			/* const size_t child_addr = (size_t)(node->child[i]); */
-			/* const size_t child_alt = child_addr - (size_t)&node->child[i]; */
-			/* const size_t child_mod = child_addr % (sizeof *node); */
 			avl_relative_ptrs(node->child[i]);
 			point_relative(&node->child[i]);
 		}
 	}
 	if (node->parent)
 	{
-		/* const size_t parent_addr = (size_t)(node->parent); */
-		/* const size_t parent_mod = parent_addr & (sizeof(size_t) - 1); */
-		/* const size_t abs_parent = (size_t) node->parent; */
 		point_relative(&node->parent);
-		/* const size_t rel_parent = (size_t) node->parent; */
 	}
 }
 
@@ -332,82 +407,45 @@ void avl_absolute_ptrs(avl_node_t* node)
 	}
 }
 
-// lmao these dont work
-void avl_relative_ptrs_stack(avl_node_t* node)
-{
-	const size_t size = sizeof(avl_node_t*);
-	const size_t max_size = (node->depth + 1) * size;
-	arena_t stack =
-	{
-		.cap = max_size,
-		.memory = alloca(max_size),
-		.size = size
-	};
-	memcpy(stack.memory, &node, size);
-	for (avl_node_t** top = arena_pop(&stack, size); stack.size > 0; top = arena_pop(&stack, size))
-	{
-		node = *top;
-		if (node->parent != NULL)
-		{
-			point_relative(&node->parent);
-		}
-		for (int i = 0; i < 2; ++i)
-		{
-			if (node->child[i] != NULL)
-			{
-				top = arena_alloc(&stack, size);
-				memcpy(top, node->child[i], size);
-				point_relative(&node->child[i]);
-			}
-		}
-	}
-}
-
-void avl_absolute_ptrs_stack(avl_node_t* node)
-{
-	const size_t size = sizeof(avl_node_t*);
-	const size_t max_size = (node->depth + 1) * size;
-	arena_t stack =
-	{
-		.cap = max_size,
-		.memory = alloca(max_size),
-		.size = size
-	};
-	memcpy(stack.memory, &node, size);
-	for (avl_node_t** top = arena_pop(&stack, size); stack.size > 0; top = arena_pop(&stack, size))
-	{
-		node = *top;
-		if (node->parent != NULL)
-		{
-			point_absolute(&node->parent);
-		}
-		for (int i = 0; i < 2; ++i)
-		{
-			if (node->child[i] != NULL)
-			{
-				point_absolute(&node->child[i]);
-				top = arena_alloc(&stack, size);
-				memcpy(top, node->child[i], size);
-			}
-		}
-	}
-}
-
 size_t avl_value_sum(avl_node_t* node)
 {
-	size_t cum = node->value;
+	size_t sum = node->value;
 	for (int i = 0; i < 2; ++i)
 	{
 		if (node->child[i] != NULL)
 		{
-			cum += avl_value_sum(node->child[i]);
+			sum += avl_value_sum(node->child[i]);
 		}
 	}
-	return cum;
+	return sum;
 }
 
+size_t avl_num_nodes(avl_node_t* node)
+{
+	size_t num = 1;
+	for (int i = 0; i < 2; ++i)
+	{
+		if (node->child[i] != NULL)
+		{
+			num += avl_num_nodes(node->child[i]);
+		}
+	}
+	return num;
+}
 
-/* #define STANDALONE_AVL_TREE_C */
+void avl_populate_list(avl_node_t* node, avl_node_t** list, size_t* index)
+{
+	const size_t i = *index;
+	list[i] = node;
+	*index = i + 1;
+	for (int i = 0; i < 2; ++i)
+	{
+		if (node->child[i] != NULL)
+		{
+			avl_populate_list(node->child[i], list, index);
+		}
+	}
+}
 
 int avl_tree_test(int argc, char** argv)
 {
@@ -463,5 +501,3 @@ int avl_tree_test(int argc, char** argv)
 	printf(" GOOD!\n");
 	return 0;
 }
-
-/* #endif */

@@ -14,7 +14,7 @@ typedef struct arena_t arena_t;
 typedef struct trie_t
 {
 	struct trie_node_t* root;
-	struct free_list_t* support;
+	struct free_tree_t* support;
 } trie_t;
 
 typedef struct trie_node_t {
@@ -44,7 +44,7 @@ char** trie_candidates(const trie_t* trie, arena_t* arena, const char* prefix, u
 
 void trie_serialize(trie_t* trie, char* filename);
 
-void trie_deserialize(trie_t* trie, struct free_list_t* support, char* filename);
+void trie_deserialize(trie_t* trie, struct free_tree_t* support, char* filename);
 
 void trie_dump_dot(FILE* dest, trie_t* trie, const char* root_label);
 

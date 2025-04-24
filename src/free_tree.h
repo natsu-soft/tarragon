@@ -19,8 +19,6 @@ typedef struct free_tree_t
 	size_t size;
 	uint8_t* memory;
 	uint8_t valid_root; // JUST ADD IN A FLAG LMAO
-	/* size_t cap; */
-	/* uint8_t policies; */
 } free_tree_t;
 
 /* void free_tree_relative_ptrs(free_tree_t* tree); */
@@ -46,6 +44,8 @@ void free_tree_clear(free_tree_t* tree);
 void free_tree_serialize(free_tree_t* tree, void* destination);
 
 void free_tree_deserialize(free_tree_t* tree, void* source);
+
+void free_tree_coalesce(free_tree_t* tree);
 
 float free_tree_coverage(free_tree_t* tree);
 
