@@ -30,6 +30,7 @@ static void free_tree_relative(free_tree_t* tree)
 	{
 		/* avl_relative_ptrs(tree->root); */
 		avl_relative_ptrs(tree->root);
+		/* avl_relative_stack(tree->root); */
 		point_relative_offset(&tree->root, tree->memory);
 	}
 }

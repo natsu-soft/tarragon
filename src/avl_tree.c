@@ -407,6 +407,36 @@ void avl_absolute_ptrs(avl_node_t* node)
 	}
 }
 
+void avl_relative_stack(avl_node_t* node)
+{
+	const size_t stack_size = (node->depth + 1) * sizeof *node;
+	arena_t stack =
+	{
+		.memory = scratch_alloc(stack_size),
+		.cap = stack_size,
+	};
+	arena_push(&stack, node, sizeof *node);
+	while(stack.size > 0)
+	{
+		node = arena_pop(&stack, sizeof *node);
+		// UHHHHHHHHHHHHHHHHHHHHHH
+	}
+}
+
+void avl_absolute_stack(avl_node_t* node)
+{
+	const size_t stack_size = (node->depth + 1) * sizeof *node;
+	arena_t stack =
+	{
+		.memory = scratch_alloc(stack_size),
+		.cap = stack_size,
+	};
+	arena_push(&stack, node, sizeof *node);
+	while(stack.size > 0)
+	{
+	}
+}
+
 size_t avl_value_sum(avl_node_t* node)
 {
 	size_t sum = node->value;
