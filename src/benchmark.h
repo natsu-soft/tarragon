@@ -1,6 +1,7 @@
 #ifndef BENCHMARK_H
 #define BENCHMARK_H
 
+#include <time.h>
 #include <sys/time.h>
 
 #define MICROTIME(BODY) \
@@ -14,5 +15,12 @@
 		printf("[MICROTIME] "#BODY " %06dus\n", delta_ms);	\
 	}
 
+#define LONGTIME(BODY) \
+	{ \
+		size_t t0 = time(NULL); \
+		do { BODY } while(0); \
+		size_t delta_s = time(NULL) - t0; \
+		printf("[LONGTIME] "#BODY " %zu seconds\n", delta_s); \
+	}
 
 #endif /* End BENCHMARK_H */
