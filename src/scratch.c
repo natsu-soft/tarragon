@@ -21,7 +21,7 @@ static void __attribute__((constructor)) scratch_init(void)
 {
 	scratchpads = calloc(INIT_SCRATCHPADS, sizeof *scratchpads);
 	scratch_num = INIT_SCRATCHPADS;
-	arena_init(scratchpads, 2u * SCRATCH_OVERHEAD);
+	arena_init(scratchpads, 0x10 * SCRATCH_OVERHEAD);
 }
 
 void* scratch_alloc(const size_t size)
