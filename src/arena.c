@@ -49,14 +49,15 @@ void* arena_alloc_aligned(arena_t* arena, size_t bytes, size_t alignment)
 
 void arena_free(arena_t* arena, size_t bytes)
 {
-	assert((int32_t)arena->size - (int32_t)bytes >= 0);
-	if ((int32_t)arena->size - (int32_t)bytes < 0)
+	assert(arena->size >= bytes);
+	if (arena->size < bytes)
 	{
 		return;
 	}
 	else
 	{
 		arena->size -= bytes;
+		assert(arena->size >= 0);
 	}
 }
 
