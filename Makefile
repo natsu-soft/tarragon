@@ -2,7 +2,7 @@ ifeq ($(OS),Windows_NT)
 	CC := clang -std=gnu99
 	RE := rg
 else
-	CC := gcc -std=gnu99
+	CC := clang -std=gnu99 # NOTE: bug in gcc, __attribute__((cleanup)) runs immeadiately instead of waiting for scope end
 	RE := grep
 endif
 # CFLAGS := -Wall -Wextra -Wno-incompatible-pointer-types -ggdb -O0
