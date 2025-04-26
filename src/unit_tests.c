@@ -1,6 +1,7 @@
 #include <unistd.h>
 #include <assert.h>
 #include "logger.h"
+#include "scratch.h"
 #include "benchmark.h"
 
 
@@ -12,6 +13,7 @@
 /* 	TEST(array_trie) */
 
 #define UNIT_TESTS \
+	TEST(free_list) \
 	TEST(free_tree)
 	/* TEST(array_trie) */
 	/* TEST(free_list) */
@@ -42,5 +44,6 @@ int main(int argc, char** argv)
 	UNIT_TESTS;
 	#undef TEST
 	ENDLOG;
+	scratch_audit();
 	return 0;
 }
