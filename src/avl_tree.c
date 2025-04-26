@@ -5,8 +5,6 @@
 #include <string.h>
 #include "error_macros.h"
 #include "pointer_memes.h"
-#include "arena.h"
-#include "scratch.h"
 
 #define BALANCE
 
@@ -84,129 +82,11 @@ static void insert(avl_node_t* node, avl_node_t* new_node)
 		child = &node->child[dir];
 	}
 	new_node->parent = node;
+	new_node->depth = 0;
 	*child = new_node;
 }
 
 static void delete(avl_node_t** root, avl_node_t** node)
-{
-	enum __attribute__((packed))
-	{
-		NONE = 0x00,
-		HAS_LEFT_CHILD = 0x01,
-		HAS_RIGHT_CHILD = 0x02,
-		HAS_SUCCESSOR = 0x04,
-		HAS_PARENT = 0x08,
-	};
-	avl_node_t* n = *node;
-	avl_node_t* parent = n->parent;
-	avl_node_t* left = n->left;
-	avl_node_t* right = n->right;
-	uint8_t flags = left != NULL ? HAS_LEFT_CHILD : NONE;
-	flags |= right != NULL ? HAS_RIGHT_CHILD : NONE;
-	flags |= parent != NULL ? HAS_PARENT : NONE;
-	flags |= flags & HAS_RIGHT_CHILD && right->left != NULL ? HAS_SUCCESSOR : NONE;
-	const dir_t dir = flags & HAS_PARENT && parent->right == n ? RIGHT : LEFT;
-	avl_node_t* successor = right;
-	avl_node_t* temp;
-	switch (flags)
-	{
-	case HAS_SUCCESSOR:
-		for (/* :^) */; successor->left != NULL; successor = successor->left);
-		temp = successor->parent;
-		temp->left = successor->right;
-		successor->right->parent = temp;
-		successor->right = right;
-		__attribute__((fallthrough));
-	case HAS_RIGHT_CHILD:
-		*node = successor;
-		successor->parent = parent;
-		successor->left = left;
-		if (flags & HAS_LEFT_CHILD)
-		{
-			left->parent = *node;
-		}
-		break;
-	case HAS_LEFT_CHILD:
-		left->parent = parent;
-		n = left;
-		*node = left;
-		break;
-	default:
-		n = parent;
-		*node = NULL;
-	}
-	if (flags & HAS_PARENT)
-	{
-		parent->child[dir] = *node;
-	}
-	else
-	{
-		*root = *node;
-	}
-	update_depth(n);
-}
-
-static void delete2(avl_node_t** root, avl_node_t** node)
-{
-	enum __attribute__((packed))
-	{
-		NONE = 0x00,
-		HAS_LEFT_CHILD = 0x01,
-		HAS_RIGHT_CHILD = 0x02,
-		HAS_PARENT = 0x08,
-	};
-	avl_node_t* n = *node;
-	avl_node_t* parent = n->parent;
-	avl_node_t* left = n->left;
-	avl_node_t* right = n->right;
-	uint8_t flags = left != NULL ? HAS_LEFT_CHILD : NONE;
-	flags |= right != NULL ? HAS_RIGHT_CHILD : NONE;
-	flags |= parent != NULL ? HAS_PARENT : NONE;
-	const dir_t dir = flags & HAS_PARENT && parent->right == n ? RIGHT : LEFT;
-	if (flags & HAS_RIGHT_CHILD)
-	{
-		avl_node_t* successor = right;
-		for(/* lol */; successor->left != NULL; successor = successor->left);
-		n = successor->right != NULL ? successor->right : successor;
-		if (successor != right)
-		{
-			avl_node_t* temp = successor->parent;
-			temp->left = successor->right;
-			successor->right->parent = temp;
-			successor->right = right; // WOOPSIES
-		}
-		*node = successor;
-		successor->parent = parent;
-		successor->left = left;
-		if (flags & HAS_LEFT_CHILD)
-		{
-			left->parent = successor;
-		}
-	}
-	else if (flags & HAS_LEFT_CHILD) // ok
-	{
-		left->parent = parent;
-		n = parent;
-		*node = left;
-	}
-	else
-	{
-		n = parent;
-		*node = NULL;
-	}
-	if (flags & HAS_PARENT)
-	{
-		parent->child[dir] = *node;
-	}
-	else
-	{
-		*root = *node;
-	}
-	update_depth(n);
-}
-
-// HONESTLY, this looks ok
-static void delete3(avl_node_t** root, avl_node_t** node)
 {
 	enum __attribute__((packed))
 	{
@@ -223,10 +103,7 @@ static void delete3(avl_node_t** root, avl_node_t** node)
 	avl_node_t* right = n->right;
 	const uint8_t flags = (left != NULL) |
 		((right != NULL) << 1) |
-		((parent != NULL) << 2);
-	/* uint8_t flags = left != NULL ? HAS_LEFT_CHILD : NONE; */
-	/* flags |= right != NULL ? HAS_RIGHT_CHILD : NONE; */
-	/* flags |= parent != NULL ? HAS_A_PARENT : NONE; */
+		((parent != NULL) << 2); // idgaf anymore
 	const dir_t dir = flags & HAS_A_PARENT && parent->right == n ? RIGHT : LEFT;
 	switch (flags & HAS_TWO_CHILDREN)
 	{
@@ -274,7 +151,6 @@ static void delete3(avl_node_t** root, avl_node_t** node)
 	*node = n;
 }
 
-// probably ok
 static void retrace(avl_node_t** root, avl_node_t* node)
 {
 	avl_node_t* n0 = *root;
@@ -301,21 +177,18 @@ void avl_insert(avl_node_t** root, avl_node_t* node)
 {
 	if (*root != NULL)
 	{
-		/* printf("inserting addr: %x\n", (size_t)node % sizeof(size_t)); */
 		insert(*root, node);
-		avl_node_t* parent = node->parent;
-		update_depth(node);
+		const avl_node_t* parent = node->parent;
+		update_depth(parent);
 		#ifdef BALANCE
 		retrace(root, parent->parent);
 		#endif
-		/* struggle_print(*root, 0); */
 	}
 	else
 	{
 		node->left = NULL;
 		node->right = NULL;
 		*root = node;
-		/* struggle_print(*root, 0); */
 	}
 }
 
@@ -324,9 +197,7 @@ void avl_remove(avl_node_t** root, avl_node_t* node)
 	if (*root != NULL)
 	{
 		avl_node_t* parent = node->parent;
-		/* delete(root, &node); */
-		/* delete2(root, &node); */
-		delete3(root, &node);
+		delete(root, &node);
 		#ifdef BALANCE
 		retrace(root, node != NULL ? node : parent);
 		#endif
@@ -392,7 +263,6 @@ void avl_relative_ptrs(avl_node_t* node)
 
 void avl_absolute_ptrs(avl_node_t* node)
 {
-	/* const size_t debug_depth  = node->depth; */
 	for (int i = 0; i < 2; ++i)
 	{
 		if (node->child[i] != NULL)
@@ -404,36 +274,6 @@ void avl_absolute_ptrs(avl_node_t* node)
 	if (node->parent)
 	{
 		point_absolute(&node->parent);
-	}
-}
-
-void avl_relative_stack(avl_node_t* node)
-{
-	const size_t stack_size = (node->depth + 1) * sizeof *node;
-	arena_t stack =
-	{
-		.memory = scratch_alloc(stack_size),
-		.cap = stack_size,
-	};
-	arena_push(&stack, node, sizeof *node);
-	while(stack.size > 0)
-	{
-		node = arena_pop(&stack, sizeof *node);
-		// UHHHHHHHHHHHHHHHHHHHHHH
-	}
-}
-
-void avl_absolute_stack(avl_node_t* node)
-{
-	const size_t stack_size = (node->depth + 1) * sizeof *node;
-	arena_t stack =
-	{
-		.memory = scratch_alloc(stack_size),
-		.cap = stack_size,
-	};
-	arena_push(&stack, node, sizeof *node);
-	while(stack.size > 0)
-	{
 	}
 }
 

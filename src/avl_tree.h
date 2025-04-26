@@ -34,10 +34,6 @@ void avl_relative_ptrs(avl_node_t* node);
 
 void avl_absolute_ptrs(avl_node_t* node);
 
-void avl_relative_stack(avl_node_t* node);
-
-void avl_absolute_stack(avl_node_t* node);
-
 size_t avl_value_sum(avl_node_t* node);
 
 size_t avl_num_nodes(avl_node_t* node);
