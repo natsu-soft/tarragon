@@ -3,21 +3,100 @@
 #include "scratch.h"
 #include "error_macros.h"
 #include "pointer_memes.h"
-#include "sorted_list.h"
+#include "benchmark.h"
+/* #include "sorted_list.h" */
 
-typedef union alloc_header_t
+typedef struct free_node_t
 {
-	struct
-	{
-		size_t size;
-		size_t padding;
-	};
-	uint8_t requisite_size[sizeof(sorted_list_t)];
+	struct free_node_t* next;
+	size_t value;
+} free_node_t;
+
+typedef struct alloc_header_t
+{
+	size_t size;
+	size_t padding;
 } alloc_header_t;
+
+void list_insert(free_node_t** list, free_node_t* node)
+{
+	node->next = *list;
+	*list = node;
+}
+
+void list_remove(free_node_t** list, free_node_t* node)
+{
+	for (; *list != NULL; *list = (*list)->next)
+	{
+		if (*list == node)
+		{
+			*list = node->next;
+		}
+	}
+}
+
+free_node_t* list_extract_first_gte(free_node_t** list, const size_t size)
+{
+	for (; *list != NULL; *list = (*list)->next)
+	{
+		free_node_t* res = *list;
+		if (res->value >= size)
+		{
+			*list = res->next;
+			return res;
+		}
+	}
+	return NULL;
+}
+
+// O(n)
+free_node_t* list_extract_best_gte(free_node_t** list, const size_t size)
+{
+	free_node_t* res = NULL;
+	free_node_t** res_ptr = &res;
+	for (; *list != NULL; *list = (*list)->next)
+	{
+		free_node_t* temp = *list;
+		if (temp->value >= size && (res == NULL || temp->value < res->value))
+		{
+			res_ptr = list;
+			*list = res->next;
+		}
+	}
+	if (res)
+	{
+		*res_ptr = res->next;
+	}
+	return res;
+}
+
+void list_point_relative(free_node_t* list)
+{
+	free_node_t* temp;
+	for (; list != NULL; list = temp)
+	{
+		temp = list->next;
+		if (temp != NULL)
+		{
+			point_relative(&list->next);
+		}
+	}
+}
+
+void list_point_absolute(free_node_t* list)
+{
+	for (; list != NULL; list = list->next)
+	{
+		if (list->next != NULL)
+		{
+			point_absolute(&list->next);
+		}
+	}
+}
 
 void print_chunks(const free_list_t* fl)
 {
-	for (sorted_list_t* l = fl->head; l != NULL; l = l->next)
+	for (free_node_t* l = fl->head; l != NULL; l = l->next)
 	{
 		printf("%zu%s", l->value, l->next != NULL ? ", " : "\n");
 	}
@@ -48,37 +127,35 @@ void free_list_grow(free_list_t* fl, size_t bytes)
 	const uint8_t* m1 = memory + bytes;
 	const size_t delta = bytes - size0;
 	fl->size = bytes;
-	if (delta > sizeof(sorted_list_t) + sizeof(size_t))
+	if (delta >= 2 * sizeof(free_node_t))
 	{
 		const uint8_t* ptr = memory + size0;
-		const size_t shift = align(ptr, sizeof(size_t));
-		sorted_list_t* list = ptr + shift;
+		const size_t shift = align(ptr, sizeof(free_node_t));
+		free_node_t* list = ptr + shift;
 		assert(memory <= list && list < m1);
 		list->value = delta - shift;
 		list->next = NULL;
-		sorted_list_insert(&fl->head, list);
+		list_insert(&fl->head, list);
 	}
 }
 
 void* free_list_alloc(free_list_t* fl, size_t bytes)
 {
 	const size_t header_size = sizeof(alloc_header_t);
-	if (fl->head != NULL && fl->head->value >= bytes + header_size)
+	free_node_t* node = list_extract_first_gte (&fl->head, bytes + header_size); // O(n)
+	if (node != NULL)
 	{
-		sorted_list_t* head = sorted_list_extract(&fl->head);
-		const size_t total = head->value;
-		alloc_header_t* header = head;
+		const size_t total = node->value;
+		alloc_header_t* header = node;
 		uint8_t* ptr = header + 1;
 		header->size = bytes;
 		header->padding = total - bytes - sizeof *header;
-		if (header->padding > sizeof *head + sizeof(size_t))
+		if (header->padding >= 2 * sizeof *node)
 		{
-			const size_t shift = align(ptr + bytes, sizeof(size_t));
-			sorted_list_t* cleave = ptr + bytes + shift;
-			cleave->value = header->padding;
-			cleave->value -= shift;
-			cleave->next = NULL;
-			sorted_list_insert(&fl->head, cleave);
+			const size_t shift = align(ptr + bytes, sizeof(free_node_t));
+			node = ptr + bytes + shift;
+			node->value = header->padding - shift;
+			list_insert(&fl->head, node);
 			header->padding = shift;
 		}
 		return ptr;
@@ -94,34 +171,30 @@ void* free_list_dealloc(free_list_t* fl, void* ptr, size_t bytes)
 		assertf(bytes <= header->size, "DEALLOC not REALLOC");
 		header->padding += header->size - bytes;
 		header->size = bytes;
-		if (header->padding > sizeof(sorted_list_t) + sizeof(size_t))
+		if (header->padding >= 2 * sizeof(free_node_t))
 		{
-			const size_t shift = align(ptr + bytes, sizeof(size_t));
-			sorted_list_t* list = (uint8_t*)ptr + bytes + shift;
-			list->value = header->padding;
-			list->value -= shift;
-			list->next = NULL;
-			sorted_list_insert(&fl->head, list);
+			const size_t shift = align(ptr + bytes, sizeof(free_node_t));
+			free_node_t* node = (uint8_t*)ptr + bytes + shift;
+			node->value = header->padding - shift;
+			list_insert(&fl->head, node);
 			header->padding = shift;
 		}
 	}
 	return ptr;
 }
 
-void* free_list_free(free_list_t* fl, void* ptr)
+void free_list_free(free_list_t* fl, void* ptr)
 {
 	const alloc_header_t* header = (alloc_header_t*)ptr - 1;
 	/* const size_t freed_size = header->size + header->padding + sizeof *header; */
-	sorted_list_t* list = header;
-	list->value = header->size + header->padding + sizeof *header;
-	list->next = NULL;
-	sorted_list_insert(&fl->head, list);
-	return list;
+	free_node_t* node = header;
+	node->value = header->size + header->padding + sizeof *header;
+	list_insert(&fl->head, node);
 }
 
 void free_list_clear(free_list_t* fl)
 {
-	sorted_list_t* list = fl->memory;
+	free_node_t* list = fl->memory;
 	list->next = NULL;
 	list->value = fl->size;
 	fl->head = list;
@@ -129,12 +202,7 @@ void free_list_clear(free_list_t* fl)
 
 static int compare_address(const void* a, const void* b)
 {
-	return (size_t)(*(const sorted_list_t**)a) - (size_t)(*(const sorted_list_t**)b); // overflow? I barely know her
-}
-
-static int compare_values(const void* a, const void* b)
-{
-	return (*(const sorted_list_t**)a)->value - (*(const sorted_list_t**)b)->value; // overflow? I barely know her
+	return (size_t)(*(const free_node_t**)a) - (size_t)(*(const free_node_t**)b); // overflow? I barely know her
 }
 
 void free_list_coalesce(free_list_t* fl)
@@ -142,32 +210,16 @@ void free_list_coalesce(free_list_t* fl)
 	if (fl->head != NULL)
 	{
 		size_t num = 0;
-		for(sorted_list_t* l = fl->head; l != NULL; l = l->next) { ++num; }
-		const size_t list_size = num * sizeof(sorted_list_t**) + sizeof(sorted_list_t);
-		sorted_list_t** list;
-		const uint8_t based_flag = fl->head->value >= list_size;
-		// D E V I L I S H T A C T I C S: ideally store the list within itself
-		// NOTE: have to offset because you don't want to overwrite the struct fields whilestve ordering it, because you need that data
-		if (based_flag)
-		{
-			printf("\n\nATTN: BASEDBASEDBASEDBASEDBASEDBASEDBASEDBASEDBASEDBASEDBASEDBASEDBASED\n");
-			list = fl->head + 1;
-		}
-		else
-		{
-			// otherwise malloc :(
-			printf("\n\nWARNING: CINGE\n");
-			list = scratch_alloc(num * sizeof(sorted_list_t**)); // LMAO YOU CAN RUN OUT OF MEMORY HERE
-			assert(list);
-		}
+		for(free_node_t* l = fl->head; l != NULL; l = l->next) { ++num; }
+		free_node_t** list = scratch_alloc(num * sizeof *list);
 		// 1. populate the list
 		size_t i = 0;
-		for(sorted_list_t* l = fl->head; l != NULL; l = l->next)
+		for(free_node_t* l = fl->head; l != NULL; l = l->next)
 		{
 			list[i++] = l;
 		}
 		// 2. sort by address
-		qsort(list, num, sizeof(sorted_list_t**), compare_address);
+		qsort(list, num, sizeof *list, compare_address);
 		// 3. if sizes touch (or are less than sizeof(size_t) away) then & delete the latter
 		size_t swap = 1;
 		const size_t merge_size = sizeof(size_t);
@@ -186,19 +238,14 @@ void free_list_coalesce(free_list_t* fl)
 			}
 		}
 		num = swap;
-		// 4. sort by increasing size
-		qsort(list, num, sizeof(sorted_list_t**), compare_values);
 		(*list)->next = NULL;
 		fl->head = NULL;
 		// reinsert
-		for (i = 0; i < num; ++i)
+		for (i = 0; i <= num; ++i)
 		{
-			sorted_list_insert(&fl->head, list[i]);
+			list_insert(&fl->head, list[i]);
 		}
-		if (!based_flag)
-		{
-			scratch_free(list);
-		}
+		/* scratch_free(list); */
 	}
 }
 
@@ -206,22 +253,22 @@ void free_list_point_relative(free_list_t* fl)
 {
 	if (fl->head != NULL)
 	{
-		sorted_list_point_relative(fl->head);
+		list_point_relative(fl->head);
 		point_relative_offset(&fl->head, fl->memory);
-		fl->valid_translation = 0x01;
+		fl->valid_head = 0x01;
 	}
 	else
 	{
-		fl->valid_translation = 0x00;
+		fl->valid_head = 0x00;
 	}
 }
 
 void free_list_point_absolute(free_list_t* fl)
 {
-	if (fl->valid_translation)
+	if (fl->valid_head)
 	{
 		point_absolute_offset(&fl->head, fl->memory);
-		sorted_list_point_absolute(fl->head);
+		list_point_absolute(fl->head);
 	}
 }
 void free_list_serialize(void* destination, free_list_t* fl)
@@ -253,17 +300,17 @@ void free_list_deserialize(free_list_t* fl, const void* source)
 size_t free_list_coverage(free_list_t* fl)
 {
 	size_t coverage = 0;
-	for (sorted_list_t* list = fl->head; list != NULL; list = list->next)
+	for (free_node_t* list = fl->head; list != NULL; list = list->next)
 	{
-		coverage = list->value;
+		coverage += list->value;
 	}
 	return coverage;
 }
 
-const size_t free_list_largest_allocation(const free_list_t* fl)
-{
-	return fl->head ? fl->head->value : 0;
-}
+/* const size_t free_list_largest_allocation(const free_list_t* fl) */
+/* { */
+/* 	return fl->head ? fl->head->size : 0; */
+/* } */
 
 int free_list_test(int argc, char** argv)
 {
@@ -333,7 +380,7 @@ int free_list_test(int argc, char** argv)
 	const char spinner[4] = { '\\', '-', '/', '|' };
 	fflush(stdout);
 /* #define LIMIT 0x400000000 */
-#define LIMIT 0x100000000 // slightly less because this machine only has 16gigs ram LMAO
+#define LIMIT 0x800000000 // slightly less because this machine only has 16gigs ram LMAO
 	const float resize_scale = 1.618f;
 	const size_t resize_overhead = 4096;
 	for (int i = 0; i <= 999999; ++i)
@@ -352,61 +399,59 @@ int free_list_test(int argc, char** argv)
 
 #define STRESS_TEST 10000000
 #ifdef STRESS_TEST
-	printf("  -- stress test: ");
-	printf("allocating");
+	printf("  -- stress test:\n");
+	printf("   + allocating: ");
+	fflush(stdout);
 	buffer = malloc(fl->size);
 	assert(buffer); // do this first in case you run out of memory
-	printf("\b\b\b\b\b\b\b\b\b\b");
-	printf("fragmenting: ");
+	printf("GOOD\n");
+	printf("   + fragmenting: ");
 	fflush(stdout);
-	for (int i = 0; i < STRESS_TEST; ++i)
+	LONGTIME(for (unsigned int i = 0; i < STRESS_TEST; ++i)
 	{
 		printf("%06.2f%%", 100.0f * (float)i / (float)STRESS_TEST);
 		fflush(stdout);
-		void* ptr = free_list_alloc(fl, 69);
-		if (ptr == NULL)
+		void* ptr = free_list_alloc(fl, 64);
+		if (ptr != NULL)
 		{
-			printf("\b\b\b\b\b\b\b");
-			break;
+			ptr = free_list_dealloc(fl, ptr, 16);
+			free_list_free(fl, ptr);
 		}
-		ptr = free_list_dealloc(fl, ptr, 17);
-		ptr = free_list_free(fl, ptr);
-		printf("\b\b\b\b\b\b\b");
+			printf("\b\b\b\b\b\b\b");
 	}
-	printf("\b\b\b\b\b\b\b\b\b\b\b");
-	printf("caching    ");
+	printf("GOOD!    \n");)
+	printf("   + caching: ");
 	fflush(stdout);
 	size_t num = 0;
-	for (sorted_list_t* l = fl->head; l != NULL; l = l->next)
+	for (free_node_t* l = fl->head; l != NULL; l = l->next)
 	{
 		num++;
 	}
 	size_t* values = malloc(num * sizeof *values);
 	int i = 0;
-	for (sorted_list_t* l = fl->head; l != NULL; l = l->next)
+	for (free_node_t* l = fl->head; l != NULL; l = l->next)
 	{
 		fflush(stdout);
 		values[i++] = l->value;
 	}
-	printf("\b\b\b\b\b\b\b\b\b\b\b");
-	printf("translating");
+	printf("GOOD\n");
+	printf("   + translating: ");
 	fflush(stdout);
 	free_list_point_relative(fl);
 	memcpy(buffer, fl->memory, fl->size);
 	free(fl->memory);
 	fl->memory = buffer;
 	free_list_point_absolute(fl);
-	printf("\b\b\b\b\b\b\b\b\b\b\b");
-	printf("checking   ");
+	printf("GOOD\n");
+	printf("   + checking: ");
 	fflush(stdout);
 	i = 0;
-	for (sorted_list_t* l = fl->head; l != NULL; l = l->next)
+	for (free_node_t* l = fl->head; l != NULL; l = l->next)
 	{
 		assert(values[i++] == l->value);
 	}
 	free(values);
-	printf("\b\b\b\b\b\b\b\b\b\b\b");
-	printf("GOOD!      \n");
+	printf("GOOD\n");
 	printf("  > succesfully translated %zu accessible memory chunks\n", num);
 	printf("  > size: %zu GB (%zu bytes)\n", fl->size / 0x40000000, fl->size);
 #endif

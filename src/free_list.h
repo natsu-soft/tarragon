@@ -8,10 +8,10 @@
 typedef struct free_list_t
 {
 	// NOTE: order matters for serialization because I am lazy >:^)
-	struct sorted_list_t* head;
+	struct free_node_t* head;
 	size_t size;
 	uint8_t* memory;
-	uint8_t valid_translation;
+	uint8_t valid_head;
 } free_list_t;
 
 void free_list_init(free_list_t* fl, size_t bytes);
@@ -22,7 +22,7 @@ void* free_list_alloc(free_list_t* fl, size_t bytes);
 
 void* free_list_dealloc(free_list_t* fl, void* ptr, size_t bytes);
 
-void* free_list_free(free_list_t* fl, void* ptr);
+void free_list_free(free_list_t* fl, void* ptr);
 
 void free_list_clear(free_list_t* fl);
 

@@ -9,7 +9,7 @@
 #include "scratch.h"
 #include "benchmark.h"
 
-static uint8_t verbose_resize = 0x01;
+/* static uint8_t verbose_resize = 0x01; */
 
 typedef struct alloc_header_t
 {
@@ -17,10 +17,17 @@ typedef struct alloc_header_t
 	size_t padding;
 } alloc_header_t;
 
-static const size_t align(const void* ptr, const size_t pow2)
+/* static const size_t align(const void* ptr, const size_t pow2) */
+/* { */
+/* 	const size_t modulo = (size_t)ptr & (pow2 - 1); */
+/* 	return modulo > 0 ? pow2 - modulo : 0; */
+/* } */
+
+// NOTE: have to align to sizeof(avl_node_t) aka 40 bytes :(
+static const size_t align(const void* ptr, const size_t size)
 {
-	const size_t modulo = (size_t)ptr & (pow2 - 1);
-	return modulo > 0 ? pow2 - modulo : 0;
+	const size_t modulo = (size_t)ptr % size;
+	return modulo > 0 ? size - modulo : 0;
 }
 
 static void free_tree_relative(free_tree_t* tree)
@@ -69,10 +76,11 @@ void free_tree_grow(free_tree_t* tree, const size_t bytes)
 	const uint8_t* m1 = memory + bytes;
 	const size_t delta = bytes - size0;
 	tree->size = bytes;
-	if (delta > sizeof(avl_node_t) + sizeof(size_t))
+	/* if (delta >= sizeof(avl_node_t) + sizeof(size_t)) */
+	if (delta > 2 * sizeof(avl_node_t))
 	{
 		const uint8_t* ptr = memory + size0;
-		const size_t shift = align(ptr, sizeof(size_t));
+		const size_t shift = align(ptr, sizeof(avl_node_t));
 		avl_node_t* node = ptr + shift;
 		memset(node, 0x00, sizeof *node);
 		assert(memory <= node && node < m1);
@@ -86,7 +94,7 @@ void* free_tree_alloc(free_tree_t* tree, const size_t bytes)
 	const size_t header_size = sizeof(alloc_header_t);
 	const size_t req_size = bytes +  sizeof(alloc_header_t);
 	avl_node_t* node = avl_find_min_gte(tree->root, req_size);
-	/* avl_node_t* node = avl_first_gte(tree->root, req_size); */
+	/* avl_node_t* node = avl_first_gte(tree->root, req_size); */ // fucked on fragment
 	if (node != NULL)
 	{
 		const size_t total = node->value;
@@ -96,7 +104,7 @@ void* free_tree_alloc(free_tree_t* tree, const size_t bytes)
 		header->size = bytes;
 		header->padding = total - bytes - sizeof *header;
 		/* if (total - bytes - padding - header_size > node_size) */
-		if (header->padding > sizeof *node + sizeof(size_t))
+		if (header->padding > 2 * sizeof *node)
 		{
 			const size_t shift = align(ptr + bytes, sizeof(size_t));
 			node = ptr + bytes + shift;
@@ -122,9 +130,11 @@ void* free_tree_dealloc(free_tree_t* tree, void* ptr, const size_t bytes)
 	assertf(bytes <= size, "CANNOT dealloc to a larger size T^T");
 	header->padding += size - bytes;
 	header->size = bytes;
-	if (header->padding > sizeof(avl_node_t) + sizeof(size_t))
+	/* if (header->padding > sizeof(avl_node_t) + sizeof(size_t)) */
+	if (header->padding > 2 * sizeof(avl_node_t))
 	{
-		const size_t shift = align(ptr + bytes, sizeof(size_t));
+		/* const size_t shift = align(ptr + bytes, sizeof(size_t)); */
+		const size_t shift = align(ptr + bytes, sizeof(avl_node_t));
 		avl_node_t* node = (uint8_t*)ptr + bytes + shift;
 		memset(node, 0x00, sizeof *node);
 		node->value = header->padding - shift;
@@ -222,7 +232,7 @@ void free_tree_coalesce(free_tree_t* tree)
 			memset(list[i], 0x00, offsetof(avl_node_t, value));
 			avl_insert(&tree->root, list[i]);
 		}
-		scratch_free(list);
+		/* scratch_free(list); */
 	}
 }
 
@@ -242,7 +252,7 @@ float free_tree_coverage(free_tree_t* tree)
 int free_tree_test(int argc, char** argv)
 {
 	#define INIT_SIZE 1024
-	verbose_resize = 0x00;
+	/* verbose_resize = 0x00; */
 	free_tree_t* tree = alloca(sizeof *tree);
 	free_tree_init(tree, INIT_SIZE);
 	void* other = malloc(INIT_SIZE);
@@ -324,26 +334,23 @@ int free_tree_test(int argc, char** argv)
 #define ALLOC_EXTREME 10000000
 #ifdef ALLOC_EXTREME
 	printf("  -- fragmenting: ");
-	/* printf("working"); */
 	fflush(stdout);
-	for (unsigned int i = 0; i < ALLOC_EXTREME; ++i)
+	LONGTIME(for (unsigned int i = 0; i < ALLOC_EXTREME; ++i)
 	{
 		/* avl_print(tree->root, 0); */
 		printf("%06.2f%%", 100.0f * (float)i / (float)ALLOC_EXTREME);
 		/* printf("[%d]", i % 10); */
 		fflush(stdout);
-		void* ptr = free_tree_alloc(tree, 32);
-		if (ptr == NULL)
+		void* ptr = free_tree_alloc(tree, 69);
+		if (ptr != NULL)
 		{
-			printf("\b\b\b\b\b\b\b");
-			break;
+			ptr = free_tree_dealloc(tree, ptr, 17);
+			free_tree_free(tree, ptr);
 		}
-		ptr = free_tree_dealloc(tree, ptr, 16);
-		free_tree_free(tree, ptr);
 		printf("\b\b\b\b\b\b\b");
 	}
 	/* printf("\b\b\b\b\b\b\b"); */
-	printf("GOOD!    \n");
+	printf("GOOD!    \n");)
 	if (tree->root)
 	{
 		printf("  >> tree depth: %zu\n", tree->root->depth);
@@ -399,7 +406,7 @@ int free_tree_test(int argc, char** argv)
 	printf("GOOD!\n");
 #endif
 	/* avl_print(tree->root, 0); */
-	verbose_resize = 0x01;
+	/* verbose_resize = 0x01; */
 	free(tree->memory);
 	return 0;
 }
