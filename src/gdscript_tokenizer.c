@@ -5,6 +5,7 @@
 #include <string.h>
 #include "token.h"
 #include "arena.h"
+#include "mem_sys.h"
 
 #define TOKENIZE_RESIZE_OVERHEAD  4096
 #define TOKEN_OVERHEAD 0
