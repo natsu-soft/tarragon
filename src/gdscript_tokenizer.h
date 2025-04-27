@@ -3,9 +3,8 @@
 
 #include <stdint.h>
 #include "gdscript_parser.h"
-
-typedef struct arena_t arena_t;
-typedef struct token_t token_t;
+#include "arena.h"
+#include "token.h"
 
 
 uint32_t gdscript_tokenize(arena_t* arena, token_t** tokens, gdscript_id_t** ids, const char* str, const uint32_t n);
