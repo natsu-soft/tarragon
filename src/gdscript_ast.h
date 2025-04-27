@@ -1,7 +1,8 @@
-#ifndef ABSTRACT_SYNTAX_TREE_H
-#define ABSTRACT_SYNTAX_TREE_H
+#ifndef GDSCRIPT_AST_H
+#define GDSCRIPT_AST_H
 
 #include <stdint.h>
+#include "gdscript_parser.h"
 
 #define AST_EXPRESSIONS \
 	X(AST_CONST, constant) \
@@ -134,4 +135,6 @@ typedef struct ast_node_t
 	} id;
 } ast_node_t;
 
-#endif /* End ABSTRACT_SYNTAX_TREE_H */
+void gdscript_ast_generate(uint32_t num_tokens, struct token_t** tokens, gdscript_id_t ids);
+
+#endif /* End GDSCRIPT_AST_H */

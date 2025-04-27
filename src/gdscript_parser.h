@@ -230,76 +230,72 @@ typedef enum syntax_id_t
 	SYNTAX_ELSE,
 } syntax_id_t;
 
-typedef struct token_t token_t;
-typedef struct arena_t arena_t;
+/* typedef struct syntax_t */
+/* { */
+/* 	syntax_id_t id; */
+/* 	void* expr; */
+/* } syntax_t; */
 
-typedef struct syntax_t
-{
-	syntax_id_t id;
-	void* expr;
-} syntax_t;
+/* typedef struct decl_class_t */
+/* { */
+/* 	syntax_t* body; */
+/* 	uint32_t num; */
+/* } decl_class_t; */
 
-typedef struct decl_class_t
-{
-	syntax_t* body;
-	uint32_t num;
-} decl_class_t;
+/* typedef struct decl_var_t */
+/* { */
+/* 	syntax_t* name; */
+/* 	char* type; // optional */
+/* 	syntax_t* expression; */
+/* } decl_var_t; */
 
-typedef struct decl_var_t
-{
-	syntax_t* name;
-	char* type; // optional
-	syntax_t* expression;
-} decl_var_t;
+/* typedef struct literal_t */
+/* { */
+/* 	syntax_id_t id; */
+/* 	union */
+/* 	{ */
+/* 		struct literal_t* literal; */
+/* 		token_t* token; */
+/* 	}; */
+/* } literal_t; */
 
-typedef struct literal_t
-{
-	syntax_id_t id;
-	union
-	{
-		struct literal_t* literal;
-		token_t* token;
-	};
-} literal_t;
+/* typedef struct group_t */
+/* { */
+/* 	syntax_t* inside; */
+/* } group_t; */
 
-typedef struct group_t
-{
-	syntax_t* inside;
-} group_t;
+/* typedef struct unary_t */
+/* { */
+/* 	gdscript_id_t operation; */
+/* 	literal_t* arg; */
+/* } unary_t; */
 
-typedef struct unary_t
-{
-	gdscript_id_t operation;
-	literal_t* arg;
-} unary_t;
-
-typedef struct binary_t
-{
-	gdscript_id_t operation;
-	literal_t* lhs;
-	literal_t* rhs;
-} binary_t;
+/* typedef struct binary_t */
+/* { */
+/* 	gdscript_id_t operation; */
+/* 	literal_t* lhs; */
+/* 	literal_t* rhs; */
+/* } binary_t; */
 
 // bro, you're going to need a resizable free list
 
 
-uint32_t gdscript_tokenize(arena_t* arena, token_t** tokens, gdscript_id_t** ids, const char* str, const uint32_t n);
+/* uint32_t gdscript_tokenize(arena_t* arena, token_t** tokens, gdscript_id_t** ids, const char* str, const uint32_t n); */
 
-void gdscript_preprocess(token_t* tokens, gdscript_id_t* ids, uint32_t* num_tokens);
+/* void gdscript_preprocess(token_t* tokens, gdscript_id_t* ids, uint32_t* num_tokens); */
 
-void gdscript_note_token_func(void (*func_ptr)(const token_t*, const char* message));
+/* void gdscript_note_token_func(void (*func_ptr)(const token_t*, const char* message)); */
 
-void gdscript_warn_token_func(void (*func_ptr)(const token_t*, const char* message));
+/* void gdscript_warn_token_func(void (*func_ptr)(const token_t*, const char* message)); */
 
-void gdscript_error_token_func(void (*func_ptr)(const token_t*, const char* message));
+/* void gdscript_error_token_func(void (*func_ptr)(const token_t*, const char* message)); */
 
 /* gdscript_syntax_id syntax_match(const match_arg_t* args, ); */
 
 
-#define MULTIPLE(...) __VA_ARGS__
+/* #define MULTIPLE(...) __VA_ARGS__ */
 
-#define BODY(LWS_DEPTH) \
-	MULTIPLE(BINARY(MATCH_DEPTH(LWS_DEPTH), EXPRESSION))
-
+/* #define BODY(LWS_DEPTH) \ */
+/* 	MULTIPLE(BINARY(MATCH_DEPTH(LWS_DEPTH), EXPRESSION)) */
 
 #endif /* End GDSCRIPT_PARSER_H */
