@@ -12,10 +12,12 @@ typedef struct alloc_header_t
 #define SCRATCH_OVERHEAD 4096
 
 static arena_t scratch = {0};
+/* static arena_t work_arena = {0}; */
 
 static void __attribute__((constructor)) scratch_init(void)
 {
 	arena_init(&scratch, 2 * SCRATCH_OVERHEAD);
+	/* arena_init(&work_arena, 2 * SCRATCH_OVERHEAD); */
 }
 
 void* scratch_alloc(const size_t size)
@@ -29,8 +31,7 @@ void* scratch_alloc(const size_t size)
 	if (scratch.size + total_size > scratch.cap)
 	{
 		const size_t new_size = scratch.cap + total_size + SCRATCH_OVERHEAD;
-		uint8_t* m = realloc(scratch.memory, total_size);
-		assert(m);
+		arena_resize(&scratch, new_size);
 	}
 	header = arena_alloc(&scratch, sizeof *header);
 	header->size = size + padding;
@@ -51,5 +52,12 @@ void scratch_free_all()
 
 void scratch_audit()
 {
-	printf("> SCRATCH AUDIT: %zu/%zu\n", scratch.size , scratch.cap);
+	printf("> SCRATCH AUDIT\n");
+	printf(">> scratch: %zu/%zu\n", scratch.size , scratch.cap);
 }
+
+/* arena_t* scratch_work() */
+/* { */
+/* 	work_arena.size = 0; */
+/* 	return &work_arena; */
+/* } */

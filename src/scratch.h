@@ -17,4 +17,6 @@ void scratch_free_all();
 
 void scratch_audit();
 
+/* struct arena_t* scratch_work(); */
+
 #endif /* End SCRATCH_H */
