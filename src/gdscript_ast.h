@@ -1,140 +1,181 @@
 #ifndef GDSCRIPT_AST_H
 #define GDSCRIPT_AST_H
 
+#include <stddef.h>
 #include <stdint.h>
 #include "gdscript_parser.h"
 
-#define AST_EXPRESSIONS \
-	X(AST_CONST, constant) \
-	X(AST_GROUP_EXPR, group_expr) \
-	X(AST_UNEXP, unary_expr) \
-	X(AST_BINEXP, binary_expr) \
-	X(AST_FUNC_EXPR, func_expr) \
-	X(AST_ARRAY_EXPR, array_expr) \
+typedef struct free_list_t free_list_t;
+typedef struct token_t token_t;
 
-#define AST_DECLARATIONS \
-	X(AST_DECL_VAR, var_decl) \
-	X(AST_DECL_FUNC, func_decl) \
-	X(AST_DECL_ENUM, enum_decl) \
-	X(AST_DECL_SIGNAL, signal_decl) \
-	X(AST_DECL_CLASS, class_decl)
+#define EXPR_TYPE /* TODO: expressions should include what type they evaluate to */
 
-#define AST_NODES \
-	X(AST_ERROR, error) \
-	X(AST_IDEINTIFIER, identifier) \
-	X(AST_FUNC_CALL, func_call) \
-	AST_EXPRESSIONS \
-	AST_DECLARATIONS \
+/* #define X_EXPRESSIONS	   \ */
+/* 	X(EXPR_CONST, constant) \ */
+/* 	X(EXPR_GROUP, group_expr) \ */
+/* 	X(EXPR_UNARY, unary_expr) \ */
+/* 	X(EXPR_BINARY, binary_expr) \ */
+/* 	X(EXPR_FUNC, func_expr) \ */
+/* 	X(EXPR_ARRAY, array_expr) \ */
 
 
-// forward declare everything
-#define X(ENUM, NAME) typedef struct ast_##NAME##_t ast_##NAME##_t;
-AST_NODES
-#undef X
+/* NOTE: NO SYMBOLS IN AST--JUST IDENTIFIERS */
+/* NOTE: arguments & parameters are ACHKSHUALLY statements but theyre here because lmao bitmflags */
+#define NODES \
+	X(ERROR,		0x0000) \
+	X(ROOT,  		0x0100) \
+	X(IDENTIFIER,	0x0200) \
 
-typedef union ast_expr_t ast_expr_t;
+// NOTE: symbolic expressions are expressions that are a SINGLE SYMBOL(token).
+// can be variables, strings, numbers, or literals.
+#define EXPRESSIONS \
+		X(SYMBOLIC) \
+		X(UNARY)	\
+		X(BINARY)	\
+		X(FUNC)		\
+		X(ARRAY)	\
+		X(DICT)		\
+		X(GROUP)
 
-typedef struct ast_error_t
+#define STATEMENTS								\
+		X(IF)									\
+		X(ELIF)									\
+		X(ELSE)									\
+		X(FOR)									\
+		X(WHILE)								\
+		X(MATCH)								\
+		X(PATTERN)								\
+		X(ARGUMENTS)							\
+		X(SIGNATURE)							\
+		X(PARAMETERS)							\
+		X(GET)									\
+		X(SET)									\
+		X(breakpoint)
+
+// NOTE: decalarations are also statements
+#define DECLARATIONS	\
+		X(CLASS)		\
+		X(EXTENDS)		\
+		X(VAR)			\
+		X(CONST)		\
+		X(FUNC)			\
+		X(ENUM)			\
+		X(SIGNAL)		\
+		X(SUBCLASS)		\
+		X(STATIC)
+
+// NOTE: warnings appear inside of method bodies
+#define ANNOTATIONS	\
+		X(CLASS)	\
+		X(VAR)		\
+		X(FUNC)		\
+		X(WARN)
+
+typedef enum __attribute__((packed)) ast_id_t
 {
-} ast_error_t;
+	#define X(ID, VALUE) AST_##ID = VALUE,
+	NODES
+	#undef X
+	/* EXPRESSIONS */
+	#define X(ID) AST_EXPR_##ID,
+	AST_EXPRESSION = 0x0400,
+	EXPRESSIONS
+	AST_EXPRESSION_END,
+	#undef X
+	#define X(ID) AST_STMT_##ID,
+	AST_STATEMENT = 0x0800,
+	STATEMENTS
+	AST_STATEMENT_END,
+	#undef X
+	#define X(ID) AST_DECL_##ID,
+	AST_DECLARATION = 0x1000,
+	DECLARATIONS
+	AST_DECLARTION_END,
+	#undef X
+	#define X(ID) AST_ANNO_##ID,
+	AST_ANNOTATION = 0x2000,
+	ANNOTATIONS
+	AST_ANNOTATION_END,
+	#undef X
+} ast_id_t;
 
-typedef struct ast_identifier_t
+
+typedef enum __attribute__((packed)) ast_symbol_t
 {
-	struct token_t* token;
-} ast_identifier_t;
+	AST_SYMBOL_NONE		  = 0x00,
+	AST_SYMBOL_IDENTIFIER = 0x01,
+	AST_SYMBOL_STRING	  = 0x02,
+	AST_SYMBOL_NUMBER	  = 0x04,
+	AST_SYMBOL_LITERAL	  = 0x08,
+} ast_symbol_t;
 
-typedef struct ast_func_call_t
+typedef enum __attribute__((packed)) ast_op_t
 {
-	struct token_t* name;
-	ast_expr_t * args;
-	uint32_t num_args;
-} ast_func_call_t;
+	OP_NONE				   = 0x00000000,
+	OP_ASSIGNMENT		   = 0x80000000,
+	OP_POWER			   = 0x00000001,
+	OP_PRODUCT			   = 0x00000002,
+	OP_SUM				   = 0x00000004,
+	OP_IDENTITY			   = 0x00000008,
+	OP_DIFFERENCE		   = 0x00000010,
+	OP_NEGATION   		   = 0x00000020,
+	OP_DIVISION			   = 0x00000040,
+	OP_MODULO			   = 0x00000080,
+	OP_BOOL_AND			   = 0x00000100,
+	OP_BOOL_OR			   = 0x00000200,
+	OP_BOOL_NOT			   = 0x00000400,
+	OP_BITSHIFT_LEFT	   = 0x00000800,
+	OP_BITSHIFT_RIGHT	   = 0x00001000,
+	OP_BITWISE_AND		   = 0x00002000,
+	OP_BITWISE_OR		   = 0x00004000,
+	OP_BITWISE_XOR		   = 0x00008000,
+	OP_BITWISE_NOT		   = 0x00010000,	// doesn't assign--wtf?
+	OP_TYPE				   = 0x00020000,	// combines with assignment to make inferred (type) assignment
+	// these operators do NOT compare with assignment
+	OP_EQUALS			   = 0x00040000,
+	OP_INEQUALS			   = 0x00080000,
+	OP_LESS_THAN_EQUALS	   = 0x00100000,
+	OP_LESS_THAN		   = 0x00200000,
+	OP_GREATER_THAN_EQUALS = 0x00400000,
+	OP_GREATER_THAN		   = 0x00800000,
+	OP_PAIR				   = 0x01000000,	// used in dicts.  Either : or = if a lua-styled dict.
+	OP_DOT				   = 0x02000000,
+} ast_op_t;
 
-/***************/
-/* EXPRESSIONS */
-/***************/
-
-
-typedef struct ast_constant_t
+typedef enum __attribute__((packed)) ast_annotation_t
 {
-	ast_identifier_t* identifier;
-} ast_constant_t;
-
-typedef struct ast_func_expr_t
-{
-	ast_func_call_t* func_call;
-} ast_func_expr_t;
-
-typedef struct ast_array_t
-{
-	ast_expr_t* items;
-	uint32_t num_items;
-} ast_array_t;
-
-typedef struct ast_binary_expr_t
-{
-	gdscript_id_t operation;
-	ast_expr_t* left_arg;
-	ast_expr_t* right_arg;
-} ast_binary_expr_t;
-
-typedef struct ast_unary_expr_t
-{
-	gdscript_id_t operation;
-	ast_expr_t* arg;
-} ast_unary_expr_t;
-
-typedef struct ast_group_expr_t
-{
-	ast_expr_t* expr;
-} ast_group_expr_t;
-
-
-/****************/
-/* DECLARATIONS */
-/****************/
-
-typedef struct ast_var_decl_t
-{
-
-} ast_var_decl_t;
-
-typedef union ast_expr_t
-{
-	union
-	{
-		#define X(ENUM, NAME) ast_##NAME##_t NAME;
-		AST_EXPRESSIONS
-		#undef X
-	};
-	enum
-	{
-		#define X(ENUM, NAME) ENUM,
-		AST_EXPRESSIONS
-		#undef X
-	} id;
-} ast_expr_t;
-
-
-
+	#define X(_, ENUM) AST_##ENUM,
+	GDSCRIPT_ANNOTATIONS
+	#undef X
+} ast_annotation_t;
 
 typedef struct ast_node_t
 {
 	union
 	{
-		#define X(ENUM, NAME) ast_##NAME##_t NAME;
-		AST_NODES
-		#undef X
-		/* } node __attribute__((__transparent_union__)); */ // NOTE: I PROBABLY want this
-	} node;
-	enum
-	{
-		#define X(ENUM, NAME) ENUM,
-		AST_NODES
-		#undef X
-	} id;
+		token_t* symbol;
+		struct {
+			ast_op_t operation;
+			EXPR_TYPE
+		};
+		gdscript_id_t token_id;
+		ast_annotation_t annotation_id;
+		ast_symbol_t symbolic_id;
+		uint8_t lua_dict; // used with AST_EXPR_DICT
+	};
+	struct ast_node_t* parent;
+	struct ast_node_t* children;
+	uint32_t num_children;
+	uint32_t pos;
+	uint32_t len;
+	ast_id_t id;
+	ast_id_t last_child_id;
 } ast_node_t;
 
-void gdscript_ast_generate(uint32_t num_tokens, struct token_t** tokens, gdscript_id_t ids);
+ast_node_t* gdscript_ast_generate(free_list_t* fl, const token_t* tokens, gdscript_id_t* ids, const uint32_t num_tokens);
+
+void gdscript_ast_check(ast_node_t* root);
+
+/* void gdscript_ast_check_expression_types(ast_node_t* root); */
 
 #endif /* End GDSCRIPT_AST_H */
