@@ -26,146 +26,12 @@
 	STR_X("^\"",     0x82, NODE_PATH)				    \
 	STRING_ENDERS										\
 
-#define ITERATE_OVER_SOURCE												\
-	state = LEADING_WHITESPACE;											\
-	str_bitmask = STR_BITMASK_NONE;										\
-	line = 1;															\
-	column = 0;															\
-	for (uint32_t i = 0; i < n; ++i)									\
-	{																	\
-		const char c = src[i];											\
-		switch (state)													\
-		{																\
-		case LEADING_WHITESPACE:										\
-			switch(c)													\
-			{															\
-			case '#': pos = i; state = COMMENT; break;					\
-			case ' ': __attribute__((fallthrough));						\
-			case '\t':													\
-				do { HANDLE_LEADING_WHITESPACE } while(0);				\
-				break;													\
-			default:													\
-				if ((offset = string_starter(src + i, n - i, &str_bitmask)) > 0) \
-				{														\
-					pos = i;											\
-					coords.line = line;									\
-					coords.col = column;								\
-					i += offset - 1;									\
-					state = STRING;										\
-				}														\
-				else if ((offset = delimiting_token(src + i, n - i)) > 0) \
-				{														\
-					do { HANDLE_DELIMITING_TOKEN }while(0);				\
-					i += offset - 1;									\
-					state = WAITING_CHAR;								\
-				}														\
-				else													\
-				{														\
-					pos = i;											\
-					coords.line = line;									\
-					coords.col = column;								\
-					state = WSB_TOKEN;									\
-				}														\
-			}															\
-			break;														\
-		case WSB_TOKEN:													\
-			if ((offset = delimiting_token(src + i, n - i)) > 0)		\
-			{															\
-				do { HANDLE_TOKEN } while(0);							\
-				do { HANDLE_DELIMITING_TOKEN } while(0);				\
-				state = c == '\n' ? LEADING_WHITESPACE : WAITING_CHAR;	\
-				i += offset - 1;										\
-			}															\
-			else if (isspace(c))										\
-			{															\
-				do { HANDLE_TOKEN } while(0);							\
-				state = WAITING_CHAR;									\
-			}															\
-			break;														\
-		case WAITING_CHAR:												\
-			if ((offset = string_starter(src + i, n - i, &str_bitmask)) > 0) \
-			{															\
-				pos = i;												\
-				coords.line = line;										\
-				coords.col = column;									\
-				i += offset - 1;										\
-				state = STRING;											\
-			}															\
-			else if ((offset = delimiting_token(src + i, n - i)) > 0)	\
-			{															\
-				do { HANDLE_DELIMITING_TOKEN } while(0);				\
-				i += offset - 1;										\
-				switch (c)												\
-				{														\
-				case '\n':												\
-					state = LEADING_WHITESPACE;							\
-					break;												\
-				case '#':												\
-					pos = i;											\
-					coords.line = line;									\
-					coords.col = column;								\
-					state = COMMENT;									\
-					break;												\
-				default:												\
-					state = WAITING_CHAR;								\
-				}														\
-			}															\
-			else if (!isspace(c))										\
-			{															\
-				pos = i;												\
-				coords.line = line;										\
-				coords.col = column;									\
-				state = WSB_TOKEN;										\
-			}															\
-			else														\
-			{															\
-				do { HANDLE_WHITESPACE } while(0);						\
-			}															\
-			break;														\
-		case COMMENT:													\
-			switch (c)													\
-			{															\
-			case '\n':													\
-				do { HANDLE_COMMENT } while(0);							\
-				state = LEADING_WHITESPACE;								\
-				break;													\
-			}															\
-			break;														\
-		case STRING:													\
-			if (src[i - 1] != '\\' && (offset = string_ender(src + i, n - i, str_bitmask)) > 0) \
-			{															\
-				do { HANDLE_STRING } while(0);							\
-				i += offset - 1;										\
-				str_bitmask = STR_BITMASK_NONE;							\
-				state = WAITING_CHAR;									\
-			}															\
-			break;														\
-		}																\
-		if (c == '\n')													\
-		{																\
-			line++;														\
-			column = 0;													\
-		}																\
-		else															\
-		{																\
-			column++;													\
-		}																\
-	}																	\
-	if (state & (WSB_TOKEN | STRING | COMMENT))							\
-	{																	\
-		do { HANDLE_TRAILING } while(0);								\
-	}
-
 static uint32_t delimiting_token(const char* str, const unsigned int n);
 static uint32_t string_starter(const char* str, const unsigned int n, uint8_t* str_bitmask);
 static uint32_t string_ender(const char* str, const unsigned int n, const uint8_t str_bitmask);
 static const gdscript_id_t id_token(const token_t* token);
 static void new_token(arena_t* token_arena, const char* src, const int pos, const int len);
 static const gdscript_id_t verify_number(const char* src, const uint32_t n);
-
-/* static uint32_t move_unclassified_to_front(token_t* tokens, gdscript_id_t* ids, const int n); */
-/* static void original_positions(token_t* tokens, gdscript_id_t* ids, const int n); */
-
 static void cull_line_continuations(token_t* tokens, gdscript_id_t* ids, uint32_t* num_tokens);
 
 static void do_nothing_with_token(const token_t* t, const char* message)
@@ -173,6 +39,7 @@ static void do_nothing_with_token(const token_t* t, const char* message)
 	return;
 }
 
+// TODO: early errors/warnings/notes
 static void (*note_token_func)(const token_t*, const char* message) = do_nothing_with_token;
 static void (*warn_token_func)(const token_t*, const char* message) = do_nothing_with_token;
 static void (*error_token_func)(const token_t*, const char* message) = do_nothing_with_token;
