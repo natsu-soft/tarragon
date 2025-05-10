@@ -151,6 +151,22 @@ typedef enum __attribute__((packed)) ast_annotation_t
 
 typedef struct ast_node_t
 {
+	union {
+		// for regular nodes
+		struct
+		{
+			struct ast_node_t* children;
+			size_t num_children;
+		};
+		// for operator expressions
+		struct
+		{
+			struct ast_node_t* lhs;
+			struct ast_node_t* rhs;
+		};
+		struct ast_node_t* operand[2];
+	};
+	struct ast_node_t* parent;
 	union
 	{
 		token_t* symbol;
@@ -163,13 +179,10 @@ typedef struct ast_node_t
 		ast_symbol_t symbolic_id;
 		uint8_t lua_dict; // used with AST_EXPR_DICT
 	};
-	struct ast_node_t* parent;
-	struct ast_node_t* children;
-	uint32_t num_children;
-	uint32_t pos;
-	uint32_t len;
+	uint32_t pos; // i dont think I need this
+	uint32_t len; // i MITE need
 	ast_id_t id;
-	ast_id_t last_child_id;
+	ast_id_t last_child_id; // you shouldn't need this but ur lazy tbqh
 } ast_node_t;
 
 ast_node_t* gdscript_ast_generate(free_list_t* fl, const token_t* tokens, gdscript_id_t* ids, const uint32_t num_tokens);
