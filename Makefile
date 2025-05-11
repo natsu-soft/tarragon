@@ -20,7 +20,7 @@ LDFLAGS := -fuse-ld=lld -flto $(LIBS) -static
 else
 LDFLAGS := -fuse-ld=mold -flto $(LIBS) -static
 endif
-MAINS := src/tarragon.c src/unit_tests.c src/gdscript_parser.c
+MAINS := src/tarragon.c src/unit_tests.c
 ALL_SRC := $(wildcard src/*.c)
 SRC := $(filter-out $(MAINS), $(ALL_SRC))
 DEP := $(patsubst src/%.c,dep/%.d,$(ALL_SRC))
@@ -39,9 +39,6 @@ OBJ += $(HEX_OBJS) $(JSON_OBJS)
 .PHONY: default dependencies clean clean-dep clean-emacs clean-api clean-all dep_dir obj_dirs lsp-test jansson-test test test2
 
 default: unit-tests
-
-gdscript-parser: obj/gdscript_parser.o $(OBJ)
-	$(CC) $(CFLAGS) -o $@ $^ $(LIBS) $(LDFLAGS)
 
 test: unit-tests
 	@${CURDIR}/$<
