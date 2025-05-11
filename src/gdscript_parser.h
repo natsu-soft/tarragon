@@ -58,6 +58,13 @@
 // NOTE: pair, type, dot, identity, and negation operators never match during tokenization,
 // but they're used during ast generation
 // after tokenizatin remaining periods get converted to the dot operator
+
+#define GDSCRIPT_UNARY_OPERATORS \
+	X("~", OP_BITWISE_NOT) \
+	X("+", OP_IDENTITY) \
+	X("-", OP_NEGATION) \
+	X("!", OP_BOOL_NOT)
+
 #define GDSCRIPT_BINARY_OPERATORS \
 	X("**=", OP_ASSIGNMENT_POWER) \
 	X("**",  OP_POWER) \
@@ -94,12 +101,6 @@
 	X(":",   OP_PAIR) \
 	X(":",   OP_TYPE) \
 	X(".",   OP_DOT) \
-
-#define GDSCRIPT_UNARY_OPERATORS \
-	X("~", OP_BITWISE_NOT) \
-	X("+", OP_IDENTITY) \
-	X("-", OP_NEGATION) \
-	X("!", OP_BOOL_NOT)
 
 #define GDSCRIPT_ANNOTATIONS \
 	X("@export_category",            EXPORT_CATEGORY) \
@@ -181,8 +182,8 @@
 	X("NAN",   NAN)
 
 #define GDSCRIPT_OPERATORS \
-	GDSCRIPT_BINARY_OPERATORS \
-	GDSCRIPT_UNARY_OPERATORS
+	GDSCRIPT_UNARY_OPERATORS \
+	GDSCRIPT_BINARY_OPERATORS
 
 #define GDSCRIPT_DELIMITING_TOKENS \
 	GDSCRIPT_STRUCTURE \
