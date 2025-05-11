@@ -11,6 +11,14 @@ void arena_init(arena_t* arena, const size_t bytes)
 	arena->memory = malloc(bytes);
 }
 
+void arena_resize(arena_t* arena, const size_t bytes)
+{
+	uint8_t* memory = realloc(arena->memory, bytes);
+	assert(memory);
+	arena->cap = bytes;
+	arena->size = bytes > arena->size ? arena->size : bytes;
+}
+
 void* arena_alloc(arena_t* arena, const size_t bytes)
 {
 	/* LOG("allocating %zu from %zu", bytes, arena-> cap - arena->size); */
