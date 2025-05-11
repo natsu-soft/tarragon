@@ -20,6 +20,8 @@ void free_list_grow(free_list_t* fl, size_t bytes);
 
 void* free_list_alloc(free_list_t* fl, size_t bytes);
 
+void* free_list_calloc(free_list_t* fl, size_t bytes);
+
 void* free_list_dealloc(free_list_t* fl, void* ptr, size_t bytes);
 
 void free_list_free(free_list_t* fl, void* ptr);

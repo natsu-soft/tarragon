@@ -163,6 +163,17 @@ void* free_list_alloc(free_list_t* fl, size_t bytes)
 	return NULL;
 }
 
+void* free_list_calloc(free_list_t* fl, size_t bytes)
+{
+	void* res = free_list_alloc(fl, bytes);
+	if (res != NULL)
+	{
+		memset(res, 0x00, bytes);
+	}
+	return res;
+}
+
+
 void* free_list_dealloc(free_list_t* fl, void* ptr, size_t bytes)
 {
 	if (ptr != NULL)
