@@ -15,19 +15,19 @@
 #define LINKED(T) \
 struct { \
 	struct T* next; \
-};
+}
 
 #define TAILED_LINKED(T) \
 struct { \
 	T* next; \
 	T* last; \
-};
+}
 
 #define DOUBLY_LINKED(T) \
 struct { \
 	T* next; \
 	T* prev; \
-};
+}
 
 #define LINK_XOR(A, B) (void*)((size_t)A ^ (size_t)B)
 
