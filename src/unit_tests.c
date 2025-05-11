@@ -12,14 +12,18 @@
 /* 	TEST(json) \ */
 /* 	TEST(array_trie) */
 
-#define UNIT_TESTS \
-	TEST(array_trie)
-	/* TEST(free_list) \ */
-	/* TEST(free_tree) */
-	/* TEST(free_list) */
-	/* TEST(free_tree) \ */
-	/* TEST(free_list) \ */
-	/* TEST(array_trie) */
+/* #define UNIT_TESTS \ */
+/* 	TEST(array_trie) */
+/* 	/\* TEST(free_list) \ *\/ */
+/* 	/\* TEST(free_tree) *\/ */
+/* 	/\* TEST(free_list) *\/ */
+/* 	/\* TEST(free_tree) \ *\/ */
+/* 	/\* TEST(free_list) \ *\/ */
+/* 	/\* TEST(array_trie) *\/ */
+
+#define UNIT_TESTS								\
+	TEST(json)									\
+	TEST(gdscript_parser)
 
 #define TEST(A) extern int A##_test(int argc, char** argv);
 UNIT_TESTS
