@@ -29,48 +29,52 @@ typedef struct token_t token_t;
 // NOTE: symbolic expressions are expressions that are a SINGLE SYMBOL(token).
 // can be variables, strings, numbers, or literals.
 #define EXPRESSIONS								\
-		X(SYMBOLIC)								\
-		X(UNARY)								\
-		X(BINARY)								\
-		X(FUNC)									\
-		X(ARRAY)								\
-		X(DICT)									\
-		X(GROUP)								\
-		X(TERNARY)
+	X(SYMBOLIC)								\
+	X(UNARY)								\
+	X(BINARY)								\
+	X(FUNC)									\
+	X(ARRAY)								\
+	X(DICT)									\
+	X(GROUP)								\
+	X(TERNARY) \
+	X(PARAM)
 
-#define STATEMENTS								\
-		X(IF)									\
-		X(ELIF)									\
-		X(ELSE)									\
-		X(FOR)									\
-		X(WHILE)								\
-		X(MATCH)								\
-		X(PATTERN)								\
-		X(ARGUMENTS)							\
-		X(SIGNATURE)							\
-		X(PARAMETERS)							\
-		X(GET)									\
-		X(SET)									\
-		X(breakpoint)
+#define STATEMENTS							\
+	X(IF)										\
+	X(ELIF)									\
+	X(ELSE)									\
+	X(FOR)									\
+	X(WHILE)						    		\
+	X(MATCH)								  \
+	X(PATTERN)								\
+	X(SIGNATURE)							\
+	X(PARAMETERS)							\
+	X(GET)									\
+	X(SET)									\
+	X(RETURN)								\
+	X(BREAKPOINT)\
+	X(BREAK) \
+	X(CONTINUE) \
+	X(PASS)
 
 // NOTE: decalarations are also statements
 #define DECLARATIONS	\
-		X(CLASS)		\
-		X(EXTENDS)		\
-		X(VAR)			\
-		X(CONST)		\
-		X(FUNC)			\
-		X(ENUM)			\
-		X(SIGNAL)		\
-		X(SUBCLASS)		\
-		X(STATIC)
+	X(CLASS)		\
+	X(EXTENDS)		\
+	X(VAR)			\
+	X(CONST)		\
+	X(FUNC)			\
+	X(ENUM)			\
+	X(SIGNAL)		\
+	X(SUBCLASS)		\
+	X(STATIC)
 
 // NOTE: warnings appear inside of method bodies
 #define ANNOTATIONS	\
-		X(CLASS)	\
-		X(VAR)		\
-		X(FUNC)		\
-		X(WARN)
+	X(CLASS)	\
+	X(VAR)		\
+	X(FUNC)		\
+	X(WARN)
 
 typedef enum __attribute__((packed)) ast_id_t
 {
@@ -103,11 +107,11 @@ typedef enum __attribute__((packed)) ast_id_t
 
 typedef enum __attribute__((packed)) ast_symbol_t
 {
-	AST_SYMBOL_NONE		  = 0x00,
-	AST_SYMBOL_IDENTIFIER = 0x01,
-	AST_SYMBOL_STRING	  = 0x02,
-	AST_SYMBOL_NUMBER	  = 0x04,
-	AST_SYMBOL_LITERAL	  = 0x08,
+	SYMBOL_NONE		  = 0x00,
+	SYMBOL_IDENTIFIER = 0x01,
+	SYMBOL_STRING	  = 0x02,
+	SYMBOL_NUMBER	  = 0x04,
+	SYMBOL_LITERAL	  = 0x08,
 } ast_symbol_t;
 
 /* typedef enum __attribute__((packed)) ast_op_t */
@@ -163,16 +167,16 @@ typedef enum	__attribute__((packed)) ast_op_t
 	OP_BITWISE_AND		    ,
 	OP_BITWISE_OR		    ,
 	OP_BITWISE_XOR		    ,
-	OP_BITWISE_NOT		    ,	//	doesn't		assign--wtf?
-	OP_TYPE				    ,	//	combines	with	assignment	to		make	inferred	(type)			assignment
-	//						these	operators	do		NOT			compare with	assignment
+	OP_BITWISE_NOT		    , //	doesn't assign--wtf?
+	OP_TYPE				    , //	combines with assignment to make inferred(type) assignment
+	// these operators do NOT compare with assignment
 	OP_EQUALS				,
 	OP_INEQUALS				,
 	OP_LESS_THAN_EQUALS		,
 	OP_LESS_THAN			,
 	OP_GREATER_THAN_EQUALS	,
 	OP_GREATER_THAN			,
-	OP_PAIR					,	//	used		in		dicts.		Either	: or	= if		a lua-styled	dict.
+	OP_PAIR					, // used in dicts. Either : or = if a lua-styled dict.
 	OP_DOT					,
 }	ast_op_t;
 

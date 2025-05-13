@@ -13,16 +13,12 @@
 // TODO: DeMorgen laws
 // TODO: SEMICOLONS?????
 
+
 #define RESIZE_SCALE 1.618
 #define RESIZE_OVERHEAD 4096
 
+// FOR CLARITY'S SAKE
 typedef unsigned char bool_t;
-
-// these bad boys are just here so I can't lsp auto-complete to expand these
-// NOTE: WHY DONT I USE RECORDINGS? Because I don't want to :)
-#define F1(NAME) static bool_t parse_##NAME(ast_node_t* parent, parse_args_t* args, uint32_t* index)
-#define F2(NAME) static bool_t parse_##NAME(ast_node_t* parent, parse_args_t* args, uint32_t* index, const uint8_t errs)
-
 
 typedef struct parse_args_t
 {
@@ -34,228 +30,91 @@ typedef struct parse_args_t
 	uint32_t req_lws;
 } parse_args_t;
 
-/* #define	PARSE_PTRS							\ */
-/* 	X(NONE,							error)			\ */
-/* 	X(ERROR,						error)			\ */
-/* 	X(SEMICOLON,					error)			\ */
-/* 	X(LINE_END,						error)			\ */
-/* 	X(LINE_CONTINUE,				error)			\ */
-/* 	X(COMMENT,						error)			\ */
-/* 	X(COLON,						colon)			\ */
-/* 	X(PERIOD,						error)			\ */
-/* 	X(COMMA,						error)			\ */
-/* 	X(ARROW,						todo)			\ */
-/* 	X(PAREN_OPEN,					paren)		\ */
-/* 	X(PAREN_CLOSE,					error)			\ */
-/* 	X(BRACE_OPEN,					expr_dict)		\ */
-/* 	X(BRACE_CLOSE,					error)			\ */
-/* 	X(BRACKET_OPEN,					expr_array)		\ */
-/* 	X(BRACKET_CLOSE,				error)			\ */
-/* 	X(OP_ASSIGNMENT_POWER,			expr_binary)			\ */
-/* 	X(OP_POWER,						expr_binary)			\ */
-/* 	X(OP_ASSIGNMENT_PRODUCT,		expr_binary)			\ */
-/* 	X(OP_PRODUCT,					expr_binary)			\ */
-/* 	X(OP_ASSIGNMENT_SUM,			expr_binary)			\ */
-/* 	X(OP_SUM,						plus)			\ */
-/* 	X(OP_ASSIGNMENT_DIFFERENCE,		expr_binary)			\ */
-/* 	X(OP_DIFFERENCE,				minus)			\ */
-/* 	X(OP_ASSIGNMENT_DIVISION,		expr_binary)			\ */
-/* 	X(OP_DIVISION,					expr_binary)			\ */
-/* 	X(OP_ASSIGNMENT_MODULO,			expr_binary)			\ */
-/* 	X(OP_MODULO,					expr_binary)			\ */
-/* 	X(OP_BOOL_AND,					expr_binary)			\ */
-/* 	X(OP_ASSIGNMENT_BITWISE_AND,	expr_binary)			\ */
-/* 	X(OP_BITWISE_AND,				expr_binary)			\ */
-/* 	X(OP_BOOL_OR,					expr_binary)			\ */
-/* 	X(OP_ASSIGNMENT_BITWISE_OR,		expr_binary)			\ */
-/* 	X(OP_BITWISE_OR,				expr_binary)			\ */
-/* 	X(OP_ASSIGNMENT_BITSHIFT_LEFT,	expr_binary)			\ */
-/* 	X(OP_BITSHIFT_LEFT,				expr_binary)			\ */
-/* 	X(OP_ASSIGNMENT_BITSHIFT_RIGH,	expr_binary)			\ */
-/* 	X(OP_BITSHIFT_RIGHT,			expr_binary)			\ */
-/* 	X(OP_ASSIGNMENT_XOR,			expr_binary)			\ */
-/* 	X(OP_BITWISE_XOR,				expr_binary)			\ */
-/* 	X(OP_EQUALS,					expr_binary)			\ */
-/* 	X(OP_INEQUALS,					expr_binary)			\ */
-/* 	X(OP_LESS_THAN_EQUALS,			expr_binary)			\ */
-/* 	X(OP_LESS_THAN,					expr_binary)			\ */
-/* 	X(OP_GREATER_THAN_EQUALS,		expr_binary)			\ */
-/* 	X(OP_GREATER_THAN,				expr_binary)			\ */
-/* 	X(OP_ASSIGNMENT_TYPED,			expr_binary)			\ */
-/* 	X(OP_ASSIGNMENT,				assignment)			\ */
-/* 	X(OP_PAIR,						expr_binary)			\ */
-/* 	X(OP_TYPE,						expr_binary)			\ */
-/* 	X(OP_DOT,						expr_binary)			\ */
-/* 	X(OP_BITWISE_NOT,				expr_unary)			\ */
-/* 	X(OP_IDENTITY,					plus)			\ */
-/* 	X(OP_NEGATION,					minus)			\ */
-/* 	X(OP_BOOL_NOT,					expr_unary)			\ */
-/* 	X(EXPORT_CATEGORY,				todo)			\ */
-/* 	X(EXPORT_COLOR_NO_ALPHA,		todo)			\ */
-/* 	X(EXPORT_CUSTOM,				todo)			\ */
-/* 	X(EXPORT_DIR,					todo)			\ */
-/* 	X(EXPORT_ENUM,					todo)			\ */
-/* 	X(EXPORT_EXP_EASING,			todo)			\ */
-/* 	X(EXPORT_FILE,					todo)			\ */
-/* 	X(EXPORT_FLAGS_2D_NAVIGATION,	todo)			\ */
-/* 	X(EXPORT_FLAGS_2D_PHYSICS,		todo)			\ */
-/* 	X(EXPORT_FLAGS_2D_RENDER,		todo)			\ */
-/* 	X(EXPORT_FLAGS_3D_NAVIGATION,	todo)			\ */
-/* 	X(EXPORT_FLAGS_3D_PHYSICS,		todo)			\ */
-/* 	X(EXPORT_FLAGS_3D_RENDER,		todo)			\ */
-/* 	X(EXPORT_FLAGS_AVOIDANCE,		todo)			\ */
-/* 	X(EXPORT_FLAGS,					todo)			\ */
-/* 	X(EXPORT_GLOBAL_DIR,			todo)			\ */
-/* 	X(EXPORT_GLOBAL_FILE,			todo)			\ */
-/* 	X(EXPORT_GROUP,					todo)			\ */
-/* 	X(EXPORT_MULTILINE,				todo)			\ */
-/* 	X(EXPORT_NODE_PATH,				todo)			\ */
-/* 	X(EXPORT_PLACEHOLDER,			todo)			\ */
-/* 	X(EXPORT_RANGE,					todo)			\ */
-/* 	X(EXPORT_STORAGE,				todo)			\ */
-/* 	X(EXPORT_SUBGROUP,				todo)			\ */
-/* 	X(EXPORT_TOOL_BUTTON,			todo)			\ */
-/* 	X(EXPORT,						todo)			\ */
-/* 	X(ICON,							todo)			\ */
-/* 	X(ONREADY,						todo)			\ */
-/* 	X(RPC,							todo)			\ */
-/* 	X(STATIC_UNLOAD,				todo)			\ */
-/* 	X(TOOL,							todo)			\ */
-/* 	X(WARNING_IGNORE_RESTORE,		todo)			\ */
-/* 	X(WARNING_IGNORE_STOP,			todo)			\ */
-/* 	X(WARNING_IGNORE,				todo)			\ */
-/* 	X(IF,							stmt_if)		\ */
-/* 	X(ELIF,							stmt_elif)		\ */
-/* 	X(ELSE,							stmt_else)		\ */
-/* 	X(FOR,							stmt_for)		\ */
-/* 	X(WHILE,						stmt_while)		\ */
-/* 	X(MATCH,						stmt_match)		\ */
-/* 	X(BREAK,						stmt_break)		\ */
-/* 	X(CONTINUE,						stmt_continue)	\ */
-/* 	X(PASS,							stmt_pass)		\ */
-/* 	X(RETURN,						stmt_return)	\ */
-/* 	X(CLASS_NAME,					decl_class)		\ */
-/* 	X(CLASS,						decl_subclass)	\ */
-/* 	X(EXTENDS,						decl_extends)	\ */
-/* 	X(IS,							todo)			\ */
-/* 	X(IN,							todo)			\ */
-/* 	X(AS,							todo)			\ */
-/* 	X(SELF,							todo)			\ */
-/* 	X(SUPER,						todo)			\ */
-/* 	X(SIGNAL,						decl_signal)	\ */
-/* 	X(FUNC,							decl_func)		\ */
-/* 	X(STATIC,						decl_static)			\ */
-/* 	X(CONST,						decl_const)			\ */
-/* 	X(ENUM,							decl_enum)		\ */
-/* 	X(VAR,							decl_var)		\ */
-/* 	X(BREAKPOINT,					stmt_breakpoint)			\ */
-/* 	X(PRELOAD,						expr_preload)			\ */
-/* 	X(AWAIT,						expr_await)			\ */
-/* 	X(YIELD,						expr_yield)			\ */
-/* 	X(ASSERT,						expr_assert)			\ */
-/* 	X(GET,							stmt_get)			\ */
-/* 	X(SET,							stmt_set)			\ */
-/* 	X(VOID,							literal)		\ */
-/* 	X(NULL,							literal)		\ */
-/* 	X(TRUE,							literal)		\ */
-/* 	X(FALSE,						literal)		\ */
-/* 	X(PI,							literal)		\ */
-/* 	X(TAU,							literal)		\ */
-/* 	X(INF,							literal)		\ */
-/* 	X(NAN,							literal)		\ */
-/* 	X(STRING, string)								\ */
-/* 	X(NUMBER, number)								\ */
-/* 	X(IDENTIFIER, identifier) */
+#define KEYVALUES \
+	X(EXPORT_CATEGORY,				todo)				\
+	X(EXPORT_COLOR_NO_ALPHA,		todo)				\
+	X(EXPORT_CUSTOM,				todo)				\
+	X(EXPORT_DIR,					todo)				\
+	X(EXPORT_ENUM,					todo)				\
+	X(EXPORT_EXP_EASING,			todo)				\
+	X(EXPORT_FILE,					todo)				\
+	X(EXPORT_FLAGS_2D_NAVIGATION,	todo)				\
+	X(EXPORT_FLAGS_2D_PHYSICS,		todo)				\
+	X(EXPORT_FLAGS_2D_RENDER,		todo)				\
+	X(EXPORT_FLAGS_3D_NAVIGATION,	todo)				\
+	X(EXPORT_FLAGS_3D_PHYSICS,		todo)				\
+	X(EXPORT_FLAGS_3D_RENDER,		todo)				\
+	X(EXPORT_FLAGS_AVOIDANCE,		todo)				\
+	X(EXPORT_FLAGS,					todo)				\
+	X(EXPORT_GLOBAL_DIR,			todo)				\
+	X(EXPORT_GLOBAL_FILE,			todo)				\
+	X(EXPORT_GROUP,					todo)				\
+	X(EXPORT_MULTILINE,				todo)				\
+	X(EXPORT_NODE_PATH,				todo)				\
+	X(EXPORT_PLACEHOLDER,			todo)				\
+	X(EXPORT_RANGE,					todo)				\
+	X(EXPORT_STORAGE,				todo)				\
+	X(EXPORT_SUBGROUP,				todo)				\
+	X(EXPORT_TOOL_BUTTON,			todo)				\
+	X(EXPORT,						todo)				\
+	X(ICON,							todo)				\
+	X(ONREADY,						todo)				\
+	X(RPC,							todo)				\
+	X(STATIC_UNLOAD,				todo)				\
+	X(TOOL,							todo)				\
+	X(WARNING_IGNORE_RESTORE,		todo)				\
+	X(WARNING_IGNORE_STOP,			todo)				\
+	X(WARNING_IGNORE,				todo) \
+	X(IF,							stmt_if)			\
+	X(ELIF,							stmt_elif)			\
+	X(ELSE,							stmt_else)			\
+	X(FOR,							stmt_for)			\
+	X(WHILE,						stmt_while)			\
+	X(MATCH,						stmt_match)			\
+	X(BREAK,						stmt_break)			\
+	X(CONTINUE,						stmt_continue)		\
+	X(PASS,							stmt_pass)			\
+	X(RETURN,						stmt_return)		\
+	X(CLASS_NAME,					decl_class)			\
+	X(CLASS,						decl_subclass)		\
+	X(EXTENDS,						decl_extends)		\
+	X(SELF,							todo)				\
+	X(SUPER,						todo)				\
+	X(SIGNAL,						decl_signal)		\
+	X(FUNC,							decl_func)			\
+	X(STATIC,						decl_static)		\
+	X(CONST,						decl_const)			\
+	X(ENUM,							decl_enum)			\
+	X(VAR,							decl_var)			\
+	X(BREAKPOINT,					stmt_breakpoint)	\
+	X(PRELOAD,						expr_preload)		\
+	X(AWAIT,						expr_await)			\
+	X(YIELD,						expr_yield)			\
+	X(ASSERT,						expr_assert)		\
+	X(GET,							stmt_get)			\
+	X(SET,							stmt_set)			\
+	X(VOID,							expr_literal)			\
+	X(NULL,							expr_literal)			\
+	X(TRUE,							expr_literal)			\
+	X(FALSE,						expr_literal)			\
+	X(PI,							expr_literal)			\
+	X(TAU,							expr_literal)			\
+	X(INF,							expr_literal)			\
+	X(NAN,							expr_literal)			\
+	X(STRING,						expr_string)				\
+	X(NUMBER,						expr_number) \
+	X(IDENTIFIER,				identifier)
 
-// NOTE: think about checkig if unary ops are binary
-#define LINE_CASES						\
-		X(PAREN_OPEN,					expr_group)			\
-		X(BRACE_OPEN,					expr_dict)			\
-		X(BRACKET_OPEN,					expr_array)			\
-		X(OP_IDENTITY,					expr_unary)			\
-		X(OP_NEGATION,					expr_unary)			\
-		X(OP_BITWISE_NOT,				expr_unary)			\
-		X(OP_BOOL_NOT,					expr_unary)			\
-		X(EXPORT_CATEGORY,				todo)				\
-		X(EXPORT_COLOR_NO_ALPHA,		todo)				\
-		X(EXPORT_CUSTOM,				todo)				\
-		X(EXPORT_DIR,					todo)				\
-		X(EXPORT_ENUM,					todo)				\
-		X(EXPORT_EXP_EASING,			todo)				\
-		X(EXPORT_FILE,					todo)				\
-		X(EXPORT_FLAGS_2D_NAVIGATION,	todo)				\
-		X(EXPORT_FLAGS_2D_PHYSICS,		todo)				\
-		X(EXPORT_FLAGS_2D_RENDER,		todo)				\
-		X(EXPORT_FLAGS_3D_NAVIGATION,	todo)				\
-		X(EXPORT_FLAGS_3D_PHYSICS,		todo)				\
-		X(EXPORT_FLAGS_3D_RENDER,		todo)				\
-		X(EXPORT_FLAGS_AVOIDANCE,		todo)				\
-		X(EXPORT_FLAGS,					todo)				\
-		X(EXPORT_GLOBAL_DIR,			todo)				\
-		X(EXPORT_GLOBAL_FILE,			todo)				\
-		X(EXPORT_GROUP,					todo)				\
-		X(EXPORT_MULTILINE,				todo)				\
-		X(EXPORT_NODE_PATH,				todo)				\
-		X(EXPORT_PLACEHOLDER,			todo)				\
-		X(EXPORT_RANGE,					todo)				\
-		X(EXPORT_STORAGE,				todo)				\
-		X(EXPORT_SUBGROUP,				todo)				\
-		X(EXPORT_TOOL_BUTTON,			todo)				\
-		X(EXPORT,						todo)				\
-		X(ICON,							todo)				\
-		X(ONREADY,						todo)				\
-		X(RPC,							todo)				\
-		X(STATIC_UNLOAD,				todo)				\
-		X(TOOL,							todo)				\
-		X(WARNING_IGNORE_RESTORE,		todo)				\
-		X(WARNING_IGNORE_STOP,			todo)				\
-		X(WARNING_IGNORE,				todo)				\
-		X(IF,							stmt_if)			\
-		X(ELIF,							stmt_elif)			\
-		X(ELSE,							stmt_else)			\
-		X(FOR,							stmt_for)			\
-		X(WHILE,						stmt_while)			\
-		X(MATCH,						stmt_match)			\
-		X(BREAK,						stmt_break)			\
-		X(CONTINUE,						stmt_continue)		\
-		X(PASS,							stmt_pass)			\
-		X(RETURN,						stmt_return)		\
-		X(CLASS_NAME,					decl_class)			\
-		X(CLASS,						decl_subclass)		\
-		X(EXTENDS,						decl_extends)		\
-		X(SELF,							todo)				\
-		X(SUPER,						todo)				\
-		X(SIGNAL,						decl_signal)		\
-		X(FUNC,							decl_func)			\
-		X(STATIC,						decl_static)		\
-		X(CONST,						decl_const)			\
-		X(ENUM,							decl_enum)			\
-		X(VAR,							decl_var)			\
-		X(BREAKPOINT,					stmt_breakpoint)	\
-		X(PRELOAD,						expr_preload)		\
-		X(AWAIT,						expr_await)			\
-		X(YIELD,						expr_yield)			\
-		X(ASSERT,						expr_assert)		\
-		X(GET,							stmt_get)			\
-		X(SET,							stmt_set)			\
-		X(VOID,							expr_symbolic)			\
-		X(NULL,							expr_symbolic)			\
-		X(TRUE,							expr_symbolic)			\
-		X(FALSE,						expr_symbolic)			\
-		X(PI,							expr_symbolic)			\
-		X(TAU,							expr_symbolic)			\
-		X(INF,							expr_symbolic)			\
-		X(NAN,							expr_symbolic)			\
-		X(STRING,						expr_symbolic)				\
-		X(NUMBER,						expr_symbolic)				\
-		X(IDENTIFIER,					identifier)
 
 // TODO expand then delete the redundant forward declarations
-#define X(_, FUNC) \
-	static bool_t parse_##FUNC(ast_node_t* parent, parse_args_t* args, uint32_t* index, const uint8_t errs);
-/* PARSE_PTRS */
-LINE_CASES
+#define X(_, FUNC) static bool_t parse_##FUNC(ast_node_t* parent, parse_args_t* args, uint32_t* index);
+KEYVALUES
 #undef X
+
+
+static bool_t process_tokens(ast_node_t* parent, parse_args_t* args, uint32_t* index);
+static bool_t process_line(ast_node_t* parent, parse_args_t* args, uint32_t* index);
+static bool_t parse_arguments(ast_node_t* parent, parse_args_t* args, uint32_t* index, const bool_t errs);
 
 
 /*****************************/
@@ -267,17 +126,17 @@ LINE_CASES
 	for (uint32_t i = 0; i < N; ++i) \
 		DEST |= BIT_ARRAY[i] << i;
 
-#define ERROR_AT_INDEX									\
+#define ERR_NODE									\
 	ast_node_t* error_node = add_error(&parent, args);	\
 	error_node->err_token = args->tokens + *index; \
 	error_node->err_len = 1;
 
-static bool_t match(uint8_t* matches, const gdscript_id_t* seq, const uint32_t len, const gdscript_id_t* ground_truth, const uint32_t n)
+static bool_t match(bool_t* matches, const gdscript_id_t* seq, const uint32_t len, const gdscript_id_t* ground_truth, const uint32_t n)
 {
-	uint8_t res = 1;
+	bool_t res = 1;
 	for (uint32_t i = 0; i < len && i < n; ++i)
 	{
-		const uint8_t temp = seq[i] == ground_truth[i];
+		const bool_t temp = seq[i] == ground_truth[i];
 		matches[i] = temp;
 		res &= temp;
 	}
@@ -370,7 +229,6 @@ static ast_node_t* add_blank(ast_node_t** parent, parse_args_t* args)
 	p->children = children;
 	p->num_children = num;
 	ast_node_t* last_child = children + num - 1;
-	last_child->len = 1;
 	last_child->parent = p;
 	return last_child;
 }
@@ -404,15 +262,17 @@ static const size_t num_children_of_type(const ast_node_t* parent, const ast_id_
 	return res;
 }
 
+
 /*********************/
 /* PARSING -- BASICS */
 /*********************/
 
+
 static bool_t parse_error(ast_node_t* parent, parse_args_t* args, uint32_t* index)
 {
-	ERROR_AT_INDEX
+	ERR_NODE
+	return 1;
 }
-
 
 static bool_t parse_symbol(ast_node_t* parent, parse_args_t* args, uint32_t* index)
 {
@@ -422,55 +282,28 @@ static bool_t parse_symbol(ast_node_t* parent, parse_args_t* args, uint32_t* ind
 	return 1;
 }
 
-static bool_t parse_identifier(ast_node_t* parent, parse_args_t* args, uint32_t* index, const uint8_t errs)
+static bool_t parse_identifier(ast_node_t* parent, parse_args_t* args, uint32_t* index)
 {
-	const uint32_t i = *index;
-	if (args->ids[i] == GDSCRIPT_IDENTIFIER)
-	{
-		ast_node_t* n = add_child(&parent, args, AST_IDENTIFIER);
-		n->symbol = args->tokens + i;
-		return 1;
-	}
-	else if (errs)
-	{
-		ERROR_AT_INDEX
-	}
-	return 0;
+	ast_node_t* n = add_child(&parent, args, AST_IDENTIFIER);
+	n->symbol = args->tokens + *index;
+	return 1;
 }
 
-static bool_t parse_string(ast_node_t* parent, parse_args_t* args, uint32_t* index, const uint8_t errs)
+static bool_t parse_string(ast_node_t* parent, parse_args_t* args, uint32_t* index)
 {
-	const uint32_t i = *index;
-	if (args->ids[i] == GDSCRIPT_STRING)
-	{
-		ast_node_t* n = add_child(&parent, args, AST_EXPR_SYMBOLIC);
-		n->symbolic_id = AST_SYMBOL_NUMBER;
-		return 1;
-	}
-	else if (errs)
-	{
-		ERROR_AT_INDEX
-	}
-	return 0;
+	ast_node_t* n = add_child(&parent, args, AST_EXPR_SYMBOLIC);
+	n->symbolic_id = SYMBOL_STRING;
+	return 1;
 }
 
-static bool_t parse_number(ast_node_t* parent, parse_args_t* args, uint32_t* index, const uint8_t errs)
+static bool_t parse_number(ast_node_t* parent, parse_args_t* args, uint32_t* index)
 {
-	const uint32_t i = *index;
-	if (args->ids[i] == GDSCRIPT_NUMBER)
-	{
-		ast_node_t* n = add_child(&parent, args, AST_EXPR_SYMBOLIC);
-		n->symbolic_id = AST_SYMBOL_NUMBER;
-		return 1;
-	}
-	else if (errs)
-	{
-		ERROR_AT_INDEX
-	}
-	return 0;
+	ast_node_t* n = add_child(&parent, args, AST_EXPR_SYMBOLIC);
+	n->symbolic_id = SYMBOL_NUMBER;
+	return 1;
 }
 
-static bool_t parse_literal(ast_node_t* parent, parse_args_t* args, uint32_t* index, const uint8_t errs)
+static bool_t parse_literal(ast_node_t* parent, parse_args_t* args, uint32_t* index)
 {
 
 	const uint32_t i = *index;
@@ -479,11 +312,11 @@ static bool_t parse_literal(ast_node_t* parent, parse_args_t* args, uint32_t* in
 	{
 	#define X(_, VALUE) case GDSCRIPT_##VALUE:
 	GDSCRIPT_LITERALS
-		symbol = AST_SYMBOL_LITERAL;
+		symbol = SYMBOL_LITERAL;
 		break;
 	#undef X
 	default:
-		symbol = AST_SYMBOL_NONE;
+		symbol = SYMBOL_NONE;
 	}
 	if (symbol)
 	{
@@ -491,11 +324,11 @@ static bool_t parse_literal(ast_node_t* parent, parse_args_t* args, uint32_t* in
 		node->symbolic_id = symbol;
 		return 1;
 	}
-	else if (errs)
+	else
 	{
-		ERROR_AT_INDEX
+		ERR_NODE
+		return 0;
 	}
-	return 0;
 }
 
 
@@ -503,17 +336,20 @@ static bool_t parse_literal(ast_node_t* parent, parse_args_t* args, uint32_t* in
 /* PARSING -- EXPRESSIONS */
 /**************************/
 
-static uint8_t parse_expr_symbolic(ast_node_t* parent, parse_args_t* args, uint32_t* index, const uint8_t errs);
-static uint8_t parse_expr_unary(ast_node_t* parent, parse_args_t* args, uint32_t* index, const uint8_t errs);
-static uint8_t parse_expr_binary(ast_node_t* parent, parse_args_t* args, uint32_t* index, const uint8_t errs);
-static uint8_t parse_expr_operation(ast_node_t* parent, parse_args_t* args, uint32_t* index, const uint8_t errs);
-static uint8_t parse_expr_func(ast_node_t* parent, parse_args_t* args, uint32_t* index, const uint8_t errs);
-static uint8_t parse_expr_array(ast_node_t* parent, parse_args_t* args, uint32_t* index, const uint8_t errs);
-static uint8_t parse_expr_dict(ast_node_t* parent, parse_args_t* args, uint32_t* index, const uint8_t errs);
-static uint8_t parse_expr_group(ast_node_t* parent, parse_args_t* args, uint32_t* index, const uint8_t errs);
-static uint8_t parse_expr_ternary(ast_node_t* parent, parse_args_t* args, uint32_t* index, const uint8_t errs);
+static bool_t parse_expr_symbolic(ast_node_t* parent, parse_args_t* args, uint32_t* index, const bool_t errs);
+static bool_t parse_expr_literal(ast_node_t* parent, parse_args_t* args, uint32_t* index);
+static bool_t parse_expr_string(ast_node_t* parent, parse_args_t* args, uint32_t* index);
+static bool_t parse_expr_number(ast_node_t* parent, parse_args_t* args, uint32_t* index);
+static bool_t parse_expr_unary(ast_node_t* parent, parse_args_t* args, uint32_t* index, const bool_t errs);
+static bool_t parse_expr_binary(ast_node_t* parent, parse_args_t* args, uint32_t* index, const bool_t errs);
+static bool_t parse_expr_operation(ast_node_t* parent, parse_args_t* args, uint32_t* index, const bool_t errs);
+static bool_t parse_expr_func(ast_node_t* parent, parse_args_t* args, uint32_t* index, const bool_t errs);
+static bool_t parse_expr_array(ast_node_t* parent, parse_args_t* args, uint32_t* index, const bool_t errs);
+static bool_t parse_expr_dict(ast_node_t* parent, parse_args_t* args, uint32_t* index, const bool_t errs);
+static bool_t parse_expr_group(ast_node_t* parent, parse_args_t* args, uint32_t* index, const bool_t errs);
+static bool_t parse_expr_ternary(ast_node_t* parent, parse_args_t* args, uint32_t* index, const bool_t errs);
 
-static bool_t parse_expression(ast_node_t* parent, parse_args_t* args, uint32_t* index, const uint8_t errs)
+static bool_t parse_expression(ast_node_t* parent, parse_args_t* args, uint32_t* index, const bool_t errs)
 {
 	const gdscript_id_t* ids = args->ids;
 	for (uint32_t i = *index; i < args->n; ++i)
@@ -541,7 +377,7 @@ static bool_t parse_expression(ast_node_t* parent, parse_args_t* args, uint32_t*
 		default:
 			if (errs)
 			{
-				ERROR_AT_INDEX
+				ERR_NODE
 			}
 			return 0;
 		}
@@ -549,13 +385,13 @@ static bool_t parse_expression(ast_node_t* parent, parse_args_t* args, uint32_t*
 	return 1;
 }
 
-static uint8_t parse_expr_group(ast_node_t* parent, parse_args_t* args, uint32_t* index, const uint8_t errs)
+static bool_t parse_expr_group(ast_node_t* parent, parse_args_t* args, uint32_t* index, const bool_t errs)
 {
 	const uint32_t i = *index;
 	gdscript_id_t* ids = args->ids;
 	const uint32_t n = args->n;
 	uint32_t count;
-	uint8_t flag = ids[i] == GDSCRIPT_PAREN_OPEN;
+	bool_t flag = ids[i] == GDSCRIPT_PAREN_OPEN;
 	flag &= (count = dist_pair(GDSCRIPT_PAREN_OPEN, i, ids, n)) > 0;
 	if (flag)
 	{
@@ -570,33 +406,33 @@ static uint8_t parse_expr_group(ast_node_t* parent, parse_args_t* args, uint32_t
 	}
 	else if (errs)
 	{
-		ERROR_AT_INDEX
+		ERR_NODE
 	}
 	return 0;
 }
 
-static uint8_t parse_expr_symbolic(ast_node_t* parent, parse_args_t* args, uint32_t* index, const uint8_t errs)
+static bool_t parse_expr_symbolic(ast_node_t* parent, parse_args_t* args, uint32_t* index, const bool_t errs)
 {
 	const uint32_t i = *index;
 	ast_symbol_t symbol;
 	switch (args->ids[i])
 	{
 	case GDSCRIPT_IDENTIFIER:
-		symbol = AST_SYMBOL_IDENTIFIER;
+		symbol = SYMBOL_IDENTIFIER;
 		break;
 	case GDSCRIPT_NUMBER:
-		symbol = AST_SYMBOL_NUMBER;
+		symbol = SYMBOL_NUMBER;
 		break;
 	case GDSCRIPT_STRING:
-		symbol = AST_SYMBOL_STRING;
+		symbol = SYMBOL_STRING;
 		break;
 	#define X(_, VALUE) case GDSCRIPT_##VALUE:
 	GDSCRIPT_LITERALS
-		symbol = AST_SYMBOL_LITERAL;
+		symbol = SYMBOL_LITERAL;
 		break;
 	#undef X
 	default:
-		symbol = AST_SYMBOL_NONE;
+		symbol = SYMBOL_NONE;
 	}
 	if (symbol)
 	{
@@ -606,13 +442,12 @@ static uint8_t parse_expr_symbolic(ast_node_t* parent, parse_args_t* args, uint3
 	}
 	else if (errs)
 	{
-		ERROR_AT_INDEX
+		ERR_NODE
 	}
 	return 0;
 }
 
-static uint8_t parse_expr_operation(ast_node_t* parent, parse_args_t* args, uint32_t* index, const uint8_t errs)
-{
+static bool_t parse_expr_operation(ast_node_t* parent, parse_args_t* args, uint32_t* index, const bool_t errs)
 {
 #define BINARY_ASSIGNMENTS				\
 		X(OP_ASSIGNMENT_POWER,			OP_POWER)			\
@@ -688,14 +523,14 @@ static uint8_t parse_expr_operation(ast_node_t* parent, parse_args_t* args, uint
 		return 0;
 	}
 	// NOTE: this IS wrong >:^(
-	uint8_t binop_flag = parent->num_children > 0;
+	bool_t binop_flag = parent->num_children > 0;
 	binop_flag &= parent->last_child_id & AST_EXPRESSION && // NOTE: bitwise AND-assignment
 		(parent->last_child_id == AST_EXPR_SYMBOLIC ||
 		 parent->last_child_id == AST_EXPR_UNARY ||
 		 parent->last_child_id == AST_EXPR_GROUP ||
 		 parent->last_child_id == AST_EXPR_FUNC);
 	uint32_t j = i + 1;
-	uint8_t res;
+	bool_t res;
 	if (binop_flag)
 	{
 		switch (ids[i])
@@ -735,7 +570,7 @@ static uint8_t parse_expr_operation(ast_node_t* parent, parse_args_t* args, uint
 	return res;
 }
 
-static uint8_t parse_expr_unary(ast_node_t* parent, parse_args_t* args, uint32_t* index, const uint8_t errs)
+static bool_t parse_expr_unary(ast_node_t* parent, parse_args_t* args, uint32_t* index, const bool_t errs)
 {
 	const uint32_t i = *index;
 	const uint32_t n = args->n;
@@ -762,6 +597,7 @@ static uint8_t parse_expr_unary(ast_node_t* parent, parse_args_t* args, uint32_t
 	{
 		ast_node_t* unary_node = add_child(&parent, args, AST_EXPR_UNARY);
 		unary_node->operation = op;
+		uint32_t j = i + 1;
 	#define UNARY_RHS \
 		X(group) || \
 		X(func) || \
@@ -772,12 +608,12 @@ static uint8_t parse_expr_unary(ast_node_t* parent, parse_args_t* args, uint32_t
 	}
 	else if (errs)
 	{
-		ERROR_AT_INDEX
+		ERR_NODE
 	}
 	return 0;
 }
 
-static uint8_t parse_expr_binary(ast_node_t* parent, parse_args_t* args, uint32_t* index, const uint8_t errs)
+static bool_t parse_expr_binary(ast_node_t* parent, parse_args_t* args, uint32_t* index, const bool_t errs)
 {
 #define BINARY_ASSIGNMENTS				\
 		X(OP_ASSIGNMENT_POWER,			OP_POWER)			\
@@ -852,7 +688,7 @@ static uint8_t parse_expr_binary(ast_node_t* parent, parse_args_t* args, uint32_
 	default:
 		op = OP_NONE;
 	}
-	uint8_t flag = op > 0;
+	bool_t flag = op > 0;
 	flag &= parent->num_children > 0 && // NOTE: bitwise AND-assignment
 		parent->last_child_id & AST_EXPRESSION &&
 		(parent->last_child_id == AST_EXPR_SYMBOLIC ||
@@ -871,148 +707,176 @@ static uint8_t parse_expr_binary(ast_node_t* parent, parse_args_t* args, uint32_
 		node->last_child_id = temp->id;
 		memcpy(lhs_node, temp, sizeof *temp);
 		lhs_node->parent = node;
-		node->pos = node->children->pos;
-		node->len = node->children->len + 1;
+		/* node->pos = node->children->pos; */
+		/* node->len = node->children->len + 1; */
 		parent->last_child_id = AST_EXPR_BINARY;
 		uint32_t j = i + 1;
 		parse_expr_operand(node, args, &j, 1);
 		*index = j;
-		node->len += node->children[1].len;
+		/* node->len += node->children[1].len; */
 		return 1;
 	}
 	else if (errs)
 	{
-		ERROR_AT_INDEX;
+		ERR_NODE;
 	}
 	return 0;
 }
 
-static uint8_t parse_expr_func(ast_node_t* parent, parse_args_t* args, uint32_t* index, const uint8_t errs)
+static bool_t parse_expr_func(ast_node_t* parent, parse_args_t* args, uint32_t* index, const bool_t errs)
 {
 	const uint32_t i = *index;
-	if (errs)
+	bool_t func_flag = parent->num_children > 0;
+	ast_node_t* node = func_flag ? parent->children + parent->num_children - 1 : NULL;
+	// check to see if preceeding child is an identifier or a dot expression
+	func_flag &= node->id == AST_IDENTIFIER ||
+		(node->id == AST_EXPR_SYMBOLIC && node->symbolic_id == SYMBOL_IDENTIFIER) ||
+		(node->id == AST_EXPR_BINARY && node->operation == OP_DOT);
+	if (func_flag)
+	{
+		ast_node_t cache = *node;
+		if (cache.id == AST_EXPR_SYMBOLIC)
+		{
+			cache.id = AST_IDENTIFIER;
+		}
+		node->id = AST_EXPR_FUNC;
+		node->num_children = 0;
+		ast_node_t* temp = add_blank(&node, args);
+		memcpy(temp, &cache, sizeof cache);
+		temp->parent = node;
+		uint32_t j = i + 1;
+		parse_arguments(node, args, &j, 1);
+		*index = j;
+		return 1;
+	}
+	else if (errs)
 	{
 		// oh shid error handling aaaaAAAAAAAAAAAaaaaaaaaaa
-		ERROR_AT_INDEX
+		ERR_NODE
 	}
 	return 0;
 }
 
 
-static uint8_t parse_typed_assignment(ast_node_t* parent, parse_args_t* args, uint32_t *index)
-{
-	// identifier : indetifier = non-assignning expression
-}
-
-/*************************/
-/* PARSING -- STATEMENTS */
-/*************************/
-
-static uint8_t parse_stmt_arguments(ast_node_t* parent, parse_args_t* args, uint32_t* index, const uint8_t errs)
+static bool_t parse_arguments(ast_node_t* parent, parse_args_t* args, uint32_t* index, const bool_t errs)
 {
 	uint32_t i = *index;
 	gdscript_id_t* ids = args->ids;
-	uint8_t res = 1;
+	bool_t res = 1;
 	uint32_t n;
 	if (ids[i] == GDSCRIPT_PAREN_OPEN && (n = dist_pair(GDSCRIPT_PAREN_OPEN, i, ids, args->n)) > 0)
 	{
-		ast_node_t* node = add_child(&parent, args, AST_STMT_ARGUMENTS);
-		node->pos = i;
-		node->len = n;
-		parse_args_t local_args = *args;
-		local_args.n = n;
-		uint32_t j = i + 1;
-		parse_arguments(node, local_args, &j, 1);
+		bool_t arg_flag = 1;
+		for (uint32_t j = i + 1; j <= n; ++j)
+		{
+			if (arg_flag)
+			{
+				parse_argument(parent, args, &j, errs);
+				arg_flag = 0;
+			}
+			else if (ids[i] == GDSCRIPT_COMMA)
+			{
+				arg_flag = 1;
+			}
+			else if (errs)
+			{
+				ERR_NODE;
+			}
+		}
+
 		*index = i + n;
 		return 1;
 	}
 	else if (errs)
 	{
-		ERROR_AT_INDEX
+		ERR_NODE
 	}
 	return res;
 }
 
-static uint8_t parse_arguments(ast_node_t* parent, parse_args_t* args, uint32_t* index, const uint8_t errs)
+static bool_t parse_type(ast_node_t* parent, parse_args_t* args, uint32_t* index, const bool_t errs)
 {
-	const uint32_t n = args->n;
-	uint8_t arg_flag = 1;
-	for (int i = *index; i < n; ++i)
+
+}
+
+
+// var foo: int = blah blah blah
+// for assignment operations, the LHS is either an identifier or a dot expression
+static bool_t parse_expr_typed_assignment(ast_node_t* parent, parse_args_t* args, uint32_t* index, const bool_t errs)
+{
+	uint32_t i = *index;
+	#define TEMP X(type) && X(assignment)
+	#define X(A) parse_expr_##A(parent, args, &i, 0)
+	if (TEMP && parse_expression(parent, args, &i, 0))
 	{
-		if (arg_flag)
-		{
-			parse_expression(parent, args, &i, errs);
-			arg_flag = 0;
-		}
-		else if (args->ids[i] == GDSCRIPT_COMMA)
-		{
-			arg_flag = 1;
-		}
-		else if (errs)
-		{
-			// rest of the tokens are errors
-			ast_node_t* error_node = add_error(&parent, args);
-			error_node->pos = i;
-			error_node->len = n - i - 1;
-			return 0;
-		}
+		*index = i;
+		return 1;
 	}
+	else if (errs)
+	{
+		ERR_NODE
+	}
+	return 0;
+}
+
+
+/*************************/
+/* PARSING -- STATEMENTS */
+/*************************/
+
+
+static bool_t parse_stmt_if(ast_node_t* parent, parse_args_t* args, uint32_t* index)
+{
+	// keyword 'if' at index
+	ast_node_t* node = add_child(&parent, args, AST_STMT_IF);
+	uint32_t j = *index + 1;
+	if (parse_expression(node, args, &j, 1) && args->ids[j + 1] == GDSCRIPT_COLON)
+	{
+		uint32_t req_lws0 = args->req_lws;
+		args->req_lws++;
+		j += 2;
+		process_tokens(node, args, &j);
+		args->req_lws = req_lws0;
+	}
+	else
+	{
+		node->id = AST_ERROR;
+		node->err_token = args->tokens + *index;
+		node->err_len = j - *index + 1;
+	}
+	*index = j;
 	return 1;
 }
 
-static uint8_t parse_stmt_if(ast_node_t* parent, parse_args_t* args, uint32_t* index, const uint8_t errs)
+
+static bool_t parse_stmt_elif(ast_node_t* parent, parse_args_t* args, uint32_t* index)
 {
 	// keyword 'if' at index
-	ast_node_t* if_node = add_child(&parent, args, AST_STMT_IF);
+	ast_node_t* node = add_child(&parent, args, AST_STMT_ELIF);
 	uint32_t j = *index + 1;
-	parse_expression(if_node, args, &j, 1);
-	if (args->ids[j + 1] == GDSCRIPT_COLON)
+	/* parse_expression(if_node, args, &j, 1); */
+	if (parse_expression(node, args, &j, 1) && args->ids[j + 1] == GDSCRIPT_COLON)
 	{
 		uint32_t req_lws0 = args->req_lws;
 		args->req_lws++;
 		j += 2;
-		process_tokens(if_node, args, &j);
+		process_tokens(node, args, &j);
 		args->req_lws = req_lws0;
 	}
-	else if (errs)
+	else
 	{
-		if_node->id = AST_ERROR;
-		if_node->err_token = args->tokens + *index;
-		if_node->err_len = j - *index + 1;
+		node->id = AST_ERROR;
+		node->err_token = args->tokens + *index;
+		node->err_len = j - *index + 1;
 	}
-	*index = j
-	return 0;
+	*index = j;
+	return 1;
 }
 
-
-static uint8_t parse_stmt_elif(ast_node_t* parent, parse_args_t* args, uint32_t* index, const uint8_t errs)
+static bool_t parse_stmt_else(ast_node_t* parent, parse_args_t* args, uint32_t* index)
 {
-	// keyword 'if' at index
-	ast_node_t* if_node = add_child(&parent, args, AST_STMT_ELIF);
-	uint32_t j = *index + 1;
-	parse_expression(if_node, args, &j, 1);
-	if (args->ids[j + 1] == GDSCRIPT_COLON)
-	{
-		uint32_t req_lws0 = args->req_lws;
-		args->req_lws++;
-		j += 2;
-		process_tokens(if_node, args, &j);
-		args->req_lws = req_lws0;
-	}
-	else if (errs)
-	{
-		if_node->id = AST_ERROR;
-		if_node->err_token = args->tokens + *index;
-		if_node->err_len = j - *index + 1;
-	}
-	*index = j
-	return 0;
-}
-
-static uint8_t parse_stmt_else(ast_node_t* parent, parse_args_t* args, uint32_t* index, const uint8_t errs)
-{
-	// keyword 'if' at index
-	ast_node_t* if_node = add_child(&parent, args, AST_STMT_ELSE);
+	// keyword 'else' at index
+	ast_node_t* node = add_child(&parent, args, AST_STMT_ELSE);
 	uint32_t j = *index + 1;
 	/* parse_expression(if_node, args, &j, 1); */
 	if (args->ids[j] == GDSCRIPT_COLON)
@@ -1020,63 +884,124 @@ static uint8_t parse_stmt_else(ast_node_t* parent, parse_args_t* args, uint32_t*
 		uint32_t req_lws0 = args->req_lws;
 		args->req_lws++;
 		j++;
-		process_tokens(if_node, args, &j);
+		process_tokens(node, args, &j);
 		args->req_lws = req_lws0;
-	}
-	else if (errs)
-	{
-		if_node->id = AST_ERROR;
-		if_node->err_token = args->tokens + *index;
-		if_node->err_len = j - *index + 1;
-	}
-	*index = j
-	return 0;
-}
-
-static uint8_t parse_stmt_return(ast_node_t* parent)
-
-		X(RETURN,						stmt_return)		\
-
-
-/**************************/
-/* PARSING -- ANNOTATIONS */
-/**************************/
-
-static uint8_t parse_annotation(ast_node_t* parent, parse_args_t* args, uint32_t* index, const ast_id_t annotation_id)
-{
-	const uint32_t i = *index;
-	ast_node_t* node = add_child(&parent, args, annotation_id);
-	node->annotation.id = args->ids[i];
-	uint32_t temp = *index + 1;
-	if (parse_arguments(node, args, &temp, 0))
-	{
-		node->id = node->children->num_children > 0 ? AST_ERROR : annotation_id;
-		node->len = 3 + node->children->num_children;
-	}
-}
-
-static uint8_t parse_annotation_stringn(ast_node_t* parent, parse_args_t* args, uint32_t* index, const ast_id_t annotation_id, const uint32_t num_strings)
-{
-	const uint32_t i = *index;
-	ast_node_t* node = add_child(&parent, args, annotation_id);
-	node->annotation_id = args->ids[i];
-	uint32_t temp = *index + 1;
-	if (parse_arg_list(node, args, &temp))
-	{
-		node->id = node->children->num_children > 0 ? AST_ERROR : annotation_id;
-		node->len = 3 + node->children->num_children;
 	}
 	else
 	{
 		node->id = AST_ERROR;
+		node->err_token = args->tokens + *index;
+		node->err_len = j - *index + 1;
+	}
+	*index = j;
+	return 1;
+}
+
+static bool_t parse_stmt_for(ast_node_t* parent, parse_args_t* args, uint32_t* index)
+{
+	ast_node_t* node = add_child(&parent, args, AST_STMT_FOR);
+	uint32_t j = *index + 1;
+	if (parse_expression(node, args, &j, 1) && args->ids[j] == GDSCRIPT_COLON)
+	{
+		uint32_t req_lws0 = args->req_lws;
+		args->req_lws++;
+		j++;
+		process_tokens(node, args, &j);
+		args->req_lws = req_lws0;
+	}
+	else
+	{
+		node->id = AST_ERROR;
+		node->err_token = args->tokens + *index;
+		node->err_len = j - *index + 1;
+	}
+	*index = j;
+	return 1;
+}
+
+static bool_t parse_stmt_while(ast_node_t* parent, parse_args_t* args, uint32_t* index)
+{
+	ast_node_t* node = add_child(&parent, args, AST_STMT_WHILE);
+	uint32_t j = *index + 1;
+	if (parse_expression(node, args, &j, 1) && args->ids[j] == GDSCRIPT_COLON)
+	{
+		uint32_t req_lws0 = args->req_lws;
+		args->req_lws++;
+		j++;
+		process_tokens(node, args, &j);
+		args->req_lws = req_lws0;
+	}
+	else
+	{
+		node->id = AST_ERROR;
+		node->err_token = args->tokens + *index;
+		node->err_len = j - *index + 1;
+	}
+	*index = j;
+	return 1;
+}
+
+static bool_t parse_stmt_return(ast_node_t* parent, parse_args_t* args, uint32_t* index)
+{
+	const uint32_t i = *index;
+	ast_node_t* node = add_child(&parent, args, AST_STMT_RETURN);
+	if (args->ids[i + 1] != GDSCRIPT_LINE_END || args->ids[i + 1] != GDSCRIPT_SEMICOLON)
+	{
+		uint32_t j = i + 1;
+		parse_expression(node, args, &j, 1);
+		*index = j;
+	}
+	return 1;
+}
+
+static void error_til_line_end(ast_node_t* parent, parse_args_t* args, uint32_t* index)
+{
+	uint32_t err_len = *index;
+	const gdscript_id_t* ids = args->ids;
+	for (uint32_t i = *index; i < args->n; ++i)
+	{
+		if (!(ids[i] == GDSCRIPT_LINE_END || ids[i] == GDSCRIPT_SEMICOLON))
+		{
+			err_len += 1;
+		}
+		else
+		{
+			break;
+		}
+	}
+	if (err_len > 0)
+	{
+		*index += err_len;
 	}
 }
+
+static bool_t parse_stmt_break(ast_node_t* parent, parse_args_t* args, uint32_t* index)
+{
+	ast_node_t* node = add_child(parent, args, AST_STMT_BREAK);
+	*index += 1;
+	error_til_line_end(node, args, index);
+}
+
+static bool_t parse_stmt_continue(ast_node_t* parent, parse_args_t* args, uint32_t* index)
+{
+	ast_node_t* node = add_child(parent, args, AST_STMT_CONTINUE);
+	*index += 1;
+	error_til_line_end(node, args, index);
+}
+
+static bool_t parse_stmt_pass(ast_node_t* parent, parse_args_t* args, uint32_t* index)
+{
+	ast_node_t* node = add_child(parent, args, AST_STMT_PASS);
+	*index += 1;
+	error_til_line_end(node, args, index);
+}
+
 
 /***************************/
 /* PARSING -- DECLARATIONS */
 /***************************/
 
-static uint8_t parse_decl_class(ast_node_t* parent, parse_args_t* args, uint32_t* index)
+static bool_t parse_decl_class(ast_node_t* parent, parse_args_t* args, uint32_t* index)
 {
 	ast_node_t* node = add_child(&parent, args, AST_DECL_CLASS);
 	const uint32_t i = *index;
@@ -1087,7 +1012,6 @@ static uint8_t parse_decl_class(ast_node_t* parent, parse_args_t* args, uint32_t
 	uint32_t j = i + 1;
 	if (parse_identifier(node, args, &j, 0))
 	{
-		node->len = 2;
 		*index = j;
 		return 1;
 	}
@@ -1099,12 +1023,12 @@ static uint8_t parse_decl_class(ast_node_t* parent, parse_args_t* args, uint32_t
 	}
 }
 
-static uint8_t parse_decl_extends(ast_node_t* parent, parse_args_t* args, uint32_t* index)
+static bool_t parse_decl_extends(ast_node_t* parent, parse_args_t* args, uint32_t* index)
 {
 	ast_node_t* node = add_child(&parent, args, AST_DECL_EXTENDS);
 	node->pos = *index;
 	uint32_t i = *index + 1;
-	if (parse_identifier(node, args, &i) || parse_string(node, args, &i))
+	if (parse_identifier(node, args, &i, 0) || parse_string(node, args, &i, 0))
 	{
 		node->len = 2;
 		*index = i;
@@ -1117,7 +1041,7 @@ static uint8_t parse_decl_extends(ast_node_t* parent, parse_args_t* args, uint32
 	}
 }
 
-static uint8_t parse_expressions(ast_node_t* parent, parse_args_t* args, uint32_t* index, const uint8_t errs)
+static bool_t parse_expressions(ast_node_t* parent, parse_args_t* args, uint32_t* index, const bool_t errs)
 {
 	const uint32_t n = args->n;
 	const gdscript_id_t* ids = args->ids;
@@ -1155,20 +1079,28 @@ static uint8_t parse_expressions(ast_node_t* parent, parse_args_t* args, uint32_
 	}
 }
 
-static uint8_t parse_decl_var(ast_node_t* parent, parse_args_t* args, uint32_t* index)
+// NOTE: DON'T WORRY ABOUT IT, JUST PARSE IT.  CHECK AFTERWARDS.
+static bool_t parse_decl_var(ast_node_t* parent, parse_args_t* args, uint32_t* index)
 {
 	ast_node_t* node = add_child(&parent, args, AST_DECL_VAR);
-	node->pos = *index;
-	uint32_t i = *index + 1;
-	#define TEMP \
-		X(expression) || \
-		X(identifier)
-	#define X(A) parse_##A(node, args, &i, 0)
-	if (TEMP)
+	const uint32_t i = *index;
+	const gdscript_id_t* ids = args->ids;
+	if (ids[i + 1] == GDSCRIPT_IDENTIFIER)
 	{
-		node->len = i - *index + 1;
-		*index = i;
+		ast_node_t* identifier = add_child(&node, args, AST_IDENTIFIER);
+		identifier->symbol = args->tokens + i + 1;
+		const uint32_t j = i + 2;
+		if (parse_expression(node, args, &j, 0))
+		{
+			*index = j;
+		}
+		else
+		{
+			*index = i + 1;
+		}
 		return 1;
+		#undef X
+		#undef TEMP
 	}
 	else
 	{
@@ -1176,97 +1108,87 @@ static uint8_t parse_decl_var(ast_node_t* parent, parse_args_t* args, uint32_t* 
 		node->id = AST_ERROR;
 		return 0;
 	}
-	#undef TEMP
 }
 
-/* static uint8_t parse_decl_var(ast_node_t* parent, parse_args_t* args, uint32_t* index) */
-/* { */
-/* 	ast_node_t* node = add_child(&parent, args, AST_DECL_VAR); */
-/* 	node->pos = *index; */
-/* 	uint32_t i = *index + 1; */
-/* 	#define TEMP \ */
-/* 		X(typed_assignment) || \ */
-/* 		X(inferred_assignment) || \ */
-/* 		X(assignment) || \ */
-/* 		X(identifier) */
-/* 	#define X(A) try_parse_##A(node, args, &i) */
-/* 	if (TEMP) */
-/* 	{ */
-/* 		node->len = i - *index + 1; */
-/* 		*index = i; */
-/* 		return 1; */
-/* 	} */
-/* 	else */
-/* 	{ */
-/* 		node->id = AST_ERROR; */
-/* 		return 0 */
-/* 	} */
-/* 	#undef TEMP */
-/* } */
 
-static uint8_t parse_decl_const(ast_node_t* parent, parse_args_t* args, uint32_t* index)
+
+static bool_t parse_decl_const(ast_node_t* parent, parse_args_t* args, uint32_t* index)
+{
 {
 	ast_node_t* node = add_child(&parent, args, AST_DECL_CONST);
-	node->pos = *index;
-	uint32_t i = *index + 1;
-	#define TEMP \
-		X(typed_assignment) || \
-		X(inferred_assignment) || \
-		X(assignment) || \
-		X(identifier)
-	#define X(A) parse_##A(node, args, &i)
-	if (TEMP)
-	#undef X
+	const uint32_t i = *index;
+	const gdscript_id_t* ids = args->ids;
+	if (ids[i + 1] == GDSCRIPT_IDENTIFIER)
 	{
-		node->len = i - *index + 1;
-		*index = i;
+		ast_node_t* identifier = add_child(&node, args, AST_IDENTIFIER);
+		identifier->symbol = args->tokens + i + 1;
+		const uint32_t j = i + 2;
+		#define TEMP \
+			X(typed_assignment) || \
+			X(inferred_assignment) || \
+			X(assignment)
+		#define X(A) parse_expr_##A(node, args, &j, 0)
+		if (TEMP)
+		{
+			*index = j;
+		}
+		else
+		{
+			*index = i + 1;
+		}
 		return 1;
+		#undef X
+		#undef TEMP
 	}
 	else
 	{
 		parent->last_child_id = AST_ERROR;
 		node->id = AST_ERROR;
-		return 0
+		return 0;
 	}
-	#undef TEMP
+}}
+
+/**************************/
+/* PARSING -- ANNOTATIONS */
+/**************************/
+
+static bool_t parse_annotation(ast_node_t* parent, parse_args_t* args, uint32_t* index, const ast_id_t annotation_id)
+{
+	const uint32_t i = *index;
+	ast_node_t* node = add_child(&parent, args, annotation_id);
+	node->annotation.id = args->ids[i];
+	uint32_t temp = *index + 1;
+	if (parse_arguments(node, args, &temp, 0))
+	{
+		node->id = node->children->num_children > 0 ? AST_ERROR : annotation_id;
+		node->len = 3 + node->children->num_children;
+	}
 }
+
+static bool_t parse_annotation_stringn(ast_node_t* parent, parse_args_t* args, uint32_t* index, const ast_id_t annotation_id, const uint32_t num_strings)
+{
+	const uint32_t i = *index;
+	ast_node_t* node = add_child(&parent, args, annotation_id);
+	node->annotation_id = args->ids[i];
+	uint32_t temp = *index + 1;
+	if (parse_arg_list(node, args, &temp))
+	{
+		node->id = node->children->num_children > 0 ? AST_ERROR : annotation_id;
+		node->len = 3 + node->children->num_children;
+	}
+	else
+	{
+		node->id = AST_ERROR;
+	}
+}
+
 
 
 /********************/
 /* TOKEN PROCESSING */
 /********************/
 
-static uint32_t process_line(ast_node_t* parent, parse_args_t* args, uint32_t* index)
-{
-	const uint32_t num_tokens = args->n;
-	const gdscript_id_t* ids = args->ids;
-	for (int i = *index; i < num_tokens; ++i)
-	{
-		const gdscript_id_t id = ids[i];
-		switch (id)
-		{
-		case GDSCRIPT_LEADING_WHITESPACE:
-			args->req_lws++;
-			break;
-		case GDSCRIPT_LINE_END:
-			*index = i;
-			return args->req_lws;
-		case GDSCRIPT_SEMICOLON:
-			*index = i;
-			process_line(parent, args, index, 0);
-			return req_lws;
-	#define X(ENUM, FUNC) case GDSCRIPT_##ENUM: parse_##FUNC(parent, args, index, 0); break;
-			LINE_CASES
-				#undef X
-		default:
-			parse_error(parent, args, index);
-		/* default: */
-		/* 	parse_table[i - GDSCRIPT_ERROR](parent, args, index, 1); // NOTE: this is dumb just throw it into the switch MY GOD, YOU HAVE THE ENUMS & FUNCTIONS IN A MACRO--JUST POP EM IN */
-		}
-	}
-}
-
-static uint8_t process_tokens(ast_node_t* parent, parse_args_t* args, uint32_t* index)
+static bool_t process_tokens(ast_node_t* parent, parse_args_t* args, uint32_t* index)
 {
 	uint32_t lws = 0;
 	const uint32_t num_tokens = args->n;
@@ -1297,6 +1219,46 @@ static uint8_t process_tokens(ast_node_t* parent, parse_args_t* args, uint32_t* 
 	return 1;
 }
 
+
+static bool_t process_line(ast_node_t* parent, parse_args_t* args, uint32_t* index)
+{
+	const uint32_t num_tokens = args->n;
+	const gdscript_id_t* ids = args->ids;
+	for (int i = *index; i < num_tokens; ++i)
+	{
+		const gdscript_id_t id = ids[i];
+		switch (id)
+		{
+		case GDSCRIPT_LEADING_WHITESPACE:
+			args->req_lws++;
+			break;
+		case GDSCRIPT_LINE_END:
+			*index = i;
+			return args->req_lws;
+		case GDSCRIPT_SEMICOLON:
+			*index = i + 1;
+			parse_args_t semicolon_args = *args;
+			semicolon_args->req_lws = 0;
+			process_line(parent, &semicolon_args, index);
+			return args->req_lws;
+		#define X(ENUM, FUNC) case GDSCRIPT_##ENUM: parse_##FUNC(parent, args, index); break;
+			KEYVALUES
+		#undef X
+		default:
+			parse_expression(parent, args, index);
+		}
+	}
+}
+
+void err_unprocessed(uint32_t i, const uint32_t n)
+{
+	for (; i < n; ++i)
+	{
+		// TODO: message about how these are too shallowly nested
+	}
+}
+
+
 ast_node_t* gdscript_ast_generate(free_list_t* fl, const token_t* tokens, gdscript_id_t* ids, const uint32_t num_tokens)
 {
 	ast_node_t* root = free_list_calloc(fl, sizeof *root);
@@ -1311,13 +1273,16 @@ ast_node_t* gdscript_ast_generate(free_list_t* fl, const token_t* tokens, gdscri
 		.root = root
 	};
 	uint32_t index = 0;
-	process_tokens(root, &args, &index, 0);
+	process_tokens(root, &args, &index);
+	err_unprocessed(index, num_tokens);
 	return args.root;
 }
+
 
 /******************/
 /* POST-GEN CHECK */
 /******************/
+
 
 static void check_ast(ast_node_t* node, ast_node_t* parent, uint8_t* flags, const uint32_t index, const uint32_t num_siblings);
 
