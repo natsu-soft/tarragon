@@ -1,5 +1,4 @@
 #include "gdscript_ast.h"
-#include <cstdint>
 #include <stdint.h>
 #undef ANNOTATIONS
 #include <stdlib.h>
@@ -599,7 +598,7 @@ static bool_t parse_expr_unary(ast_node_t* parent, parse_args_t* args, uint32_t*
 		ast_node_t* unary_node = add_child(&parent, args, AST_EXPR_UNARY);
 		unary_node->operation = op;
 		uint32_t j = i + 1;
-	#define UNARY_RHS \
+	#define UNARY_RHS \
 		X(group) || \
 		X(func) || \
 		X(symbolic)
