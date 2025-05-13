@@ -22,9 +22,9 @@ typedef struct token_t token_t;
 /* NOTE: NO SYMBOLS IN AST--JUST IDENTIFIERS */
 /* NOTE: arguments & parameters are ACHKSHUALLY statements but theyre here because lmao bitmflags */
 #define NODES \
-	X(ERROR,		0x0000) \
-	X(ROOT,  		0x0100) \
-	X(IDENTIFIER,	0x0200) \
+	X(ERROR,		0x0100) \
+	X(ROOT,  		0x0200) \
+	X(IDENTIFIER,	0x0400) \
 
 // NOTE: symbolic expressions are expressions that are a SINGLE SYMBOL(token).
 // can be variables, strings, numbers, or literals.
@@ -83,22 +83,22 @@ typedef enum __attribute__((packed)) ast_id_t
 	#undef X
 	/* EXPRESSIONS */
 	#define X(ID) AST_EXPR_##ID,
-	AST_EXPRESSION = 0x0400,
+	AST_EXPRESSION = 0x0800,
 	EXPRESSIONS
 	AST_EXPRESSION_END,
 	#undef X
 	#define X(ID) AST_STMT_##ID,
-	AST_STATEMENT = 0x0800,
+	AST_STATEMENT = 0x1000,
 	STATEMENTS
 	AST_STATEMENT_END,
 	#undef X
 	#define X(ID) AST_DECL_##ID,
-	AST_DECLARATION = 0x1000,
+	AST_DECLARATION = 0x2000,
 	DECLARATIONS
 	AST_DECLARTION_END,
 	#undef X
 	#define X(ID) AST_ANNO_##ID,
-	AST_ANNOTATION = 0x2000,
+	AST_ANNOTATION = 0x4000,
 	ANNOTATIONS
 	AST_ANNOTATION_END,
 	#undef X
@@ -107,11 +107,11 @@ typedef enum __attribute__((packed)) ast_id_t
 
 typedef enum __attribute__((packed)) ast_symbol_t
 {
-	SYMBOL_NONE		  = 0x00,
+	SYMBOL_NONE		 = 0x00,
 	SYMBOL_IDENTIFIER = 0x01,
-	SYMBOL_STRING	  = 0x02,
-	SYMBOL_NUMBER	  = 0x04,
-	SYMBOL_LITERAL	  = 0x08,
+	SYMBOL_STRING	 = 0x02,
+	SYMBOL_NUMBER	 = 0x04,
+	SYMBOL_LITERAL	 = 0x08,
 } ast_symbol_t;
 
 /* typedef enum __attribute__((packed)) ast_op_t */
@@ -209,11 +209,11 @@ typedef struct ast_node_t
 			struct ast_node_t* rhs;
 		};
 		struct ast_node_t* operand[2]; // for unary, can refer to with just operand->
+		token_t* symbol;
 	};
 	struct ast_node_t* parent;
 	union
 	{
-		token_t* symbol;
 		struct {
 			TODO_EXPR_TYPE // 7 bytes to play with WOW!
 			ast_op_t operation;
@@ -227,7 +227,7 @@ typedef struct ast_node_t
 	/* uint32_t pos; // i dont think I need this */
 	/* uint32_t len; // i MITE need */
 	ast_id_t id;
-	ast_id_t last_child_id; // you shouldn't need this but ur lazy tbqh
+	/* ast_id_t last_child_id; // you shouldn't need this but ur lazy tbqh */
 } ast_node_t;
 
 ast_node_t* gdscript_ast_generate(free_list_t* fl, const token_t* tokens, gdscript_id_t* ids, const uint32_t num_tokens);
