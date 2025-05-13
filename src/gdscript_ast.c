@@ -1,4 +1,5 @@
 #include "gdscript_ast.h"
+#include <cstdint>
 #include <stdint.h>
 #undef ANNOTATIONS
 #include <stdlib.h>
@@ -10,9 +11,9 @@
 #include "scratch.h"
 #include "arena.h"
 
-// TODO: DeMorgen laws
-// TODO: SEMICOLONS?????
-
+/* (1) fuck it
+ * (2) just parse it then
+ * (3) check afterwards */
 
 #define RESIZE_SCALE 1.618
 #define RESIZE_OVERHEAD 4096
@@ -30,80 +31,80 @@ typedef struct parse_args_t
 	uint32_t req_lws;
 } parse_args_t;
 
-#define KEYVALUES \
-	X(EXPORT_CATEGORY,				todo)				\
-	X(EXPORT_COLOR_NO_ALPHA,		todo)				\
-	X(EXPORT_CUSTOM,				todo)				\
-	X(EXPORT_DIR,					todo)				\
-	X(EXPORT_ENUM,					todo)				\
-	X(EXPORT_EXP_EASING,			todo)				\
-	X(EXPORT_FILE,					todo)				\
-	X(EXPORT_FLAGS_2D_NAVIGATION,	todo)				\
-	X(EXPORT_FLAGS_2D_PHYSICS,		todo)				\
-	X(EXPORT_FLAGS_2D_RENDER,		todo)				\
-	X(EXPORT_FLAGS_3D_NAVIGATION,	todo)				\
-	X(EXPORT_FLAGS_3D_PHYSICS,		todo)				\
-	X(EXPORT_FLAGS_3D_RENDER,		todo)				\
-	X(EXPORT_FLAGS_AVOIDANCE,		todo)				\
-	X(EXPORT_FLAGS,					todo)				\
-	X(EXPORT_GLOBAL_DIR,			todo)				\
-	X(EXPORT_GLOBAL_FILE,			todo)				\
-	X(EXPORT_GROUP,					todo)				\
-	X(EXPORT_MULTILINE,				todo)				\
-	X(EXPORT_NODE_PATH,				todo)				\
-	X(EXPORT_PLACEHOLDER,			todo)				\
-	X(EXPORT_RANGE,					todo)				\
-	X(EXPORT_STORAGE,				todo)				\
-	X(EXPORT_SUBGROUP,				todo)				\
-	X(EXPORT_TOOL_BUTTON,			todo)				\
-	X(EXPORT,						todo)				\
-	X(ICON,							todo)				\
-	X(ONREADY,						todo)				\
-	X(RPC,							todo)				\
-	X(STATIC_UNLOAD,				todo)				\
-	X(TOOL,							todo)				\
-	X(WARNING_IGNORE_RESTORE,		todo)				\
-	X(WARNING_IGNORE_STOP,			todo)				\
-	X(WARNING_IGNORE,				todo) \
-	X(IF,							stmt_if)			\
-	X(ELIF,							stmt_elif)			\
-	X(ELSE,							stmt_else)			\
-	X(FOR,							stmt_for)			\
-	X(WHILE,						stmt_while)			\
-	X(MATCH,						stmt_match)			\
-	X(BREAK,						stmt_break)			\
-	X(CONTINUE,						stmt_continue)		\
-	X(PASS,							stmt_pass)			\
-	X(RETURN,						stmt_return)		\
-	X(CLASS_NAME,					decl_class)			\
-	X(CLASS,						decl_subclass)		\
-	X(EXTENDS,						decl_extends)		\
-	X(SELF,							todo)				\
-	X(SUPER,						todo)				\
-	X(SIGNAL,						decl_signal)		\
-	X(FUNC,							decl_func)			\
-	X(STATIC,						decl_static)		\
-	X(CONST,						decl_const)			\
-	X(ENUM,							decl_enum)			\
-	X(VAR,							decl_var)			\
+#define KEYVALUES								\
+	X(EXPORT_CATEGORY,				todo)		\
+	X(EXPORT_COLOR_NO_ALPHA,		todo)		\
+	X(EXPORT_CUSTOM,				todo)		\
+	X(EXPORT_DIR,					todo)		\
+	X(EXPORT_ENUM,					todo)		\
+	X(EXPORT_EXP_EASING,			todo)		\
+	X(EXPORT_FILE,					todo)		\
+	X(EXPORT_FLAGS_2D_NAVIGATION,	todo)		\
+	X(EXPORT_FLAGS_2D_PHYSICS,		todo)		\
+	X(EXPORT_FLAGS_2D_RENDER,		todo)		\
+	X(EXPORT_FLAGS_3D_NAVIGATION,	todo)		\
+	X(EXPORT_FLAGS_3D_PHYSICS,		todo)		\
+	X(EXPORT_FLAGS_3D_RENDER,		todo)		\
+	X(EXPORT_FLAGS_AVOIDANCE,		todo)		\
+	X(EXPORT_FLAGS,					todo)		\
+	X(EXPORT_GLOBAL_DIR,			todo)		\
+	X(EXPORT_GLOBAL_FILE,			todo)		\
+	X(EXPORT_GROUP,					todo)		\
+	X(EXPORT_MULTILINE,				todo)		\
+	X(EXPORT_NODE_PATH,				todo)		\
+	X(EXPORT_PLACEHOLDER,			todo)		\
+	X(EXPORT_RANGE,					todo)		\
+	X(EXPORT_STORAGE,				todo)		\
+	X(EXPORT_SUBGROUP,				todo)		\
+	X(EXPORT_TOOL_BUTTON,			todo)		\
+	X(EXPORT,						todo)		\
+	X(ICON,							todo)		\
+	X(ONREADY,						todo)		\
+	X(RPC,							todo)		\
+	X(STATIC_UNLOAD,				todo)		\
+	X(TOOL,							todo)		\
+	X(WARNING_IGNORE_RESTORE,		todo)		\
+	X(WARNING_IGNORE_STOP,			todo)		\
+	X(WARNING_IGNORE,				todo)		\
+	X(IF,							stmt_if)	\
+	X(ELIF,							stmt_elif)	\
+	X(ELSE,							stmt_else)	\
+	X(FOR,							stmt_for)	\
+	X(WHILE,						stmt_while)	\
+	X(MATCH,						stmt_match)	\
+	X(BREAK,						stmt_break)	\
+	X(CONTINUE,						stmt_continue)	\
+	X(PASS,							stmt_pass)	\
+	X(RETURN,						stmt_return)	\
+	X(CLASS_NAME,					decl_class)	\
+	X(CLASS,						decl_subclass)	\
+	X(EXTENDS,						decl_extends)	\
+	X(SELF,							todo)		\
+	X(SUPER,						todo)		\
+	X(SIGNAL,						decl_signal)	\
+	X(FUNC,							decl_func)	\
+	X(STATIC,						decl_static)	\
+	X(CONST,						decl_const)	\
+	X(ENUM,							decl_enum)	\
+	X(VAR,							decl_var)	\
 	X(BREAKPOINT,					stmt_breakpoint)	\
-	X(PRELOAD,						expr_preload)		\
-	X(AWAIT,						expr_await)			\
-	X(YIELD,						expr_yield)			\
-	X(ASSERT,						expr_assert)		\
-	X(GET,							stmt_get)			\
-	X(SET,							stmt_set)			\
-	X(VOID,							expr_literal)			\
-	X(NULL,							expr_literal)			\
-	X(TRUE,							expr_literal)			\
-	X(FALSE,						expr_literal)			\
-	X(PI,							expr_literal)			\
-	X(TAU,							expr_literal)			\
-	X(INF,							expr_literal)			\
-	X(NAN,							expr_literal)			\
-	X(STRING,						expr_string)				\
-	X(NUMBER,						expr_number) \
-	X(IDENTIFIER,				identifier)
+	X(PRELOAD,						expr_preload)	\
+	X(AWAIT,						expr_await)	\
+	X(YIELD,						expr_yield)	\
+	X(ASSERT,						expr_assert)	\
+	X(GET,							stmt_get)	\
+	X(SET,							stmt_set)	\
+	X(VOID,							expr_literal)	\
+	X(NULL,							expr_literal)	\
+	X(TRUE,							expr_literal)	\
+	X(FALSE,						expr_literal)	\
+	X(PI,							expr_literal)	\
+	X(TAU,							expr_literal)	\
+	X(INF,							expr_literal)	\
+	X(NAN,							expr_literal)	\
+	X(STRING,						expr_string)	\
+	X(NUMBER,						expr_number)	\
+	X(IDENTIFIER,				    identifier)
 
 
 // TODO expand then delete the redundant forward declarations
@@ -1001,23 +1002,24 @@ static bool_t parse_stmt_pass(ast_node_t* parent, parse_args_t* args, uint32_t* 
 /* PARSING -- DECLARATIONS */
 /***************************/
 
+
 static bool_t parse_decl_class(ast_node_t* parent, parse_args_t* args, uint32_t* index)
 {
 	ast_node_t* node = add_child(&parent, args, AST_DECL_CLASS);
-	const uint32_t i = *index;
-	node->pos = i;
-	const uint32_t n = args->n;
 	gdscript_id_t* ids = args->ids;
-	const token_t* tokens = args->tokens;
-	uint32_t j = i + 1;
-	if (parse_identifier(node, args, &j, 0))
+	const uint32_t i = *index + 1;
+	if (ids[i] == GDSCRIPT_IDENTIFIER)
 	{
-		*index = j;
+		node = add_child(&node, args, AST_IDENTIFIER);
+		node->symbol = args->tokens + i;
+		*index = i;
 		return 1;
 	}
 	else
 	{
 		node->id = AST_ERROR;
+		node->err_token = args->tokens + i - 1;
+		node->err_len = 1;
 		// TODO: something about expected to be followed by an identifier
 		return 0;
 	}
@@ -1026,58 +1028,51 @@ static bool_t parse_decl_class(ast_node_t* parent, parse_args_t* args, uint32_t*
 static bool_t parse_decl_extends(ast_node_t* parent, parse_args_t* args, uint32_t* index)
 {
 	ast_node_t* node = add_child(&parent, args, AST_DECL_EXTENDS);
-	node->pos = *index;
-	uint32_t i = *index + 1;
-	if (parse_identifier(node, args, &i, 0) || parse_string(node, args, &i, 0))
+	const uint32_t i = *index + 1;
+	switch (args->ids[i])
 	{
-		node->len = 2;
-		*index = i;
+	case GDSCRIPT_IDENTIFIER:
+		node = add_child(&node, args, AST_IDENTIFIER);
+		node->symbol = args->tokens + i;
+		break;
+	case GDSCRIPT_STRING:
+		node = add_child(&node, args, AST_EXPR_SYMBOLIC);
+		node->symbolic_id = SYMBOL_STRING;
+		break;
+	default:
+		node->id = AST_ERROR;
+		node->err_token = args->tokens + i - 1;
+		node->err_len = 1;
+		return 0;
+	}
+	return 1;
+}
+
+static bool_t parse_decl_subclass(ast_node_t* parent, parse_args_t* args, uint32_t* index)
+{
+	ast_node_t* node = add_child(&parent, args, AST_DECL_SUBCLASS);
+	const gdscript_id_t* ids = args->ids;
+	const uint32_t i = *index;
+	if (ids[i + 1] == GDSCRIPT_IDENTIFIER && ids[i + 2] == GDSCRIPT_COLON)
+	{
+		ast_node_t* id_node = add_child(&node, args, AST_IDENTIFIER);
+		id_node->symbol = args->tokens + i + 1;
+		uint32_t req_lws0 = args->req_lws;
+		args->req_lws++;
+		uint32_t j = i + 3;
+		process_tokens(node, args, &j);
+		args->req_lws = req_lws0;
 		return 1;
 	}
 	else
 	{
 		node->id = AST_ERROR;
+		node->err_token = args->tokens;
+		node->err_len = 1;
 		return 0;
 	}
 }
 
-static bool_t parse_expressions(ast_node_t* parent, parse_args_t* args, uint32_t* index, const bool_t errs)
-{
-	const uint32_t n = args->n;
-	const gdscript_id_t* ids = args->ids;
-	ast_node_t* node;
-	for (uint32_t i = *index; i < n; ++i)
-	{
-		switch (ids[i])
-		{
-		case GDSCRIPT_PAREN_OPEN:
-			// check to see if last child is ast_identifier
-			// if so, it's a function expression
-			if (parent->num_children > 0 && parent->last_child_id == AST_IDENTIFIER)
-			{
-				node = last_child(parent);
-				node->id = AST_EXPR_FUNC;
-				return parse_arguments(node, args, &i, errs);
-			}
-			else
-			{
-				return parse_expr_group(parent, args, &i, errs);
-			}
-			// o.w. parse group expression
-		case GDSCRIPT_IDENTIFIER:
-			parse_identifier(parent, args, &i, errs);
-			break;
-		case GDSCRIPT_COLON:
-			if (parent->id & (AST_EXPRESSION | AST_DECLARATION))
-			{
-			}
-			else if (errs)
-			{
-				// it's an error, dicts & params have their own custom parsing
-			}
-		}
-	}
-}
 
 // NOTE: DON'T WORRY ABOUT IT, JUST PARSE IT.  CHECK AFTERWARDS.
 static bool_t parse_decl_var(ast_node_t* parent, parse_args_t* args, uint32_t* index)
