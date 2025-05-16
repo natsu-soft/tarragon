@@ -20,7 +20,6 @@ typedef struct token_t token_t;
 
 
 /* NOTE: NO SYMBOLS IN AST--JUST IDENTIFIERS */
-/* NOTE: arguments & parameters are ACHKSHUALLY statements but theyre here because lmao bitmflags */
 #define NODES \
 	X(ERROR,		0x0100) \
 	X(ROOT,  		0x0200) \
@@ -48,7 +47,6 @@ typedef struct token_t token_t;
 	X(MATCH)								  \
 	X(PATTERN)								\
 	X(SIGNATURE)							\
-	X(PARAMETERS)							\
 	X(GET)									\
 	X(SET)									\
 	X(RETURN)								\
@@ -56,6 +54,9 @@ typedef struct token_t token_t;
 	X(BREAK) \
 	X(CONTINUE) \
 	X(PASS)
+
+// parameters in signature statement
+	/* X(PARAMETERS)							\ */
 
 // NOTE: decalarations are also statements
 #define DECLARATIONS	\
@@ -218,6 +219,7 @@ typedef struct ast_node_t
 			TODO_EXPR_TYPE // 7 bytes to play with WOW!
 			ast_op_t operation;
 		};
+		struct ast_node_t* signature_return; // the return type of a function signature
 		gdscript_id_t token_id;
 		/* struct ast_node_t* expr_conditional; // DISGUSTING */
 		ast_annotation_t annotation_id;
