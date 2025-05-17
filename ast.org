@@ -1,0 +1,50 @@
+* TODO generation
+  - [-] Expressions
+    - [ ] Expression
+    - [X] Group
+    - [ ] Func
+    - [ ] Operator
+      - [ ] Unary
+      - [ ] Binary
+      - [ ] Assignment (also binary but I actually care about tree structure for this one)
+    - [X] Symbolic
+      - [X] Identifier
+      - [X] Literal
+      - [X] String
+      - [X] Number
+    - [ ] Array
+    - [ ] Dict
+    - [ ] Ternary
+  - [-] Statements
+    - up to while are mostly done, but I have to rewrite to make the conditional expression stop parsing at the colon
+    - [ ] if
+    - [ ] elif
+    - [ ] else
+    - [ ] for
+    - [ ] while
+    - [ ] match
+    - [ ] pattern
+    - [ ] get
+    - [ ] set
+    - [X] return
+    - [X] break
+    - [X] continue
+    - [X] pass
+  - [-] Declarations
+    - this one is leaning HEAVILY on post-gen check
+    - [ ] class
+    - [ ] extends
+    - [ ] var
+    - [ ] const
+    - [ ] func
+    - [ ] enum
+    - [ ] signal
+    - [ ] subclass
+    - [X] static
+  - [ ] Annotations
+    - this ALSO leans heavily on post-gen check
+    - GUH
+
+
+* TODO post-gen check
+   

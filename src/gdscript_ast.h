@@ -35,8 +35,7 @@ typedef struct token_t token_t;
 	X(ARRAY)								\
 	X(DICT)									\
 	X(GROUP)								\
-	X(TERNARY) \
-	X(PARAM)
+	X(TERNARY)
 
 #define STATEMENTS							\
 	X(IF)										\

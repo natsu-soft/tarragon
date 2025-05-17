@@ -764,33 +764,12 @@ static bool_t parse_expr_binary(ast_node_t* parent, context_t* ctx, uint32_t* in
 }
 
 
-static bool_t parse_type(ast_node_t* parent, context_t* ctx, uint32_t* index, const panic_t panic)
-{
-
-}
-
-// var foo: int = blah blah blah
-// for assignment operations, the LHS is either an identifier or a dot expression
-static bool_t parse_expr_typed_assignment(ast_node_t* parent, context_t* ctx, uint32_t* index, const panic_t panic)
-{
-	uint32_t i = *index;
-	#define TEMP X(type) && X(assignment)
-	#define X(A) parse_expr_##A(parent, ctx, &i, panic_pass)
-	if (TEMP && parse_expression(parent, ctx, &i, panic_pass))
-	{
-		*index = i;
-		return 1;
-	}
-	panic(parent, ctx, index);
-	return 0;
-}
-
-
 /*************************/
 /* PARSING -- STATEMENTS */
 /*************************/
 
 
+// NOTE: rewrite thse to make sure parse_expression context doesn't go past the colon
 static bool_t parse_stmt_if(ast_node_t* parent, context_t* ctx, uint32_t* index)
 {
 	// keyword 'if' at index
@@ -970,7 +949,6 @@ static bool_t parse_stmt_pass(ast_node_t* parent, context_t* ctx, uint32_t* inde
 /* PARSING -- DECLARATIONS */
 /***************************/
 
-
 static bool_t parse_decl_class(ast_node_t* parent, context_t* ctx, uint32_t* index)
 {
 	ast_node_t* node = add_child(&parent, ctx, AST_DECL_CLASS);
@@ -1062,8 +1040,6 @@ static bool_t parse_decl_var(ast_node_t* parent, context_t* ctx, uint32_t* index
 			*index = i + 1;
 		}
 		return 1;
-		#undef X
-		#undef TEMP
 	}
 	else
 	{
@@ -1076,7 +1052,6 @@ static bool_t parse_decl_var(ast_node_t* parent, context_t* ctx, uint32_t* index
 
 
 static bool_t parse_decl_const(ast_node_t* parent, context_t* ctx, uint32_t* index)
-{
 {
 	ast_node_t* node = add_child(&parent, ctx, AST_DECL_CONST);
 	const uint32_t i = *index;
@@ -1109,47 +1084,50 @@ static bool_t parse_decl_const(ast_node_t* parent, context_t* ctx, uint32_t* ind
 		node->id = AST_ERROR;
 		return 0;
 	}
-}}
+}
+
 
 /**************************/
 /* PARSING -- ANNOTATIONS */
 /**************************/
 
-static bool_t parse_annotation(ast_node_t* parent, context_t* ctx, uint32_t* index, const ast_id_t annotation_id)
-{
-	const uint32_t i = *index;
-	ast_node_t* node = add_child(&parent, ctx, annotation_id);
-	node->annotation.id = ctx->ids[i];
-	uint32_t temp = *index + 1;
-	if (parse_arguments(node, ctx, &temp, 0))
-	{
-		node->id = node->children->num_children > 0 ? AST_ERROR : annotation_id;
-		node->len = 3 + node->children->num_children;
-	}
-}
 
-static bool_t parse_annotation_stringn(ast_node_t* parent, context_t* ctx, uint32_t* index, const ast_id_t annotation_id, const uint32_t num_strings)
-{
-	const uint32_t i = *index;
-	ast_node_t* node = add_child(&parent, ctx, annotation_id);
-	node->annotation_id = ctx->ids[i];
-	uint32_t temp = *index + 1;
-	if (parse_arg_list(node, ctx, &temp))
-	{
-		node->id = node->children->num_children > 0 ? AST_ERROR : annotation_id;
-		node->len = 3 + node->children->num_children;
-	}
-	else
-	{
-		node->id = AST_ERROR;
-	}
-}
+/* static bool_t parse_annotation(ast_node_t* parent, context_t* ctx, uint32_t* index, const ast_id_t annotation_id) */
+/* { */
+/* 	const uint32_t i = *index; */
+/* 	ast_node_t* node = add_child(&parent, ctx, annotation_id); */
+/* 	node->annotation.id = ctx->ids[i]; */
+/* 	uint32_t temp = *index + 1; */
+/* 	if (parse_arguments(node, ctx, &temp, 0)) */
+/* 	{ */
+/* 		node->id = node->children->num_children > 0 ? AST_ERROR : annotation_id; */
+/* 		node->len = 3 + node->children->num_children; */
+/* 	} */
+/* } */
+
+/* static bool_t parse_annotation_stringn(ast_node_t* parent, context_t* ctx, uint32_t* index, const ast_id_t annotation_id, const uint32_t num_strings) */
+/* { */
+/* 	const uint32_t i = *index; */
+/* 	ast_node_t* node = add_child(&parent, ctx, annotation_id); */
+/* 	node->annotation_id = ctx->ids[i]; */
+/* 	uint32_t temp = *index + 1; */
+/* 	if (parse_arg_list(node, ctx, &temp)) */
+/* 	{ */
+/* 		node->id = node->children->num_children > 0 ? AST_ERROR : annotation_id; */
+/* 		node->len = 3 + node->children->num_children; */
+/* 	} */
+/* 	else */
+/* 	{ */
+/* 		node->id = AST_ERROR; */
+/* 	} */
+/* } */
 
 
 
 /********************/
 /* TOKEN PROCESSING */
 /********************/
+
 
 static bool_t process_tokens(ast_node_t* parent, context_t* ctx, uint32_t* index)
 {
