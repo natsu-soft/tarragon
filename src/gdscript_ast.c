@@ -181,6 +181,30 @@ static uint32_t dist_pair(const gdscript_id_t opener, const uint32_t index, cons
 	return 0;
 }
 
+static uint32_t dist_colon(const uint32_t index, const gdscript_id_t* ids, const uint32_t n)
+{
+	uint16_t depth = 0;
+	for (uint32_t i = index; i < n; ++i)
+	{
+		const gdscript_id_t id = ids[i];
+		switch(id * (depth > 0 || id != GDSCRIPT_COLON)) // this is excessive even for you
+		{
+		case 0: // bro this is disgusting
+			return i - index;
+		case GDSCRIPT_PAREN_CLOSE:
+			depth--;
+			break;
+		case GDSCRIPT_PAREN_OPEN:
+			depth++;
+			break;
+		case GDSCRIPT_SEMICOLON: __attribute__((fallthrough));
+		case GDSCRIPT_LINE_END:
+			return 0;
+		}
+	}
+	return 0;
+}
+
 static void relative_children(ast_node_t* node)
 {
 	if (node->num_children > 0)
@@ -641,7 +665,7 @@ static bool_t parse_expr_unary(ast_node_t* parent, context_t* ctx, uint32_t* ind
 		ast_node_t* unary_node = add_child(&parent, ctx, AST_EXPR_UNARY);
 		unary_node->operation = op;
 		uint32_t j = i + 1;
-	#define UNARY_RHS \
+	#define UNARY_RHS \
 		X(group) || \
 		X(func) || \
 		X(symbolic)
