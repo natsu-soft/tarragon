@@ -1,9 +1,11 @@
 ifeq ($(OS),Windows_NT)
 	CC := clang -std=gnu99
 	RE := rg
+	BIN_EXT := .exe
 else
 	CC := gcc -std=gnu99 # NOTE: bug in gcc, __attribute__((cleanup)) runs immeadiately instead of waiting for scope end
 	RE := grep
+	BIN_EXT :=
 endif
 # CFLAGS := -Wall -Wextra -Wno-incompatible-pointer-types -ggdb -O0
 CFLAGS := -Wall -Wextra -Wno-int-conversion -fpermissive -fdiagnostics-show-option -ggdb -O0
@@ -16,9 +18,9 @@ CFLAGS := -Wall -Wextra -Wno-int-conversion -fpermissive -fdiagnostics-show-opti
 # LDFLAGS := -fuse-ld=lld -flto -ljansson -larchive -lz -static
 LIBS := -ljansson
 ifeq ($(OS),Windows_NT)
-LDFLAGS := -fuse-ld=lld -flto $(LIBS) -static
+LDFLAGS := -fuse-ld=lld -flto -static
 else
-LDFLAGS := -fuse-ld=mold -flto $(LIBS) -static
+LDFLAGS := -fuse-ld=mold -flto -static
 endif
 MAINS := src/tarragon.c src/unit_tests.c
 ALL_SRC := $(wildcard src/*.c)
@@ -36,12 +38,24 @@ JSON_OBJS :=  obj/default_config.o
 ALL_OBJ := $(patsubst src/%.c,obj/%.o,$(ALL_SRC))
 OBJ += $(HEX_OBJS) $(JSON_OBJS)
 
-.PHONY: default dependencies clean clean-dep clean-emacs clean-api clean-all dep_dir obj_dirs lsp-test jansson-test test test2
+.PHONY: default dependencies clean clean-dep clean-emacs clean-api clean-all dep_dir obj_dirs lsp-test jansson-test test test2 test/%
 
 default: unit-tests
 
-test: unit-tests
-	@${CURDIR}/$<
+test/%:
+	cat $* | sed 's/$(patsubst src/%.c,%,$*)_test/main/' | $(CC) $(CFLAGS) $(LIBS) $(LDFLAGS) -o test_$(patsubst src/%.c,%,$*) -Isrc -x c -
+	${CURDIR}/test_$(patsubst src/%.c,%,$*)
+
+
+# @echo $(patsubst  src/%,%, $*)
+
+# cat $* | sed's/$(basen)
+#  | $(CC) $(CFLAGS) -o test_$(patsubst src/%,%,$(basename $*)) -Isrc $(LIBS) $(LDFLAGS) -x c -
+
+# cat $(SRC) | sed 's/$(basename $*)_test/main/' | $(CC) $(CLFAGS) -o $(basename $*)_test $(LIBS) $(LDFLAGS) -Isrc -x c -
+
+
+# @echo "testing $(basename $@)"
 
 tarragon: obj/tarragon.o $(OBJ)
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS) $(LDFLAGS)
