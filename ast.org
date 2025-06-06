@@ -16,12 +16,11 @@
     - [ ] Dict
     - [ ] Ternary
   - [-] Statements
-    - up to while are mostly done, but I have to rewrite to make the conditional expression stop parsing at the colon
-    - [ ] if
-    - [ ] elif
-    - [ ] else
-    - [ ] for
-    - [ ] while
+    - [X] if
+    - [X] elif
+    - [X] else
+    - [X] for
+    - [X] while
     - [ ] match
     - [ ] pattern
     - [ ] get
@@ -32,6 +31,7 @@
     - [X] pass
   - [-] Declarations
     - this one is leaning HEAVILY on post-gen check
+    - CZEK UR RANGES
     - [ ] class
     - [ ] extends
     - [ ] var
