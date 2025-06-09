@@ -15,37 +15,27 @@ enum
 
 typedef enum method_t
 {
-	INITIALIZE = 0x00,
+	NO_METHOD = 0x00,
+	INITIALIZE,
 	INITIALIZED,
 	SHUTDOWN,
 	EXIT,
-	METHOD_UNKNOWN
+	UNKNOWN,
 } method_t;
 
 
-typedef struct initialize_params_t
-{
-	uint32_t process_id; // null represented w/ zero
-} initialize_params_t;
-
-/* these all have zero parameters so DONT FUCCN BOTHER TBQH */
-/* typedef struct initializezd_params_t { */
-/* } initialized_params_t; */
-
-/* typedef struct shutdown_params_t { */
-/* } shutdown_params_t; */
-
-/* typedef struct exit_params_t { */
-/* } exit_params_t; */
-
 typedef struct rpc_t
 {
-	union
-	{
-		initialize_params_t initialize;
-	} params; // I imagine this could easily get bigger than id EVENTUALLY
 	char id[16]; // MASSIVE
 	method_t method;
+	union
+	{
+		// initialize
+		struct
+		{
+			uint32_t process_id;
+		};
+	} params; // I imagine this could easily get bigger than id EVENTUALLY
 } rpc_t;
 
 void rpc_init(void);

@@ -2,138 +2,118 @@
 #include <stdio.h>
 #include <string.h>
 /* #include <tree_sitter/api.h> */
-#include <jansson.h>
+#include "json.h"
+#include "error_macros.h"
 /* NOTE: NOT DECREFING JSON STUFF BECAUSE IM BALLING */
 #include "arena.h"
+#include "scratch.h"
 #include "logger.h"
 
-#define KILOBYTE 1024
-#define MEGABYTE 1048576
+static rpc_t request_buffer;
 
+static void initialize_params(rpc_t* rpc, json_t* json);
 
-static arena_t scratch;
-static rpc_t* request_buffer;
-
-/*  NOTE: HOPE U DONT OVER ALLOCATE LMAO */
-static void* scratch_alloc(size_t bytes)
+// NOTE: assume the LSP client is to SPEC
+static void parse_rpc (char* str, int len, rpc_t* rpc)
 {
-	return arena_alloc(&scratch, bytes);
-}
-
-static void scratch_free(void* ptr)
-{
-	// lol
-}
-
-void rpc_init(void)
-{
-	arena_init(&scratch, MEGABYTE * sizeof(json_t));
-	request_buffer = malloc(sizeof * request_buffer);
-}
-
-void rpc_deinit(void)
-{
-	free(scratch.memory);
-	free(request_buffer);
-}
-
-void initialize_params(json_t* params_o, rpc_t* rpc);
-
-void parse_rpc (char* str, int len, rpc_t* rpc)
-{
-	json_error_t error;
-	json_t* rpc_o = json_loadb(str, len, 0, &error);
-	if(!rpc_o)
+	json_t json = {0};
+	json_id_t res = json_parse(&json, scratch_arena(), str, len);
+	if (res ^ JSON_SUCCESS)
 	{
 		ERROR("failed to decode:\n%s", str);
-		rpc = NULL;
 		return;
 	}
-	else if (!json_is_object(rpc_o))
+	else if (res ^ JSON_OBJECT)
 	{
 		ERROR("rpc is not a json object:\n%s", str);
-		rpc = NULL;
-	}
-	json_t* method_o = json_object_get(rpc_o, "method");
-	if (!method_o)
-	{
-		ERROR("rpc does not contain a method key!");
-		rpc = NULL;
 		return;
 	}
-	json_t* id_o = json_object_get(rpc_o, "id");
-	if (!id_o)
+	char* key;
+	json_t tmp = {0};
+	rpc->id[0] = '\0';
+	while ((res = json_next_key(&json, &key)) & JSON_KEY)
 	{
-		rpc->id[0] = '\0';
-	}
-	else if (json_is_string(id_o))
-	{
-		const char* id = json_string_value(id_o);
-		memcpy(&rpc->id[0], id, strlen(id) + 1);
-		json_decref(id_o);
-	}
-	else if (json_is_integer(id_o))
-	{
-		sprintf(&rpc->id[0], "%lld", json_integer_value(id_o));
-		json_decref(id_o);
-	}
-	const char* method = json_string_value(method_o);
-	if (strcmp(method, "initialize") == 0)
-	{
-		rpc->method = INITIALIZE;
-		json_t* params_o = json_object_get(rpc_o, "params");
-		if (!params_o)
+		if (strncmp(key, "id", 2) == 0)
 		{
-			ERROR("Failed to parse initialize parameters!");
-			rpc = NULL;
-			return;
+			res = json_next_value(&json, &tmp); // assume the LSP client is to spec.
+			memcpy(rpc->id, *tmp.tokens, strlen(*tmp.tokens));
 		}
-		else if (!json_is_object(params_o))
+		else if (strncmp(key, "method", 6) == 0)
 		{
-			ERROR("Initialize parameters are not a json object!");
-			rpc = NULL;
-			return;
+			res = json_next_value(&json, &tmp); // assume the LSP client is to spec.
+			char* method;
+			assertf(json_c(&method, &tmp), "Failed to convert token \"%s\" to a char*\n", tmp.tokens[0]);
+			if (strncmp(method, "initialize", 10) == 0)
+			{
+				rpc->method = INITIALIZE;
+			}
+			else if (strncmp(method, "initialized", 11) == 0)
+			{
+				rpc->method = INITIALIZED;
+			}
+			else if (strncmp(method, "shutdown", 8) == 0)
+			{
+				rpc->method = SHUTDOWN;
+			}
+			else if (strncmp(method, "exit", 4) == 0)
+			{
+				rpc->method = EXIT;
+			}
+			else
+			{
+				rpc->method = UNKNOWN;
+			}
 		}
-		initialize_params(params_o, rpc);
-		json_decref(params_o);
+		else if (strncmp(key, "params", 6) == 0)
+		{
+			res = json_next_value(&json, &tmp);
+			switch(rpc->method)
+			{
+			case INITIALIZE:
+				initialize_params(rpc, &tmp);
+				break;
+			default: break;
+			}
+		}
 	}
-	else if (strcmp(method, "initialized") == 0)
+	if (rpc->id[0] == '\0')
 	{
-		rpc->method = INITIALIZED;
+		ERROR("rpc does not contain an id!");
+		return;
 	}
-	else if (strcmp(method, "shutdown") == 0)
+	if (rpc->method == NO_METHOD)
 	{
-		rpc->method = SHUTDOWN;
+		ERROR("rpc does not contain a method key!");
+		return;
 	}
-	else if (strcmp(method, "exit") == 0)
+	else if (rpc->method == UNKNOWN)
 	{
-		rpc->method = EXIT;
+		ERROR("rpc contains an unknown method!");
+		return;
 	}
-	else {
-		rpc->method = METHOD_UNKNOWN;
-	}
+	// TODO: param checking.
 }
 
-void initialize_params(json_t* params_o, rpc_t* rpc)
+static void initialize_params(rpc_t* rpc, json_t* json)
 {
 	// the process with PID 0 is responsible for paging, ergo it is NOT the parent process id (so keep using ur unsigned int u degenerate)
-	json_t* pid_o = json_object_get(params_o, "processId");
-	if (json_is_null(pid_o))
+	json_id_t res = {0};
+	char* key;
+	json_t tmp = {0};
+	while ((res = json_next_key(json, &key)) & JSON_KEY)
 	{
-		rpc->params.initialize.process_id = 0;
+		if (strncmp(key, "processId", 9) == 0)
+		{
+			res = json_next_value(json, &tmp);
+			json_c(&rpc->params.process_id, &tmp);
+		}
 	}
-	else
-	{
-		rpc->params.initialize.process_id = json_integer_value(pid_o);
-	}
-	arena_free(&scratch, sizeof * pid_o);
 }
 
 const rpc_t* rpc_parse(char* json, int len)
 {
-	json_set_alloc_funcs(&scratch_alloc, &scratch_free);
-	scratch.size = 0;
-	rpc_t* rpc = request_buffer;
-	parse_rpc(json, len, rpc);
-	return rpc;
+	memset(&request_buffer, 0x00, sizeof request_buffer);
+	request_buffer.id[0] = '\0';
+	parse_rpc(json, len, &request_buffer);
+	return &request_buffer;
 }
