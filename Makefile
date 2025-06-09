@@ -43,8 +43,8 @@ OBJ += $(HEX_OBJS) $(JSON_OBJS)
 default: unit-tests
 
 test/%:
-	cat $* | sed 's/$(patsubst src/%.c,%,$*)_test/main/' | $(CC) $(CFLAGS) $(LIBS) $(LDFLAGS) -o test_$(patsubst src/%.c,%,$*) -Isrc -x c -
-	${CURDIR}/test_$(patsubst src/%.c,%,$*)
+	cat src/$*.c | sed 's/$*_test/main/' | $(CC) $(CFLAGS) -o test_$(patsubst %.c,%,$*) -Isrc -x c -
+	${CURDIR}/test_$*
 
 
 # @echo $(patsubst  src/%,%, $*)
