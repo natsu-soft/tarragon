@@ -796,12 +796,12 @@ uint8_t json_c(void* dest, const json_t* json)
 /* } */
 
 
-json_id_t json_parse(json_t* json, arena_t* arena, const char* src)
+json_id_t json_parse(json_t* json, arena_t* arena, const char* src, const uint32_t len)
 {
 	if (json == NULL || src == NULL) return JSON_ERROR;
 	token_t* tokens = NULL;
 	json_id_t* ids = NULL;
-	const uint32_t num_tokens = tokenize(&tokens, &ids, arena, src, strlen(src));
+	const uint32_t num_tokens = tokenize(&tokens, &ids, arena, src, len);
 	if (num_tokens == 0)
 	{
 		return JSON_ERROR;
@@ -854,7 +854,7 @@ int json_test(int argc, char** argv)
 	/* free(tokens); */
 	arena_t a = {0};
 	json_t json = {0};
-	json_id_t p_res = json_parse(&json, &a, bar);
+	json_id_t p_res = json_parse(&json, &a, bar, strlen(bar));
 	printf("parse_result: %s\n", p_res & JSON_SUCCESS ? "SUCCESS!" : "error");
 	if (p_res & JSON_SUCCESS)
 	{
