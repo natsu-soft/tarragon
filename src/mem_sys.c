@@ -150,10 +150,6 @@ int mem_sys_test(int argc, char** argv)
 {
 	handle_t file_handle;
 	char* ptr = ms_map_file("map.txt", 1024, &file_handle);
-	for(uint16_t i = 0; i < 1024; ++i)
-	{
-		printf("%c", ptr[i]);
-	}
 	const char* string = "BASED BASED BASED";
 	memcpy(ptr, string, strlen(string));
 	return ms_munmap_file(ptr, 1024, file_handle);
