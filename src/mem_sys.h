@@ -4,30 +4,26 @@
 #include <stddef.h>
 #include <stdio.h>
 
-// DOES IT SPARK JOY?
+#if _WIN32
+typedef void* handle_t; // jfc microsoft, a HANDLE
+#else
+typedef int handle_t; // a filedes for *NIX systems
+#endif
+
+// DOES IT SPARK JOY?  No.  Not really tbqh
 typedef struct filemap_t
 {
 	void* ptr;
 	size_t len;
-	#if _WIN32
-	void* handle;
-	#else
-	int handle;
-	#endif
+	handle_t handle;
 } filemap_t;
-
-#if _WIN32
-typedef void* handle_t;
-#else
-typedef int handle_t;
-#endif
 
 /* void* ms_mmap(void* addr, size_t len, int prot, int flags, int fildes, off_t offset); */
 void* ms_mmap(void* addr, size_t len);
 
 int ms_munmap(void* addr, size_t len);
 
-void* ms_map_file(char* filename, size_t len, handle_t* out_handle);
+void* ms_map_file(const char* filename, size_t len, handle_t* out_handle);
 
 int ms_munmap_file(void* addr, size_t len, handle_t handle);
 

@@ -1,4 +1,5 @@
 #include "mem_sys.h"
+#include <handleapi.h>
 #include <string.h>
 #include <unistd.h>
 #include <assert.h>
@@ -9,10 +10,12 @@
 #define WIN32_LEAN_AND_MEAN
 // TODO: minimize all this
 #include <Windows.h>
-#include <winnt.h>
-#include <minwindef.h>
-#include <winbase.h>
-#include <handleapi.h>
+/* #include <fileapi.h> */
+/* #include <winbase.h> */
+/* #include <winnt.h> */
+/* #include <minwindef.h> */
+/* #include <winbase.h> */
+/* #include <handleapi.h> */
 #include <memoryapi.h>
 #else
 #include <sys/mman.h>
@@ -25,6 +28,7 @@
 void* ms_mmap(void* addr, size_t len)
 {
 #ifdef _WIN32
+	// see: https://learn.microsoft.com/en-us/windows/win32/memory/virtual-memory-functions
 	return NULL;
 #else
 	void* ptr = mmap(addr, len, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
@@ -43,14 +47,24 @@ int ms_munmap(void* addr, size_t len)
 }
 
 
-void* ms_map_file(char* filename, size_t len, handle_t* out_handle)
+void* ms_map_file(const char* filename, size_t len, handle_t* out_handle)
 {
 #ifdef _WIN32
-	HANDLE h_file = OpenFileMappingA(FILE_MAP_READ | FILE_MAP_WRITE, FALSE, filename);
-	assertf(h_file != NULL, "OpenFileMapping to file %s failed with error %lu\n", filename, GetLastError());
-	*out_handle = h_file;
-	LPVOID res = MapViewOfFile(h_file, FILE_MAP_READ | FILE_MAP_WRITE, 0x00, 0x00, len);
-	assertf(res != NULL, "MapViewOfFile failed with error %lu\n", GetLastError());
+	// see: https://learn.microsoft.com/en-us/windows/win32/memory/file-mapping
+	HANDLE h_file = CreateFileA(filename,
+								GENERIC_READ | GENERIC_WRITE,
+								FILE_SHARE_READ | FILE_SHARE_WRITE,
+								NULL,
+								OPEN_ALWAYS,
+								FILE_ATTRIBUTE_NORMAL,
+								NULL);
+	assertf(h_file != INVALID_HANDLE_VALUE, "CreateFileA to file %s failed with error %lu\n", filename, GetLastError());
+	HANDLE file_map = CreateFileMappingA(h_file, NULL, PAGE_READWRITE, 0, len, NULL);
+	assertf(file_map != NULL, "CreateFileMappingA to file %s failed with error %lu\n", filename, GetLastError());
+	// see: https://learn.microsoft.com/en-us/windows/win32/memory/creating-a-file-view
+	void* res = MapViewOfFile(file_map, FILE_MAP_ALL_ACCESS, 0, 0, len);
+	assertf(res != NULL, "MapViewOfFile of file %s failed with error %lu\n", filename, GetLastError());
+	*out_handle = file_map;
 	return res;
 #else
 	int filedes = open(filename, O_RDWR | O_CREAT | O_APPEND, 0400 | 0200);
@@ -78,6 +92,24 @@ int ms_munmap_file(void* addr, size_t len, handle_t handle)
 void* ms_map_file2(char* filename, size_t len, filemap_t* out_filemap)
 {
 #ifdef _WIN32
+	// see: https://learn.microsoft.com/en-us/windows/win32/memory/file-mapping
+	HANDLE h_file = CreateFileA(filename,
+								GENERIC_READ | GENERIC_WRITE,
+								FILE_SHARE_READ | FILE_SHARE_WRITE,
+								NULL,
+								OPEN_ALWAYS,
+								FILE_ATTRIBUTE_NORMAL,
+								NULL);
+	assertf(h_file != INVALID_HANDLE_VALUE, "CreateFileA to file %s failed with error %lu\n", filename, GetLastError());
+	HANDLE file_map = CreateFileMappingA(h_file, NULL, PAGE_READWRITE, 0, len, NULL);
+	assertf(file_map != NULL, "CreateFileMappingA to file %s failed with error %lu\n", filename, GetLastError());
+	// see: https://learn.microsoft.com/en-us/windows/win32/memory/creating-a-file-view
+	void* res = MapViewOfFile(file_map, FILE_MAP_ALL_ACCESS, 0, 0, len);
+	assertf(res != NULL, "MapViewOfFile of file %s failed with error %lu\n", filename, GetLastError());
+	out_filemap->ptr = res;
+	out_filemap->len = len;
+	out_filemap->handle = file_map;
+	return res;
 #else
 	int filedes = open(filename, O_RDWR | O_CREAT | O_APPEND, 0400 | 0200);
 	assertf(filedes != -1, "failed to get fd in ms_map_file().  Check the perms!\n");
@@ -122,10 +154,13 @@ void ms_buffer_swap(void* a, void* b, void* buf, const size_t len)
 
 int mem_sys_test(int argc, char** argv)
 {
-	int fd;
-	char* ptr = ms_map_file("map.txt", 1024, &fd);
-	char* string = "Wow wao wao wao wao WAOW";
+	handle_t file_handle;
+	char* ptr = ms_map_file("map.txt", 1024, &file_handle);
+	for(uint16_t i = 0; i < 1024; ++i)
+	{
+		printf("%c", ptr[i]);
+	}
+	const char* string = "BASED BASED BASED";
 	memcpy(ptr, string, strlen(string));
-	ms_munmap_file(ptr, 1024, fd);
-	return 0;
+	return ms_munmap_file(ptr, 1024, file_handle);
 }
