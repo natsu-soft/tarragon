@@ -28,7 +28,10 @@
 void* ms_mmap(void* addr, size_t len)
 {
 #ifdef _WIN32
-	// see: https://learn.microsoft.com/en-us/windows/win32/memory/virtual-memory-functions
+	// see: https://learn.microsoft.com/en-us/windows/win32/memory/allocating-virtual-memory
+	// eg: https://learn.microsoft.com/en-us/windows/win32/Memory/reserving-and-committing-memory
+	void* ptr = VirtualAlloc(NULL, len, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+	assertf(ptr != NULL, "VirtualAlloc failed with error %lu\n", GetLastError());
 	return NULL;
 #else
 	void* ptr = mmap(addr, len, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
@@ -40,7 +43,8 @@ void* ms_mmap(void* addr, size_t len)
 int ms_munmap(void* addr, size_t len)
 {
 #ifdef _WIN32
-	return NULL;
+
+	return VirtualFree(addr, 0, MEM_RELEASE);
 #else
 	return munmap(addr, len);
 #endif
