@@ -1,21 +1,12 @@
 #include "mem_sys.h"
-#include <handleapi.h>
 #include <string.h>
 #include <unistd.h>
 #include <assert.h>
 #include <stdint.h>
 #include "error_macros.h"
-
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
-// TODO: minimize all this
 #include <Windows.h>
-/* #include <fileapi.h> */
-/* #include <winbase.h> */
-/* #include <winnt.h> */
-/* #include <minwindef.h> */
-/* #include <winbase.h> */
-/* #include <handleapi.h> */
 #include <memoryapi.h>
 #else
 #include <sys/mman.h>
@@ -43,7 +34,6 @@ void* ms_mmap(void* addr, size_t len)
 int ms_munmap(void* addr, size_t len)
 {
 #ifdef _WIN32
-
 	return VirtualFree(addr, 0, MEM_RELEASE);
 #else
 	return munmap(addr, len);
