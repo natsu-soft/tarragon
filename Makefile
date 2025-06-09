@@ -45,6 +45,7 @@ default: unit-tests
 test/%:
 	cat src/$*.c | sed 's/$*_test/main/' | $(CC) $(CFLAGS) -o test_$(patsubst %.c,%,$*) -Isrc -x c -
 	${CURDIR}/test_$*
+	@echo "TESTED: src/$*.c"
 
 
 # @echo $(patsubst  src/%,%, $*)
