@@ -1,21 +1,23 @@
 #ifndef POOL_H
 #define POOL_H
 
-// UNUSED
+// USED FOR DUNAMICALLY ALLOCATIONG SCRATCH ARENAS
 
 #include <stddef.h>
 #include <stdint.h>
 
 typedef struct pool_t
 {
-	uint8_t* memory;
-	size_t memory_size;
-	size_t chunk_size;
+	uint8_t* allocation;
+	uint32_t size;
+	uint32_t cap; // only 2TB ToT
 	uint32_t head; // relative (to memory) OwO
+	uint16_t chunk_size; // only 65KB ToT
+	uint16_t chunk_cap; // only 65k chunks ToT
 } pool_t;
 
 
-void pool_init(pool_t* pool, size_t chunk_size, size_t memory_size);
+void pool_init(pool_t* pool, const uint16_t chunk_size, const uint16_t chunk_cap);
 
 void* pool_alloc(pool_t* pool);
 

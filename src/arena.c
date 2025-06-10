@@ -8,13 +8,13 @@ void arena_init(arena_t* arena, const size_t bytes)
 {
 	arena->size = 0;
 	arena->cap = bytes;
-	arena->memory = malloc(bytes);
+	arena->allocation = malloc(bytes);
 }
 
 void arena_resize(arena_t* arena, const size_t bytes)
 {
-	uint8_t* memory = realloc(arena->memory, bytes);
-	assert(memory);
+	uint8_t* allocation = realloc(arena->allocation, bytes);
+	assert(allocation);
 	arena->cap = bytes;
 	arena->size = bytes > arena->size ? arena->size : bytes;
 }
@@ -29,7 +29,7 @@ void* arena_alloc(arena_t* arena, const size_t bytes)
 	}
 	else
 	{
-		void* addr = arena->memory + arena->size;
+		void* addr = arena->allocation + arena->size;
 		arena->size += bytes;
 		return addr;
 	}
@@ -46,10 +46,10 @@ void* arena_alloc_aligned(arena_t* arena, const size_t bytes, const size_t align
 {
 	// assert alignment is a power of 2 BECAUSE OTHERWISE THIS JUST DONT WORK
 	assert((alignment & (alignment - 1)) == 0);
-	const size_t arena_addr = (size_t)arena->memory + arena->size;
+	const size_t arena_addr = (size_t)arena->allocation + arena->size;
 	const size_t mod = arena_addr % (alignment - 1);
 	assert(arena->size + bytes + mod <= arena->cap);
-	void* addr = arena->memory + arena->size + mod;
+	void* addr = arena->allocation + arena->size + mod;
 	arena->size += mod + bytes;
 	return addr;
 }
@@ -73,17 +73,17 @@ void* arena_pop(arena_t* arena, const size_t bytes)
 {
 	assert(arena->size >= bytes);
 	arena->size -= bytes;
-	return arena->memory + arena->size;
+	return arena->allocation + arena->size;
 }
 
 void arena_push(arena_t* arena, const void* src, const size_t bytes)
 {
 	assert(arena->cap >= arena->size + bytes);
-	memcpy(arena->memory + arena->size, src, bytes);
+	memcpy(arena->allocation + arena->size, src, bytes);
 	arena->size += bytes;
 }
 
 void* arena_peek(arena_t* arena, const size_t bytes)
 {
-	return arena->memory + arena->size - bytes;
+	return arena->allocation + arena->size - bytes;
 }

@@ -54,12 +54,12 @@ static void trie_traverse_absolute(trie_node_t* node)
 static void trie_relative_ptrs(trie_t* trie)
 {
 	trie_traverse_relative(trie->root);
-	point_relative_offset(&trie->root, trie->support->memory);
+	point_relative_offset(&trie->root, trie->support->allocation);
 }
 
 static void trie_absolute_ptrs(trie_t* trie)
 {
-	point_absolute_offset(&trie->root, trie->support->memory);
+	point_absolute_offset(&trie->root, trie->support->allocation);
 	trie_traverse_absolute(trie->root);
 }
 
@@ -72,7 +72,7 @@ static void* trie_alloc(trie_t* trie, const size_t size)
 		trie_relative_ptrs(trie);
 		do
 		{
-			free_list_grow(fl, RESIZE_SCALE * fl->size + RESIZE_OVERHEAD);
+			free_list_grow(fl, RESIZE_SCALE * fl->cap + RESIZE_OVERHEAD);
 			res = free_list_alloc(fl, size);
 		}
 		while (res == NULL);
@@ -112,9 +112,9 @@ void trie_add_token(trie_t* trie, char* str, void* token)
 				goto next_char;
 			}
 		}
-		point_relative_offset(&node, fl->memory);
+		point_relative_offset(&node, fl->allocation);
 		trie_edge_t* edge = trie_alloc(trie, (n + 1) * edge_size);
-		point_absolute_offset(&node, fl->memory);
+		point_absolute_offset(&node, fl->allocation);
 		if (n > 0)
 		{
 			memcpy(edge, node->edges, n * node_size); // if this segfaults im SCREAMING
@@ -126,9 +126,9 @@ void trie_add_token(trie_t* trie, char* str, void* token)
 		edge->c = '\0'; // stops invalid traversal in below trie_alloc()
 		if (c != '\0')
 		{
-			point_relative_offset(&edge, fl->memory);
+			point_relative_offset(&edge, fl->allocation);
 			node = trie_alloc(trie, node_size);
-			point_absolute_offset(&edge, fl->memory);
+			point_absolute_offset(&edge, fl->allocation);
 			edge->c = c;
 			memset(node, 0x00, node_size);
 			edge->token = node;
@@ -255,21 +255,21 @@ void subtrie_leaf_strings(const trie_node_t* node, const char* prefix, const uin
 		{
 			if (char_arena->size + n > char_arena->cap)
 			{
-				const size_t char_offset = (size_t)char_arena->memory - (size_t)str_arena->memory;
+				const size_t char_offset = (size_t)char_arena->allocation - (size_t)str_arena->allocation;
 				for (size_t i = 0; i < str_arena->size; i += sizeof(char*))
 				{
-					char* temp = str_arena->memory + i;
-					temp = (void*)((size_t)temp - (size_t)str_arena->memory);
-					memcpy(str_arena->memory + i, temp, sizeof(char*));
+					char* temp = str_arena->allocation + i;
+					temp = (void*)((size_t)temp - (size_t)str_arena->allocation);
+					memcpy(str_arena->allocation + i, temp, sizeof(char*));
 				}
-				str_arena->memory = realloc(str_arena->memory, str_arena->cap + char_arena->size + n + RESIZE_OVERHEAD);
+				str_arena->allocation = realloc(str_arena->allocation, str_arena->cap + char_arena->size + n + RESIZE_OVERHEAD);
 				for (size_t i = 0; i < str_arena->size; i += sizeof(char*))
 				{
-					char* temp = str_arena->memory + i;
-					temp = (void*)((size_t)temp + (size_t)str_arena->memory);
-					memcpy(str_arena->memory + i, temp, sizeof(char*));
+					char* temp = str_arena->allocation + i;
+					temp = (void*)((size_t)temp + (size_t)str_arena->allocation);
+					memcpy(str_arena->allocation + i, temp, sizeof(char*));
 				}
-				char_arena->memory = str_arena->memory + char_offset;
+				char_arena->allocation = str_arena->allocation + char_offset;
 				char_arena->cap = char_arena->size + n + RESIZE_OVERHEAD;
 			}
 			char* leaf_str = arena_alloc(char_arena, n);
@@ -319,28 +319,28 @@ char** trie_candidates(const trie_t* trie, arena_t* arena, const char* prefix, u
 	const size_t arena_size = n * (sizeof(char*) + prefix_len + 16);
 	if (arena->cap < arena_size)
 	{
-		arena->memory = realloc(arena->memory, arena_size + RESIZE_OVERHEAD);
+		arena->allocation = realloc(arena->allocation, arena_size + RESIZE_OVERHEAD);
 	}
 	arena->size = 0;
 	arena_t str_arena =
 	{
 		.cap = n * sizeof(char*),
-		.memory = arena->memory
+		.allocation = arena->allocation
 	};
 	arena_t char_arena =
 	{
 		.cap = arena_size - n * sizeof(char*),
-		.memory = arena->memory + n * sizeof(char*)
+		.allocation = arena->allocation + n * sizeof(char*)
 	};
 	subtrie_leaf_strings(subtrie, prefix, prefix_len, &str_arena, &char_arena);
-	return (char**)str_arena.memory;
+	return (char**)str_arena.allocation;
 }
 
 void trie_serialize(trie_t* trie, char* filename)
 {
 	assert(trie);
 	free_list_t* fl = trie->support;
-	const size_t len = sizeof trie->root + offsetof(free_list_t, memory) + fl->size;
+	const size_t len = sizeof trie->root + offsetof(free_list_t, allocation) + fl->cap;
 	trie_relative_ptrs(trie);
 	filemap_t filemap = {0};
 	uint8_t* map = ms_map_file2(filename, len, &filemap);
@@ -355,9 +355,9 @@ void trie_deserialize(trie_t* trie, free_list_t* support, char* filename)
 {
 	assert(trie);
 	assert(support != NULL);
-	if (support->memory != NULL)
+	if (support->allocation != NULL)
 	{
-		free(support->memory);
+		free(support->allocation);
 	}
 	memset(support, 0x00, sizeof *support);
 	trie->support = support;
@@ -425,7 +425,7 @@ int array_trie_test(int argc, char** argv)
 	printf("GOOD!\n");
 	trie_t io_trie = {};
 	free_list_t* fl2 = alloca(sizeof *fl);
-	fl2->memory = NULL;
+	fl2->allocation = NULL;
 	printf("  -- deserialization: ");
 	trie_deserialize(&io_trie, fl2, "fruit_fmap.bin");
 	assert(io_trie.root->num_edges == cache_num);
@@ -457,8 +457,8 @@ int array_trie_test(int argc, char** argv)
 	assert(trie_remove_token(&fruit_trie, "Yuzu"));
 	assert(trie_remove_token(&fruit_trie, "Yuzu") == 0);
 	printf("GOOD!\n");
-	free(candidate_arena.memory);
-	free(fl->memory);
-	free(fl2->memory);
+	free(candidate_arena.allocation);
+	free(fl->allocation);
+	free(fl2->allocation);
 	return 0;
 }

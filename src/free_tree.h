@@ -16,8 +16,8 @@
 typedef struct free_tree_t
 {
 	struct avl_node_t* root;
-	size_t size;
-	uint8_t* memory;
+	uint8_t* allocation;
+	uint32_t cap;
 	uint8_t valid_root; // JUST ADD IN A FLAG LMAO
 } free_tree_t;
 

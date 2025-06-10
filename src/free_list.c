@@ -110,23 +110,23 @@ static const size_t align(const void* ptr, const size_t pow2)
 
 void free_list_init(free_list_t* fl, size_t bytes)
 {
-	fl->size = bytes;
-	fl->memory = malloc(bytes);
+	fl->cap = bytes;
+	fl->allocation = malloc(bytes);
 	free_list_clear(fl);
 }
 
 void free_list_grow(free_list_t* fl, size_t bytes)
 {
-	const size_t size0 = fl->size;
+	const size_t size0 = fl->cap;
 	assertf(bytes >= size0, "It's called GROW.");
 	free_list_point_relative(fl);
-	uint8_t* memory = realloc(fl->memory, bytes);
+	uint8_t* memory = realloc(fl->allocation, bytes);
 	assertf(memory != NULL, "failed to allocate %zu bytes or %zuGB", bytes, bytes / (1024 * 1024 * 1024));
-	fl->memory = memory;
+	fl->allocation = memory;
 	free_list_point_absolute(fl);
 	const uint8_t* m1 = memory + bytes;
 	const size_t delta = bytes - size0;
-	fl->size = bytes;
+	fl->cap = bytes;
 	if (delta >= 2 * sizeof(free_node_t))
 	{
 		const uint8_t* ptr = memory + size0;
@@ -205,9 +205,9 @@ void free_list_free(free_list_t* fl, void* ptr)
 
 void free_list_clear(free_list_t* fl)
 {
-	free_node_t* list = fl->memory;
+	free_node_t* list = fl->allocation;
 	list->next = NULL;
-	list->value = fl->size;
+	list->value = fl->cap;
 	fl->head = list;
 }
 
@@ -265,7 +265,7 @@ void free_list_point_relative(free_list_t* fl)
 	if (fl->head != NULL)
 	{
 		list_point_relative(fl->head);
-		point_relative_offset(&fl->head, fl->memory);
+		point_relative_offset(&fl->head, fl->allocation);
 		fl->valid_head = 0x01;
 	}
 	else
@@ -278,7 +278,7 @@ void free_list_point_absolute(free_list_t* fl)
 {
 	if (fl->valid_head)
 	{
-		point_absolute_offset(&fl->head, fl->memory);
+		point_absolute_offset(&fl->head, fl->allocation);
 		list_point_absolute(fl->head);
 	}
 }
@@ -286,24 +286,24 @@ void free_list_serialize(void* destination, free_list_t* fl)
 {
 	uint8_t* dest = destination;
 	free_list_point_relative(fl);
-	const size_t len = offsetof(free_list_t, memory);
+	const size_t len = offsetof(free_list_t, allocation);
 	memcpy(dest, fl, len);
-	memcpy(dest + len, fl->memory, fl->size);
+	memcpy(dest + len, fl->allocation, fl->cap);
 	free_list_point_absolute(fl);
 }
 
 void free_list_deserialize(free_list_t* fl, const void* source)
 {
 	uint8_t* src = source;
-	if (fl->memory != NULL)
+	if (fl->allocation != NULL)
 	{
-		free(fl->memory);
+		free(fl->allocation);
 	}
-	const size_t len = offsetof(free_list_t, memory);
+	const size_t len = offsetof(free_list_t, allocation);
 	memcpy(fl, src, len);
-	fl->memory = malloc(fl->size);
-	assert(fl->memory != NULL);
-	memcpy(fl->memory, src + len, fl->size);
+	fl->allocation = malloc(fl->cap);
+	assert(fl->allocation != NULL);
+	memcpy(fl->allocation, src + len, fl->cap);
 	free_list_point_absolute(fl);
 }
 
@@ -366,9 +366,9 @@ int free_list_test(int argc, char** argv)
 		free_list_free(fl, ptr);
 	}
 	free_list_point_relative(fl);
-	memcpy(buffer, fl->memory, fl->size);
-	free(fl->memory);
-	fl->memory = buffer;
+	memcpy(buffer, fl->allocation, fl->cap);
+	free(fl->allocation);
+	fl->allocation = buffer;
 	free_list_point_absolute(fl);
 	printf("GOOD!\n");
 	/* print_chunks(fl); */
@@ -398,7 +398,7 @@ int free_list_test(int argc, char** argv)
 	{
 		printf("[%c]", spinner[i % 4]);
 		printf("\b\b\b");
-		const size_t new_size = resize_scale * fl->size + resize_overhead;
+		const size_t new_size = resize_scale * fl->cap + resize_overhead;
 		if (new_size > LIMIT)
 		{
 			break;
@@ -413,7 +413,7 @@ int free_list_test(int argc, char** argv)
 	printf("  -- stress test:\n");
 	printf("   + allocating: ");
 	fflush(stdout);
-	buffer = malloc(fl->size);
+	buffer = malloc(fl->cap);
 	assert(buffer); // do this first in case you run out of memory
 	printf("GOOD\n");
 	printf("   + fragmenting: ");
@@ -449,9 +449,9 @@ int free_list_test(int argc, char** argv)
 	printf("   + translating: ");
 	fflush(stdout);
 	free_list_point_relative(fl);
-	memcpy(buffer, fl->memory, fl->size);
-	free(fl->memory);
-	fl->memory = buffer;
+	memcpy(buffer, fl->allocation, fl->cap);
+	free(fl->allocation);
+	fl->allocation = buffer;
 	free_list_point_absolute(fl);
 	printf("GOOD\n");
 	printf("   + checking: ");
@@ -464,14 +464,14 @@ int free_list_test(int argc, char** argv)
 	free(values);
 	printf("GOOD\n");
 	printf("  > succesfully translated %zu accessible memory chunks\n", num);
-	printf("  > size: %zu GB (%zu bytes)\n", fl->size / 0x40000000, fl->size);
+	printf("  > size: %zu GB (%zu bytes)\n", fl->cap / 0x40000000, fl->cap);
 #endif
 	/* print_chunks(fl); */
 	printf("  -- coalescing: ");
 	free_list_coalesce(fl);
 	printf("GOOD!      \n");
 	/* print_chunks(fl); */
-	free(fl->memory);
+	free(fl->allocation);
 
 	return 0;
 }

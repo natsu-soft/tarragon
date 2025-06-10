@@ -38,7 +38,7 @@ static void free_tree_relative(free_tree_t* tree)
 		/* avl_relative_ptrs(tree->root); */
 		avl_relative_ptrs(tree->root);
 		/* avl_relative_stack(tree->root); */
-		point_relative_offset(&tree->root, tree->memory);
+		point_relative_offset(&tree->root, tree->allocation);
 	}
 }
 
@@ -47,7 +47,7 @@ static void free_tree_absolute(free_tree_t* tree)
 	if (tree->valid_root)
 	{
 		/* printf("root0: %#x\n", (size_t)tree->root); */
-		point_absolute_offset(&tree->root, tree->memory);
+		point_absolute_offset(&tree->root, tree->allocation);
 		/* printf("root1: %#x\n", (size_t)tree->root); */
 		/* avl_absolute_ptrs(tree->root); */
 		avl_absolute_ptrs(tree->root);
@@ -57,25 +57,25 @@ static void free_tree_absolute(free_tree_t* tree)
 void free_tree_init (free_tree_t* tree, const size_t bytes)
 {
 	assertf(bytes > sizeof(avl_node_t), "allocation is too small, must be atleast %zu!", sizeof(avl_node_t));
-	tree->size = bytes;
-	tree->memory = malloc(bytes);
+	tree->cap = bytes;
+	tree->allocation = malloc(bytes);
 	free_tree_clear(tree);
 }
 
 // fragmentation, but MOTHER OF ALL OMLETTES, JACK!
 void free_tree_grow(free_tree_t* tree, const size_t bytes)
 {
-	assertf(bytes > tree->size, "its called GROW");
-	const size_t size0 = tree->size;
+	assertf(bytes > tree->cap, "its called GROW");
+	const size_t size0 = tree->cap;
 	free_tree_relative(tree);
-	uint8_t* memory = realloc(tree->memory, bytes);
+	uint8_t* memory = realloc(tree->allocation, bytes);
 	/* printf("[%#zx, %#zx)\n", memory, memory + bytes); */
 	assertf(memory != NULL, "Desired allocation size: %zu or %zuGB", bytes, bytes / (1024 * 1024 * 1024));
-	tree->memory = memory;
+	tree->allocation = memory;
 	free_tree_absolute(tree);
 	const uint8_t* m1 = memory + bytes;
 	const size_t delta = bytes - size0;
-	tree->size = bytes;
+	tree->cap = bytes;
 	/* if (delta >= sizeof(avl_node_t) + sizeof(size_t)) */
 	if (delta > 2 * sizeof(avl_node_t))
 	{
@@ -156,33 +156,33 @@ void free_tree_free(free_tree_t* tree, const void* ptr)
 
 void free_tree_clear(free_tree_t* tree)
 {
-	avl_node_t* root = tree->memory;
+	avl_node_t* root = tree->allocation;
 	memset(root, 0x00, sizeof *root);
-	root->value = tree->size;
+	root->value = tree->cap;
 	tree->root = root;
 }
 
 void free_tree_serialize(free_tree_t* tree, void* destination)
 {
 	uint8_t* dest = destination;
-	const size_t len = sizeof tree->root + sizeof tree->size;
+	const size_t len = sizeof tree->root + sizeof tree->cap;
 	free_tree_relative(tree);
 	memcpy(dest, tree, len);
-	memcpy(dest + len, tree->memory, tree->size);
+	memcpy(dest + len, tree->allocation, tree->cap);
 	free_tree_absolute(tree);
 }
 
 void free_tree_deserialize(free_tree_t* tree, void* source)
 {
 	uint8_t* src = source;
-	if (tree->memory != NULL)
+	if (tree->allocation != NULL)
 	{
-		free(tree->memory);
+		free(tree->allocation);
 	}
-	const size_t len = sizeof tree->root + sizeof tree->size;
+	const size_t len = sizeof tree->root + sizeof tree->cap;
 	memcpy(tree, src, len);
-	tree->memory = malloc(tree->size);
-	memcpy(tree->memory, src + len, tree->size);
+	tree->allocation = malloc(tree->cap);
+	memcpy(tree->allocation, src + len, tree->cap);
 	free_tree_absolute(tree);
 	/* printf("utilization: %f%%\n", 100.f * free_tree_utilization(tree)); */
 }
@@ -245,7 +245,7 @@ float free_tree_coverage(free_tree_t* tree)
 	else
 	{
 		const float cum = avl_value_sum(tree->root);
-		return  cum / (float)tree->size;
+		return  cum / (float)tree->cap;
 	}
 }
 
@@ -287,10 +287,10 @@ int free_tree_test(int argc, char** argv)
 	free_tree_clear(tree);
 
 	printf("  -- translation: ");
-	memcpy(other, tree->memory, INIT_SIZE);
+	memcpy(other, tree->allocation, INIT_SIZE);
 	free_tree_relative(tree);
-	free(tree->memory);
-	tree->memory = other;
+	free(tree->allocation);
+	tree->allocation = other;
 	free_tree_absolute(tree);
 	assert(tree->root->value == INIT_SIZE);
 	printf("GOOD!\n");
@@ -315,13 +315,13 @@ int free_tree_test(int argc, char** argv)
 		printf("[%c]", spinner[i % 4]);
 		fflush(stdout);
 		/* printf("%d: %zu\n", i, RESIZE_SCALE * tree->size + RESIZE_OVERHEAD); */
-		const size_t new_size = RESIZE_SCALE * tree->size + RESIZE_OVERHEAD;
+		const size_t new_size = RESIZE_SCALE * tree->cap + RESIZE_OVERHEAD;
 		if (new_size > LIMIT)
 		{
 			printf("\b\b\b");
 			break;
 		}
-		free_tree_grow(tree, RESIZE_SCALE * tree->size + RESIZE_OVERHEAD);
+		free_tree_grow(tree, RESIZE_SCALE * tree->cap + RESIZE_OVERHEAD);
 		printf("\b\b\b");
 		/* avl_print(tree->root, 0); */
 	}
@@ -407,6 +407,6 @@ int free_tree_test(int argc, char** argv)
 #endif
 	/* avl_print(tree->root, 0); */
 	/* verbose_resize = 0x01; */
-	free(tree->memory);
+	free(tree->allocation);
 	return 0;
 }

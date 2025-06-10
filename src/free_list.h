@@ -9,8 +9,8 @@ typedef struct free_list_t
 {
 	// NOTE: order matters for serialization because I am lazy >:^)
 	struct free_node_t* head;
-	size_t size;
-	uint8_t* memory;
+	uint8_t* allocation;
+	uint32_t cap;
 	uint8_t valid_head;
 } free_list_t;
 
