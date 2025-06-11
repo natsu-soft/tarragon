@@ -17,7 +17,6 @@ void pool_init(pool_t* pool, const uint16_t chunk_size, const uint16_t chunk_cap
 	assertf(alloc_size >= sizeof(pool_node_t), "requested memory allocation is too small!"); // bill ur so smart
 	pool->allocation = calloc(chunk_cap, chunk_size);
 	pool->cap = alloc_size;
-	pool->size = 0;
 	pool->chunk_size = chunk_size;
 	pool->chunk_cap = chunk_cap;
 	pool_free_all(pool);
@@ -25,7 +24,7 @@ void pool_init(pool_t* pool, const uint16_t chunk_size, const uint16_t chunk_cap
 
 void* pool_alloc(pool_t* pool)
 {
-	assertf(pool->head < pool->cap, "POOL OVERFLOW!");
+	assertf(pool->head < pool->cap, "POOL OVERFLOW! %d >= %d", pool->head, pool->cap);
 	pool_node_t* ptr = pool->head + pool->allocation;
 	pool->head = ptr->next;
 	return ptr;
@@ -34,7 +33,7 @@ void* pool_alloc(pool_t* pool)
 void pool_free(pool_t* pool, void* ptr)
 {
 	const uint8_t* alloc = pool->allocation;
-	if (alloc <= ptr && ptr < alloc + pool->size)
+	if (alloc <= ptr && ptr < alloc + pool->cap)
 	{
 		pool_node_t* temp = ptr;
 		temp->next = pool->head;
