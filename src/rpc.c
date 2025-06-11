@@ -17,7 +17,8 @@ static void initialize_params(rpc_t* rpc, json_t* json);
 static void parse_rpc (char* str, int len, rpc_t* rpc)
 {
 	json_t json = {0};
-	json_id_t res = json_parse(&json, scratch_arena(), str, len);
+	CLEANUP_SCRATCH arena_t* scratch = scratch_checkout();
+	json_id_t res = json_parse(&json, scratch, str, len);
 	if (res ^ JSON_SUCCESS)
 	{
 		ERROR("failed to decode:\n%s", str);

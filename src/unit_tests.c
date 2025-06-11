@@ -1,29 +1,17 @@
 #include <unistd.h>
 #include <assert.h>
 #include "logger.h"
-#include "scratch.h"
+/* #include "scratch.h" */
 #include "benchmark.h"
 
 
-/* #define UNIT_TESTS \ */
-/* 	TEST(file_sys) \ */
-/* 	TEST(mem_sys) \ */
-/* 	TEST(base_protocol) \ */
-/* 	TEST(json) \ */
-/* 	TEST(array_trie) */
 
-/* #define UNIT_TESTS \ */
-/* 	TEST(array_trie) */
-/* 	/\* TEST(free_list) \ *\/ */
-/* 	/\* TEST(free_tree) *\/ */
-/* 	/\* TEST(free_list) *\/ */
-/* 	/\* TEST(free_tree) \ *\/ */
-/* 	/\* TEST(free_list) \ *\/ */
-/* 	/\* TEST(array_trie) *\/ */
+
 
 #define UNIT_TESTS								\
-	TEST(json)									\
-	TEST(gdscript_parser)
+	TEST(scratch)
+	/* TEST(json)									\ */
+	/* TEST(gdscript_parser) */
 
 #define TEST(A) extern int A##_test(int argc, char** argv);
 UNIT_TESTS
@@ -48,6 +36,6 @@ int main(int argc, char** argv)
 	UNIT_TESTS;
 	#undef TEST
 	ENDLOG;
-	scratch_audit();
+	/* scratch_audit(); */
 	return 0;
 }

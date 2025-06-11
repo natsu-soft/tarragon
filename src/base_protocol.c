@@ -13,7 +13,6 @@
 #define CHAR_NANOSLEEP 100 * MICROSECOND
 #define READ_NANOSLEEP 1000 * MICROSECOND
 
-static uint32_t content_length;
 static struct timespec charsleep = { .tv_nsec = CHAR_NANOSLEEP };
 static struct timespec readsleep = { .tv_nsec = READ_NANOSLEEP };
 
@@ -24,23 +23,25 @@ static enum {
 	END_OF_FILE
 } decode_state = CACHING_HEADER;
 
+static uint32_t content_length = 0;
+static arena_t decode_arena = {0};
 
-static arena_t decode_arena;
-char* bp_content(void)
-{
-	return decode_arena.memory;
-}
-
-void bp_init(void)
+__attribute__((constructor)) void bp_init(void)
 {
 	arena_init(&decode_arena, 4 * KILOBYTE);
 }
 
 void bp_reset(void)
 {
-	decode_state = CACHING_HEADER;
-	content_length = 0;
 	decode_arena.size = 0;
+	content_length = 0;
+	decode_state = CACHING_HEADER;
+}
+
+
+char* bp_content(void)
+{
+	return decode_arena.allocation;
 }
 
 void bp_send(FILE* stream, char* content)
@@ -74,7 +75,7 @@ static int32_t decode(FILE* stream)
 			*temp = '\0';
 			/* int res = sscanf((char*)decode_arena.memory, "Content-Length: %u\r\n", &content_length); */
 			// TODO: this is still goofy, fam
-			content_length = atoi((char*)decode_arena.memory + 16);
+			content_length = atoi((char*)decode_arena.allocation + 16);
 			/* printf("atoi len: %d\n", content_length); */
 			if (content_length == 0)
 			{
@@ -84,7 +85,7 @@ static int32_t decode(FILE* stream)
 			decode_arena.size = 0;
 			if (content_length + 1 > decode_arena.cap)
 			{
-				free(decode_arena.memory); // not using realloc because I dont need to copy
+				free(decode_arena.allocation); // not using realloc because I dont need to copy
 				arena_init(&decode_arena, content_length + 1);
 			}
 			decode_state = WAITING_CONTENT;
@@ -111,11 +112,11 @@ static int32_t decode(FILE* stream)
 		changed. Otherwise, if a read error occurs, the error indicator for  the
 		stream shall be set, and errno shall be set to indicate the error.
 		*/
-		decode_arena.size = fread(decode_arena.memory + decode_arena.size, 1, content_length - decode_arena.size, stream);
+		decode_arena.size = fread(decode_arena.allocation + decode_arena.size, 1, content_length - decode_arena.size, stream);
 		if (decode_arena.size == content_length)
 		{
-			decode_arena.memory[content_length] = '\0';
-			fprintf(log_fp, "%s", decode_arena.memory);
+			decode_arena.allocation[content_length] = '\0';
+			fprintf(log_fp, "%s", decode_arena.allocation);
 			decode_arena.size++;
 			return content_length;
 		}
@@ -143,11 +144,11 @@ static int32_t decode_nosleep(FILE* stream)
 		case '\n':
 			temp = arena_alloc(&decode_arena, 1);
 			*temp = '\0';
-			sscanf(decode_arena.memory, "Content-Length: %u", &content_length);
+			sscanf(decode_arena.allocation, "Content-Length: %u", &content_length);
 			decode_arena.size = 0;
 			if (content_length + 1 > decode_arena.cap)
 			{
-				free(decode_arena.memory); // not using realloc because I dont need to copy
+				free(decode_arena.allocation); // not using realloc because I dont need to copy
 				arena_alloc(&decode_arena, content_length + 1);
 			}
 			decode_state = WAITING_CONTENT;
@@ -174,10 +175,10 @@ static int32_t decode_nosleep(FILE* stream)
 		changed. Otherwise, if a read error occurs, the error indicator for  the
 		stream shall be set, and errno shall be set to indicate the error.
 		*/
-		decode_arena.size = fread(decode_arena.memory + decode_arena.size, 1, content_length - decode_arena.size, stream);
+		decode_arena.size = fread(decode_arena.allocation + decode_arena.size, 1, content_length - decode_arena.size, stream);
 		if (decode_arena.size == content_length)
 		{
-			decode_arena.memory[content_length] = '\0';
+			decode_arena.allocation[content_length] = '\0';
 			decode_arena.size++;
 			return content_length;
 		}
@@ -196,7 +197,7 @@ int32_t bp_receive(FILE* stream)
 	{
 		n = decode(stream);
 	}
-	/* LOG("bp_receive: %s", decode_arena->memory); */
+	/* LOG("bp_receive: %s", decode_arena->allocation); */
 	return n;
 }
 
@@ -207,7 +208,7 @@ int32_t bp_receive_nosleep(FILE* stream)
 	{
 		res = decode_nosleep(stream);
 	}
-	/* LOG("bp_receive_nosleep: %s", decode_arena->memory); */
+	/* LOG("bp_receive_nosleep: %s", decode_arena->allocation); */
 	return res;
 }
 
@@ -263,13 +264,13 @@ int base_protocol_test(int argc, char** argv)
 	bp_send(fp, "{\"testing\": true}");
 	fclose(fp);
 	fp = fopen("test_stuff/rpc_encode", "r");
-	bp_init();
+	/* bp_init(scratch); */
 	int32_t content_len = bp_receive(fp);
 	assertf(content_len == 17, "bp_consume length mismatch, parsed length: %d\n", content_len);
 	LOG("length: %d\ncontent: %s\n", content_len, bp_content());
 	assertf(!strcmp( "{\"testing\": true}", bp_content()), "bp_content content mismatch");
 	fclose(fp);
-	bp_init();
+	bp_reset();
 	fp = fopen("test_stuff/bad_rpc", "r");
 	/* int foo_len = bp_receive(fp); */
 	// LMAO: some real enterprise shit right here frfrfr
@@ -283,6 +284,5 @@ int base_protocol_test(int argc, char** argv)
 	content_len = bp_receive(fp);
 	LOG("%s", bp_content());
 	fclose(fp);
-	bp_init();
 	return 0;
 }

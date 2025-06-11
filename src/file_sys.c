@@ -14,11 +14,11 @@
 #define DIR_SEPERATOR '/'
 #endif
 
-static arena_t fs_arena = { .memory  = NULL};
+static arena_t fs_arena = { .allocation  = NULL};
 
 static arena_t* fs_singleton(void)
 {
-	if (!fs_arena.memory)
+	if (!fs_arena.allocation)
 	{
 		arena_init(&fs_arena, 1024 * PATH_MAX);
 	}

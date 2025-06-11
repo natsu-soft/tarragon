@@ -13,11 +13,9 @@ typedef struct _iobuf FILE;
 typedef struct _IO_FILE FILE;
 #endif
 
-char* bp_content(void);
-
-void bp_init(void);
-
 void bp_reset(void);
+
+char* bp_content(void);
 
 void bp_send(FILE* stream, char* content);
 

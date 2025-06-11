@@ -548,24 +548,24 @@ uint32_t gdscript_tokenize(arena_t* arena, token_t** tokens, gdscript_id_t** ids
 	size_t req_size = num_tokens * (sizeof **tokens + sizeof **ids);
 	if (arena->cap < req_size)
 	{
-		if (arena->memory != NULL)
+		if (arena->allocation != NULL)
 		{
-			free(arena->memory);
+			free(arena->allocation);
 		}
 		size_t arena_size = RESIZE_SCALE * req_size + RESIZE_OVERHEAD;
-		arena->memory = malloc(arena_size);
+		arena->allocation = malloc(arena_size);
 		arena->cap = arena_size;
 	}
 	arena->size = 0;
 	arena_t token_arena =
 	{
-		/* .memory = arena_alloc_aligned(arena, num_tokens * sizeof **tokens, sizeof(size_t)), */
-		.memory = arena_alloc(arena, num_tokens * sizeof **tokens),
+		/* .allocation = arena_alloc_aligned(arena, num_tokens * sizeof **tokens, sizeof(size_t)), */
+		.allocation = arena_alloc(arena, num_tokens * sizeof **tokens),
 		.cap = num_tokens * sizeof **tokens
 	};
 	arena_t id_arena =
 	{
-		.memory = arena_alloc(arena, num_tokens * sizeof **ids),
+		.allocation = arena_alloc(arena, num_tokens * sizeof **ids),
 		.cap = num_tokens * sizeof **ids
 	};
 
@@ -705,8 +705,8 @@ uint32_t gdscript_tokenize(arena_t* arena, token_t** tokens, gdscript_id_t** ids
 	t->len = 0;
 	gdscript_id_t* id = arena_alloc(&id_arena, sizeof *id);
 	*id = GDSCRIPT_EOF;
-	*tokens = token_arena.memory;
-	*ids = id_arena.memory;
+	*tokens = token_arena.allocation;
+	*ids = id_arena.allocation;
 	return num_tokens;
 }
 

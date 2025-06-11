@@ -164,23 +164,23 @@ static uint32_t tokenize(token_t** tokens, json_id_t** ids, arena_t* arena, cons
 	if (arena->cap < req_size)
 	{
 		printf("-- increasing arena size to: %zu bytes\n", req_size + TOKENIZE_RESIZE_OVERHEAD);
-		if (arena->memory != NULL)
+		if (arena->allocation != NULL)
 		{
-			free(arena->memory);
+			free(arena->allocation);
 		}
-		arena->memory = malloc(req_size + TOKENIZE_RESIZE_OVERHEAD);
+		arena->allocation = malloc(req_size + TOKENIZE_RESIZE_OVERHEAD);
 		arena->cap = req_size;
 	}
 	arena->size = 0;
 	// NOTE: has to be in THIS order or get fucked by alignment
 	arena_t token_arena =
 	{
-		.memory = arena->memory,
+		.allocation = arena->allocation,
 		.cap = num_tokens * sizeof **tokens
 	};
 	arena_t id_arena =
 	{
-		.memory = token_arena.memory + token_arena.cap,
+		.allocation = token_arena.allocation + token_arena.cap,
 		.cap = num_tokens * sizeof **ids
 	};
 	/* arena_t char_arena = */
@@ -289,8 +289,8 @@ static uint32_t tokenize(token_t** tokens, json_id_t** ids, arena_t* arena, cons
 	/* 	} */
 	/* } */
 	/* free(a.memory); */
-	*tokens = token_arena.memory;
-	*ids = id_arena.memory;
+	*tokens = token_arena.allocation;
+	*ids = id_arena.allocation;
 	return num_tokens;
 }
 

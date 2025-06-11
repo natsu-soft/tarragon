@@ -9,11 +9,7 @@ typedef struct _iobuf FILE;
 typedef struct _IO_FILE FILE;
 #endif
 
-#ifndef EXTERN_LOG_FILE_POINTERR
-extern FILE* log_fp;
-#define LOG_FILE
-#endif
-
+static FILE* log_fp;
 
 #define PLAIN_LOG(M, ...) if (log_fp) fprintf(log_fp, M, ##__VA_ARGS__);
 #define LOG(M, ...) if (log_fp) fprintf(log_fp, "[tarragon] " M "\n", ##__VA_ARGS__); fflush(log_fp)

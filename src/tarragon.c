@@ -56,6 +56,8 @@ int generate_tarragon_json(char* dest, char* ext_api_path)
 
 /*
  * IDEALIZED USER OPTIONS
+ * -l
+ *   select log output file
  * -h
  *   prints usage
  * -v
@@ -72,7 +74,7 @@ int main(int argc, char** argv) {
 		{
 		case 'l':
 			log_fp = fopen(optarg , "w");
-			LOG("opened tarragon.log for logging");
+			LOG("opened %s for logging", optarg);
 			break;
 		case 'v':
 			print_version();
@@ -91,13 +93,15 @@ int main(int argc, char** argv) {
 			return 1;
 		}
 	}
-	/* trie_tests(stdout); */
-	ENDLOG
-	return 0;
+	if (log_fp == NULL)
+	{
+		log_fp = fopen("tarragon.log", "w");
+	}
 	LOG("initializing tarragon");
 	/* setbuf(stdin, NULL); */
 	/* setbuf(stdout, NULL); */
 	return ls_listen(stdin, stdout);
+	ENDLOG
 	/* echo(100, stdin, log_fp); */
 
 	/* bp_receive(stdin); */

@@ -10,13 +10,13 @@
 #include "base_protocol.h"
 #include "logger.h"
 #include "arena.h"
+#include "scratch.h"
+/* #include "json.h" */ /* TODO: THIS! */
 
 #define KILOBYTE 1024
 
 extern unsigned char default_config_json[];
 extern unsigned int default_config_json_len;
-
-static arena_t scratch;
 /* static Arena* response_arena = NULL; */
 
 static lsp_t lsp_singleton = {
@@ -64,7 +64,6 @@ json_t* add_id(json_t* o, const rpc_t* rpc)
 // I do NOT thing this one works (mb just not with eglot)
 void log_client(char* message)
 {
-	scratch.size = 0;
 	json_t* o = boilerplate();
 	json_object_set(o, "method", json_string("window/logMessage"));
 	json_t* params_o = json_object();
@@ -86,7 +85,7 @@ void handle_initialize(FILE* out, const rpc_t* rpc)
 	json_object_set(result_o, "serverInfo", info_o);
 	json_object_set(o, "result", result_o);
 	LOG("request id: %s", &rpc->id[0]);
-	LOG("initialize processId: %d", rpc->params.initialize.process_id);
+	LOG("initialize processId: %d", rpc->params.process_id);
 	lsp_singleton.state = LSP_INITIALIZING;
 	respond(out, o);
 }
@@ -134,21 +133,12 @@ void handle_exit(FILE* out, const rpc_t* rpc)
 /* }; */
 
 /*  NOTE: HOPE U DONT OVER ALLOCATE LMAO */
-static void* scratch_alloc(size_t bytes)
-{
-	return arena_alloc(&scratch, bytes);
-}
-
-static void scratch_free(void* memory)
-{
-	// lol
-}
 
 void handle(FILE* out, const rpc_t* rpc)
 {
 	// why YES I am changing the json memory functions willy-nilly
-	json_set_alloc_funcs(&scratch_alloc, &scratch_free);
-	scratch.size = 0;
+	/* json_set_alloc_funcs(&scratch_alloc, &scratch_free); */
+	/* scratch.size = 0; */
 	// why? because it's based
 	switch(rpc->method)
 	{
@@ -169,18 +159,11 @@ void handle(FILE* out, const rpc_t* rpc)
 	}
 }
 
-void cleanup(void)
-{
-	rpc_deinit();
-	free(scratch.memory);
-}
 
 
 int ls_listen(FILE* in,FILE* out)
 {
-	bp_init();
-	rpc_init();
-	arena_init(&scratch, KILOBYTE * sizeof(json_t));
+	/* arena_init(&scratch, KILOBYTE * sizeof(json_t)); */
 	lsp_singleton.out = out;
 	/* for(uint32_t i = 0; i < 10; ++i) */
 	for(/* LOL */ ; /* LMAO */ ; /* EVEN */ )
@@ -196,8 +179,7 @@ int ls_listen(FILE* in,FILE* out)
 			const rpc_t* rpc = rpc_parse(bp_content(), length);
 			if (!rpc)
 			{
-				LOG("jansson decode failure--shutting down!");
-				cleanup();
+				LOG("json parse failure--shutting down!");
 				return 1;
 			}
 			handle(out, rpc);
@@ -210,7 +192,6 @@ int ls_listen(FILE* in,FILE* out)
 		}
 		if (lsp_singleton.state > LSP_SHUTDOWN)
 		{
-			cleanup();
 			LOG("exiting with code: %d", lsp_singleton.state - LSP_EXIT_0);
 			return lsp_singleton.state - LSP_EXIT_0;
 		}
