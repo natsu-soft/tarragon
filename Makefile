@@ -1,11 +1,9 @@
 ifeq ($(OS),Windows_NT)
 	CC := clang -std=gnu99
 	RE := rg
-	BIN_EXT := .exe
 else
 	CC := gcc -std=gnu99 # NOTE: bug in gcc, __attribute__((cleanup)) runs immeadiately instead of waiting for scope end
 	RE := grep
-	BIN_EXT :=
 endif
 # CFLAGS := -Wall -Wextra -Wno-incompatible-pointer-types -ggdb -O0
 CFLAGS := -Wall -Wextra -Wno-int-conversion -fpermissive -fdiagnostics-show-option -ggdb -O0
@@ -23,8 +21,9 @@ else
 LDFLAGS := -fuse-ld=mold -flto -static
 endif
 MAINS := src/tarragon.c src/unit_tests.c
+IGNORE := src/gdscript_ast.c
 ALL_SRC := $(wildcard src/*.c)
-SRC := $(filter-out $(MAINS), $(ALL_SRC))
+SRC := $(filter-out $(IGNORE), $(filter-out $(MAINS), $(ALL_SRC)))
 DEP := $(patsubst src/%.c,dep/%.d,$(ALL_SRC))
 OBJ := $(patsubst src/%.c,obj/%.o,$(SRC))
 # TREE-SITTER_INCLUDES = -I tree-sitter/lib/include -I tree-sitter/lib/src
@@ -47,23 +46,16 @@ test/%:
 	${CURDIR}/test_$*
 	@echo "TESTED: src/$*.c"
 
-
-# @echo $(patsubst  src/%,%, $*)
-
-# cat $* | sed's/$(basen)
-#  | $(CC) $(CFLAGS) -o test_$(patsubst src/%,%,$(basename $*)) -Isrc $(LIBS) $(LDFLAGS) -x c -
-
-# cat $(SRC) | sed 's/$(basename $*)_test/main/' | $(CC) $(CLFAGS) -o $(basename $*)_test $(LIBS) $(LDFLAGS) -Isrc -x c -
-
-
-# @echo "testing $(basename $@)"
-
 tarragon: obj/tarragon.o $(OBJ)
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS) $(LDFLAGS)
 	file $@
 
 unit-tests: obj/unit_tests.o $(OBJ)
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS) $(LDFLAGS)
+
+test: unit-tests
+	${CURDIR}/$<
+
 
 # test-json-parser: test_json_parser.c ts_obj/tree_sitter.o ts_obj/json_parser.o obj/file_sys.o obj/arena.o $(TSQUERY_OBJS)
 	# $(CC) $(CFLAGS) $(TREE-SITTER_INCLUDES) -o $@ $^
