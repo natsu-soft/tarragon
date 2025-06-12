@@ -11,8 +11,7 @@
 #include "scratch.h"
 
 
-#define KILOBYTE 1024
-#define ARENA_OVERHEAD 4 * KILOBYTE
+#define ARENA_OVERHEAD 4096
 #define MICROSECOND 1000
 #define CHAR_NANOSLEEP 100 * MICROSECOND
 #define READ_NANOSLEEP 1000 * MICROSECOND
@@ -32,7 +31,7 @@ static arena_t decode_arena = {0};
 
 __attribute__((constructor)) void bp_init(void)
 {
-	arena_init(&decode_arena, KILOBYTE);
+	arena_init(&decode_arena, ARENA_OVERHEAD);
 }
 
 void bp_reset(void)
