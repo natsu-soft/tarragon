@@ -13,15 +13,13 @@ typedef struct _iobuf FILE;
 typedef struct _IO_FILE FILE;
 #endif
 
-void bp_reset(void);
+typedef struct arena_t arena_t;
 
-char* bp_content(void);
+/* void bp_reset(void); */
 
 void bp_send(FILE* stream, char* content);
 
-int32_t bp_receive(FILE* stream);
-
-int32_t bp_receive_nosleep(FILE* stream);
+int32_t bp_receive_nosleep(FILE* stream, char** out_json);
 
 void echo(uint32_t n, FILE* in, FILE* out);
 

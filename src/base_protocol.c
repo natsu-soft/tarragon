@@ -4,11 +4,15 @@
 #include <string.h>
 #include <stdint.h>
 #include <time.h>
+#include <assert.h>
 #include "arena.h"
 #include "logger.h"
+#include "error_macros.h"
+#include "scratch.h"
 
 
 #define KILOBYTE 1024
+#define ARENA_OVERHEAD 4 * KILOBYTE
 #define MICROSECOND 1000
 #define CHAR_NANOSLEEP 100 * MICROSECOND
 #define READ_NANOSLEEP 1000 * MICROSECOND
@@ -28,7 +32,7 @@ static arena_t decode_arena = {0};
 
 __attribute__((constructor)) void bp_init(void)
 {
-	arena_init(&decode_arena, 4 * KILOBYTE);
+	arena_init(&decode_arena, KILOBYTE);
 }
 
 void bp_reset(void)
@@ -36,12 +40,6 @@ void bp_reset(void)
 	decode_arena.size = 0;
 	content_length = 0;
 	decode_state = CACHING_HEADER;
-}
-
-
-char* bp_content(void)
-{
-	return decode_arena.allocation;
 }
 
 void bp_send(FILE* stream, char* content)
@@ -54,7 +52,8 @@ void bp_send(FILE* stream, char* content)
 	fflush(stream);
 }
 
-static int32_t decode(FILE* stream)
+
+static int32_t decode_nosleep(FILE* stream, char** out_json)
 {
 	if (feof(stream))
 	{
@@ -67,41 +66,39 @@ static int32_t decode(FILE* stream)
 	{
 	case CACHING_HEADER:
 		c = fgetc(stream);
-		fprintf(log_fp, "%c", c);
 		switch (c)
 		{
-		case '\n':
-			temp = arena_alloc(&decode_arena, 1);
-			*temp = '\0';
-			/* int res = sscanf((char*)decode_arena.memory, "Content-Length: %u\r\n", &content_length); */
-			// TODO: this is still goofy, fam
-			content_length = atoi((char*)decode_arena.allocation + 16);
-			/* printf("atoi len: %d\n", content_length); */
+		case '\r':
+			temp = decode_arena.allocation;
+			uint8_t i;
+			for (i = 0; i < decode_arena.size && temp[i] != ' '; ++i);
+			char* endptr = temp + decode_arena.size;
+			content_length = strtoul(temp + i + 1, &endptr, 10);
 			if (content_length == 0)
 			{
-				fprintf(stderr, "atoi failed in decode");
 				return -1;
 			}
-			decode_arena.size = 0;
 			if (content_length + 1 > decode_arena.cap)
 			{
-				free(decode_arena.allocation); // not using realloc because I dont need to copy
-				arena_init(&decode_arena, content_length + 1);
+				temp = realloc(&decode_arena.allocation, content_length + ARENA_OVERHEAD);
+				assert(temp && "failed to realloc memory for base protocol arena!");
+				decode_arena.allocation = temp;
+				decode_arena.cap = content_length + ARENA_OVERHEAD;
 			}
+			decode_arena.size = 0;
 			decode_state = WAITING_CONTENT;
-			break;
+			__attribute__((fallthrough));
 		default:
-			temp = arena_alloc(&decode_arena, 1);
-			*temp = c;
+			arena_push(&decode_arena, &c, 1);
 		}
-		nanosleep(&charsleep, NULL);
 		break;
 	case WAITING_CONTENT:
-		if (fgetc(stream) == '\n')
+		decode_arena.size += fread(decode_arena.allocation + decode_arena.size, 1, 3, stream);
+		if (decode_arena.size == 4)
 		{
 			decode_state = CACHING_CONTENT;
+			decode_arena.size = 0;
 		}
-		nanosleep(&charsleep, NULL);
 		break;
 	case CACHING_CONTENT:
 		/* fread()
@@ -112,103 +109,28 @@ static int32_t decode(FILE* stream)
 		changed. Otherwise, if a read error occurs, the error indicator for  the
 		stream shall be set, and errno shall be set to indicate the error.
 		*/
-		decode_arena.size = fread(decode_arena.allocation + decode_arena.size, 1, content_length - decode_arena.size, stream);
+		decode_arena.size += fread(decode_arena.allocation + decode_arena.size, 1, content_length - decode_arena.size, stream);
+		/* arena_push(&decode_arena, &c, 1); */
 		if (decode_arena.size == content_length)
 		{
-			decode_arena.allocation[content_length] = '\0';
-			fprintf(log_fp, "%s", decode_arena.allocation);
-			decode_arena.size++;
+			*out_json = decode_arena.allocation;
 			return content_length;
 		}
-		nanosleep(&readsleep, NULL);
 		break;
 	}
 	return 0;
 }
 
-static int32_t decode_nosleep(FILE* stream)
-{
-	if (feof(stream))
-	{
-		decode_state = END_OF_FILE;
-		return -1;
-	}
-	char c;
-	char* temp;
-	switch (decode_state)
-	{
-	case CACHING_HEADER:
-		c = fgetc(stream);
-		switch (c)
-		{
-		case '\n':
-			temp = arena_alloc(&decode_arena, 1);
-			*temp = '\0';
-			sscanf(decode_arena.allocation, "Content-Length: %u", &content_length);
-			decode_arena.size = 0;
-			if (content_length + 1 > decode_arena.cap)
-			{
-				free(decode_arena.allocation); // not using realloc because I dont need to copy
-				arena_alloc(&decode_arena, content_length + 1);
-			}
-			decode_state = WAITING_CONTENT;
-			break;
-		default:
-			temp = arena_alloc(&decode_arena, 1);
-			*temp = c;
-		}
-		/* nanosleep(&charsleep, NULL); */
-		break;
-	case WAITING_CONTENT:
-		if (fgetc(stream) == '\n')
-		{
-			decode_state = CACHING_CONTENT;
-		}
-		/* nanosleep(&charsleep, NULL); */
-		break;
-	case CACHING_CONTENT:
-		/* fread()
-		Upon  successful completion, fread() shall return the number of elements
-		successfully read which is less than nitems only if a read error or end-
-		of-file is encountered. If size or nitems is 0, fread() shall  return  0
-		and  the  contents  of  the array and the state of the stream remain un-
-		changed. Otherwise, if a read error occurs, the error indicator for  the
-		stream shall be set, and errno shall be set to indicate the error.
-		*/
-		decode_arena.size = fread(decode_arena.allocation + decode_arena.size, 1, content_length - decode_arena.size, stream);
-		if (decode_arena.size == content_length)
-		{
-			decode_arena.allocation[content_length] = '\0';
-			decode_arena.size++;
-			return content_length;
-		}
-		/* nanosleep(&readsleep, NULL); */
-		break;
-	}
-	return 0;
-}
-
-
-int32_t bp_receive(FILE* stream)
-{
-	int32_t n = 0;
-	/* LOG("starting bp_receive()"); */
-	while(!n)
-	{
-		n = decode(stream);
-	}
-	/* LOG("bp_receive: %s", decode_arena->allocation); */
-	return n;
-}
-
-int32_t bp_receive_nosleep(FILE* stream)
+int32_t bp_receive_nosleep(FILE* stream, char** out_json)
 {
 	int32_t res = 0;
+	content_length = 0;
+	decode_arena.size = 0;
+	decode_state = CACHING_HEADER;
 	while(!res)
 	{
-		res = decode_nosleep(stream);
+		res = decode_nosleep(stream, out_json);
 	}
-	/* LOG("bp_receive_nosleep: %s", decode_arena->allocation); */
 	return res;
 }
 
@@ -224,65 +146,36 @@ void echo(uint32_t n, FILE* in, FILE* out)
 	}
 }
 
+#define TEST_STRING "{\"testing\":true}"
 
-
-/* void rpc_decode2(FILE* stream, uint32_t* content_len, char** content) */
-/* { */
-/* 	char* header = NULL; */
-/* 	size_t n; */
-/* 	/\* if (getdelim(&header, &n, '\r', stream) > 0) *\/ */
-/* 	if (getline(&header, &n, stream) > 0) */
-/* 	{ */
-/* 	} */
-/* 	if (fscanf(stream, "Content-Length: %u\r\n\r\n", content_len) != 1) */
-/* 	{ */
-/* 		*content_len = 0; */
-/* 		*content = NULL; */
-/* 	} */
-/* 	char* temp = malloc(*content_len + 1); // OwO Arena??? */
-/* 	/\* size_t n; *\/ */
-/* 	struct timespec t = { .tv_nsec = 100 }; */
-/* 	while(n = fread(temp, 1, *content_len, stream), n < *content_len) // RARE! */
-/* 	{ */
-/* 		for (int i = n; i >= 0; --i) */
-/* 		{ */
-/* 			ungetc(temp[i] , stream); */
-/* 		} */
-/* 		nanosleep(&t, NULL); // ERROR HANDLING MY ASS */
-/* 	} */
-/* 	temp[*content_len] = '\0'; */
-/* 	*content = temp; */
-/* } */
-
-
-#include "error_macros.h"
 // segfalting
 int base_protocol_test(int argc, char** argv)
 {
 	printf("testing rpc encoding/decoding\n");
 	FILE* fp = fopen("test_stuff/rpc_encode", "w");
-	bp_send(fp, "{\"testing\": true}");
+	bp_send(fp, TEST_STRING);
 	fclose(fp);
 	fp = fopen("test_stuff/rpc_encode", "r");
-	/* bp_init(scratch); */
-	int32_t content_len = bp_receive(fp);
-	assertf(content_len == 17, "bp_consume length mismatch, parsed length: %d\n", content_len);
-	LOG("length: %d\ncontent: %s\n", content_len, bp_content());
-	assertf(!strcmp( "{\"testing\": true}", bp_content()), "bp_content content mismatch");
+	char* dest;
+	int32_t len = bp_receive_nosleep(fp, &dest);
 	fclose(fp);
-	bp_reset();
-	fp = fopen("test_stuff/bad_rpc", "r");
-	/* int foo_len = bp_receive(fp); */
-	// LMAO: some real enterprise shit right here frfrfr
-	/* printf("%d", content_len); */
-	/* assertf(foo_len == -1, "bp_content erroneously parsed bad base protocol. Unexpected value: %d", foo_len); */
-	/* bp_init(); */
-	/* int scanned = fscanf(fp, "Content-Length: %u\r\n\r\n", &decode_len); */
-	/* LOG("decoded: %d", foo_len); */
-	fclose(fp);
-	fp = fopen("test_stuff/initialize_request.json", "r");
-	content_len = bp_receive(fp);
-	LOG("%s", bp_content());
+	assertf(len == 16, "bp_consume length mismatch, parsed length: %d\n", len);
+	char* content = scratch_alloc(len + 1);
+	memcpy(content, dest, len);
+	content[len] = '\0';
+	printf("length: %d\ncontent: %s\n", len, content);
+	assertf(strncmp(TEST_STRING, dest, len) == 0, "bp_content content mismatch");
+	// NOTE: IMPOSSIBLE to test--thanks for including \r\n in the standard, Microshit!
+	/* printf("initialize request test\n"); */
+	/* fp = fopen("test_stuff/initialize_request.json", "r"); */
+	/* len = bp_receive_nosleep(fp, &dest); */
+	/* fclose(fp); */
+	/* assertf(len == 160, "decoded length: %d; expected: 160\n", len); */
+	/* content = scratch_calloc(len + 1); */
+	/* memcpy(content, dest, len); */
+	/* content[len] = '\0'; */
+	/* printf("%s\n", content); */
+	/* LOG("%s", content); */
 	fclose(fp);
 	return 0;
 }

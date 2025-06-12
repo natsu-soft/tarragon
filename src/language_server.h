@@ -28,15 +28,15 @@ typedef struct text_document_t
 	uint32_t version;
 } text_document_t;
 
-typedef struct lsp_t
-{
-	FILE* out;
-	text_document_t* documents;
-	uint32_t num_documents;
-	lsp_state_t state;
-} lsp_t;
+/* typedef struct lsp_t */
+/* { */
+/* 	FILE* out; */
+/* 	text_document_t* documents; */
+/* 	uint32_t num_documents; */
+/* 	lsp_state_t state; */
+/* } lsp_t; */
 
-lsp_t* lsp(void);
+/* lsp_t* lsp(void); */
 
 int ls_listen(FILE* in,FILE* out);
 

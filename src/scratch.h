@@ -1,15 +1,15 @@
 #ifndef SCRATCH_H
 #define SCRATCH_H
 
-#include <stddef.h>
+#include <stdint.h>
 
 // https://stackoverflow.com/questions/34574933/a-good-and-idiomatic-way-to-use-gcc-and-clang-attribute-cleanup-and-point
 // memory leaks are a skill issue
 // so are double frees
 
-void* scratch_alloc(const size_t bytes);
+void* scratch_alloc(const uint32_t size);
 
-void* scratch_calloc(const size_t bytes);
+void* scratch_calloc(const uint32_t size);
 
 struct arena_t* scratch_checkout(void);
 

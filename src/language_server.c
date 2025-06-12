@@ -3,8 +3,9 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <unistd.h>
+#include "error_macros.h"
 #include <string.h>
-#include <jansson.h>
+#include "json.h"
 #include "rpc.h"
 #include "file_sys.h"
 #include "base_protocol.h"
@@ -19,106 +20,116 @@ extern unsigned char default_config_json[];
 extern unsigned int default_config_json_len;
 /* static Arena* response_arena = NULL; */
 
-static lsp_t lsp_singleton = {
-	.state = LSP_UNINITIALIZED,
-	.documents = NULL,
-	.out = NULL,
-	.num_documents = 0
-};
+/* static lsp_t lsp_singleton = { */
+/* 	.state = LSP_UNINITIALIZED, */
+/* 	.documents = NULL, */
+/* 	.out = NULL, */
+/* 	.num_documents = 0 */
+/* }; */
 
-lsp_t* lsp(void)
-{
-	return &lsp_singleton;
-}
 
-void respond(FILE* out, json_t* obj)
+
+static struct
 {
-	char* content = json_dumps(obj, JSON_COMPACT | JSON_ENCODE_ANY);
-	bp_send(out, content);
-	bp_send(log_fp, content);
+	FILE* out;
+	lsp_state_t state;
+} lsp = { .state = LSP_UNINITIALIZED };
+
+/* lsp_t* lsp(void) */
+/* { */
+/* 	return &lsp_singleton; */
+/* } */
+
+void respond(FILE* out, json_t* json)
+{
+	/* char* content = json_dumps(obj, JSON_COMPACT | JSON_ENCODE_ANY); */
+	/* bp_send(out, content); */
+	/* bp_send(log_fp, content); */
 }
 
 json_t* boilerplate()
 {
-	json_t* o = json_object();
-	json_object_set(o, "jsonrpc", json_string("2.0"));
-	return o;
+	/* json_t* o = json_object(); */
+	/* json_object_set(o, "jsonrpc", json_string("2.0")); */
+	/* return o; */
+	return NULL;
 }
 
 json_t* add_id(json_t* o, const rpc_t* rpc)
 {
 	// NOTE: SPEED IS LIFE
 	// rpc->id[0] ^ '\0'
-	uint32_t id;
-	if (sscanf(&rpc->id[0], "%ul", &id))
-	{
-		json_object_set(o, "id", json_integer(id));
-	}
-	else
-	{
-		json_object_set(o, "id", json_string(&rpc->id[0]));
-	}
-	return o;
+	/* uint32_t id; */
+	/* if (sscanf(&rpc->id[0], "%ul", &id)) */
+	/* { */
+	/* 	json_object_set(o, "id", json_integer(id)); */
+	/* } */
+	/* else */
+	/* { */
+	/* 	json_object_set(o, "id", json_string(&rpc->id[0])); */
+	/* } */
+	/* return o; */
 }
 
 // I do NOT thing this one works (mb just not with eglot)
 void log_client(char* message)
 {
-	json_t* o = boilerplate();
-	json_object_set(o, "method", json_string("window/logMessage"));
-	json_t* params_o = json_object();
-	json_object_set(params_o, "type", json_integer(4));
-	json_object_set(params_o, "message", json_string(message));
-	json_object_set(o, "params", params_o);
-	respond(lsp_singleton.out, o);
+	/* json_t* o = boilerplate(); */
+	/* json_object_set(o, "method", json_string("window/logMessage")); */
+	/* json_t* params_o = json_object(); */
+	/* json_object_set(params_o, "type", json_integer(4)); */
+	/* json_object_set(params_o, "message", json_string(message)); */
+	/* json_object_set(o, "params", params_o); */
+	/* respond(lsp_singleton.out, o); */
 }
 
 
 void handle_initialize(FILE* out, const rpc_t* rpc)
 {
-	json_t* o = add_id(boilerplate(), rpc);
-	json_t* result_o = json_object();
-	json_object_set(result_o, "capabilties", json_object());
-	json_t* info_o = json_object();
-	json_object_set(info_o, "name", json_string("tarragon"));
-	json_object_set(info_o, "version", json_string("0.0.lol"));
-	json_object_set(result_o, "serverInfo", info_o);
-	json_object_set(o, "result", result_o);
-	LOG("request id: %s", &rpc->id[0]);
-	LOG("initialize processId: %d", rpc->params.process_id);
-	lsp_singleton.state = LSP_INITIALIZING;
-	respond(out, o);
+	LOG("received an initialize request!");
+	/* json_t* o = add_id(boilerplate(), rpc); */
+	/* json_t* result_o = json_object(); */
+	/* json_object_set(result_o, "capabilties", json_object()); */
+	/* json_t* info_o = json_object(); */
+	/* json_object_set(info_o, "name", json_string("tarragon")); */
+	/* json_object_set(info_o, "version", json_string("0.0.lol")); */
+	/* json_object_set(result_o, "serverInfo", info_o); */
+	/* json_object_set(o, "result", result_o); */
+	/* LOG("request id: %s", &rpc->id[0]); */
+	/* LOG("initialize processId: %d", rpc->params.process_id); */
+	/* lsp_singleton.state = LSP_INITIALIZING; */
+	/* respond(out, o); */
 }
 
 void handle_initialized(FILE* out, const rpc_t* rpc)
 {
-	lsp_singleton.state = LSP_INITIALIZED;
+	lsp.state = LSP_INITIALIZED;
 	LOG("received an initialized notice!");
 	/* log_client("tarragon is initialized!"); */
 }
 
 void handle_shutdown(FILE* out, const rpc_t* rpc)
 {
-	lsp_singleton.state = LSP_SHUTDOWN;
+	lsp.state = LSP_SHUTDOWN;
 	LOG("received a shutdown request!");
-	json_t* o = add_id(boilerplate(), rpc);
-	json_object_set(o, "result", json_null());
-	respond(out, o);
+	/* json_t* o = add_id(boilerplate(), rpc); */
+	/* json_object_set(o, "result", json_null()); */
+	/* respond(out, o); */
 	/* log_client("tarragon shutting down NOW!"); */
 	// just shutdown tbqh
-	lsp_singleton.state = LSP_EXIT_0;
+	lsp.state = LSP_EXIT_0;
 }
 
 void handle_exit(FILE* out, const rpc_t* rpc)
 {
 	LOG("received an exit notice!");
-	switch(lsp_singleton.state)
+	switch(lsp.state)
 	{
 	case LSP_SHUTDOWN:
-		lsp_singleton.state = LSP_EXIT_0;
+		lsp.state = LSP_EXIT_0;
 		break;
 	default:
-		lsp_singleton.state = LSP_EXIT_1;
+		lsp.state = LSP_EXIT_1;
 	}
 }
 
@@ -164,19 +175,22 @@ void handle(FILE* out, const rpc_t* rpc)
 int ls_listen(FILE* in,FILE* out)
 {
 	/* arena_init(&scratch, KILOBYTE * sizeof(json_t)); */
-	lsp_singleton.out = out;
+	lsp.out = out;
 	/* for(uint32_t i = 0; i < 10; ++i) */
 	for(/* LOL */ ; /* LMAO */ ; /* EVEN */ )
 	{
 		/* LOG("processing %d of 10", i); */
-		bp_reset();
-		int32_t length = bp_receive_nosleep(in);
+		char* client_json;
+		int32_t length = bp_receive_nosleep(in, &client_json);
 		/* length = bp_receive(in); */
 		if (length > 0)
 		{
+			char* content = scratch_alloc(length + 1);
+			memcpy(content, client_json, length);
+			content[length] = '\0';
 			/* LOG("lsp listen: %s", bp_content()); */
-			LOG("content %s", bp_content());
-			const rpc_t* rpc = rpc_parse(bp_content(), length);
+			LOG("content %s", content);
+			const rpc_t* rpc = rpc_parse(client_json, length);
 			if (!rpc)
 			{
 				LOG("json parse failure--shutting down!");
@@ -188,12 +202,12 @@ int ls_listen(FILE* in,FILE* out)
 		}
 		else if (length == -1) {
 			LOG("eof encounterd in bp_receive()");
-			lsp_singleton.state = LSP_EXIT_1;
+			lsp.state = LSP_EXIT_1;
 		}
-		if (lsp_singleton.state > LSP_SHUTDOWN)
+		if (lsp.state > LSP_SHUTDOWN)
 		{
-			LOG("exiting with code: %d", lsp_singleton.state - LSP_EXIT_0);
-			return lsp_singleton.state - LSP_EXIT_0;
+			LOG("exiting with code: %d", lsp.state - LSP_EXIT_0);
+			return lsp.state - LSP_EXIT_0;
 		}
 	}
 }
@@ -205,7 +219,6 @@ char* ls_generate_config(const char* dir)
 	return config_name;
 }
 
-#include "error_macros.h"
 int language_server_test(int argc, char** argv)
 {
 	printf("testing language server functionality\n");

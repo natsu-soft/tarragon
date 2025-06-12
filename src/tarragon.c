@@ -97,14 +97,15 @@ int main(int argc, char** argv) {
 	{
 		log_fp = fopen("tarragon.log", "w");
 	}
-	LOG("initializing tarragon");
+	fprintf(stderr, "jfc pls work");
+	LOG("starting tarragon");
 	/* setbuf(stdin, NULL); */
 	/* setbuf(stdout, NULL); */
 	return ls_listen(stdin, stdout);
 	ENDLOG
 	/* echo(100, stdin, log_fp); */
 
-	/* bp_receive(stdin); */
+	/* bp_initializingreceive(stdin); */
 
 	/* while (c = getc(stdin), c) */
 	/* { */
