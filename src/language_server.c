@@ -40,11 +40,10 @@ static struct
 /* 	return &lsp_singleton; */
 /* } */
 
-void respond(FILE* out, json_t* json)
+void respond(FILE* out, char* msg)
 {
-	/* char* content = json_dumps(obj, JSON_COMPACT | JSON_ENCODE_ANY); */
-	/* bp_send(out, content); */
-	/* bp_send(log_fp, content); */
+	bp_send(out, msg);
+	bp_send(log_fp, msg);
 }
 
 json_t* boilerplate()
@@ -87,6 +86,7 @@ void log_client(char* message)
 void handle_initialize(FILE* out, const rpc_t* rpc)
 {
 	LOG("received an initialize request!");
+	// TODO: this
 	/* json_t* o = add_id(boilerplate(), rpc); */
 	/* json_t* result_o = json_object(); */
 	/* json_object_set(result_o, "capabilties", json_object()); */
