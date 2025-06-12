@@ -34,26 +34,21 @@ __attribute__((constructor)) void bp_init(void)
 	arena_init(&decode_arena, ARENA_OVERHEAD);
 }
 
-void bp_reset(void)
+const uint32_t bp_send(FILE* stream, char* content)
 {
-	decode_arena.size = 0;
-	content_length = 0;
-	decode_state = CACHING_HEADER;
-}
-
-uint32_t bp_send(FILE* stream, char* content)
-{
-	uint32_t res = strlen(content);
-	#if _WIN32
-	fprintf(stream, "Content-Length: %llu\r\n\r\n%s", res, content);
-	#else
+	const uint32_t res = strlen(content);
+#ifdef _WIN32
+	/* fprintf(stream, "Content-Length: %llu\r\n\r\n%s", res, content); */
+	fprintf(stream, "Content-Length: %llu\n\n%s", res, content);
+#else
 	fprintf(stream, "Content-Length: %lu\r\n\r\n%s", res, content);
-	#endif
+#endif
 	fflush(stream);
 	return res;
 }
 
 
+// TODO: test the windows shit with something other than eglot
 static int32_t decode_nosleep(FILE* stream, char** out_json)
 {
 	if (feof(stream))
@@ -67,9 +62,16 @@ static int32_t decode_nosleep(FILE* stream, char** out_json)
 	{
 	case CACHING_HEADER:
 		c = fgetc(stream);
+		// REALLY?  FUCN-A MICROSHIT, YOU'RE NOT FOLLOWING YOUR OWN GUIDELINES.
+		// or maybe its just eglot being quirky & charming :)
+		/* printf("%c", c == '\r' ? '@' : c == '\n' ? '#' : c); */
 		switch (c)
 		{
+#ifdef _WIN32 // fucc u windows
+		case '\n':
+#else
 		case '\r':
+#endif
 			temp = decode_arena.allocation;
 			uint8_t i;
 			for (i = 0; i < decode_arena.size && temp[i] != ' '; ++i);
@@ -95,8 +97,13 @@ static int32_t decode_nosleep(FILE* stream, char** out_json)
 		}
 		break;
 	case WAITING_CONTENT:
-		decode_arena.size += fread(decode_arena.allocation + decode_arena.size, 1, 3, stream);
+#ifdef _WIN32
+		decode_arena.size += fread(decode_arena.allocation + decode_arena.size, 1, 2 - decode_arena.size, stream);
+		if (decode_arena.size == 2)
+#else
+		decode_arena.size += fread(decode_arena.allocation + decode_arena.size, 1, 4 - decode_arena.size, stream);
 		if (decode_arena.size == 4)
+#endif
 		{
 			decode_state = CACHING_CONTENT;
 			decode_arena.size = 0;
