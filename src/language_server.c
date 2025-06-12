@@ -172,8 +172,9 @@ void handle(FILE* out, const rpc_t* rpc)
 
 
 
-int ls_listen(FILE* in,FILE* out)
+int ls_listen(FILE* in, FILE* out)
 {
+	LOG("ls_listen");
 	/* arena_init(&scratch, KILOBYTE * sizeof(json_t)); */
 	lsp.out = out;
 	/* for(uint32_t i = 0; i < 10; ++i) */
@@ -181,6 +182,7 @@ int ls_listen(FILE* in,FILE* out)
 	{
 		/* LOG("processing %d of 10", i); */
 		char* client_json;
+		fflush(in);
 		int32_t length = bp_receive_nosleep(in, &client_json);
 		/* length = bp_receive(in); */
 		if (length > 0)
@@ -189,15 +191,14 @@ int ls_listen(FILE* in,FILE* out)
 			memcpy(content, client_json, length);
 			content[length] = '\0';
 			/* LOG("lsp listen: %s", bp_content()); */
-			LOG("content %s", content);
+			LOG("client content: %s", content);
 			const rpc_t* rpc = rpc_parse(client_json, length);
 			if (!rpc)
 			{
-				LOG("json parse failure--shutting down!");
+				ERROR("json parse failure--shutting down!");
 				return 1;
 			}
 			handle(out, rpc);
-			fflush(in);
 			/* bp_send(out, "{ \"method\": \"window/showMessage\",\"type\": 3,\"message\":\"based\"}"); */
 		}
 		else if (length == -1) {
@@ -210,6 +211,7 @@ int ls_listen(FILE* in,FILE* out)
 			return lsp.state - LSP_EXIT_0;
 		}
 	}
+	return 1;
 }
 
 char* ls_generate_config(const char* dir)

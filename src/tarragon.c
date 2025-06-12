@@ -8,8 +8,11 @@
 #include "error_macros.h"
 #include "language_server.h"
 /* #include "tests.h" */
+#define LOG_FILE_HERE
 #include "logger.h"
 #include "trie.h"
+
+FILE* log_fp;
 
 #define CONFIG_JSON "tarragon.json"
 
@@ -97,12 +100,13 @@ int main(int argc, char** argv) {
 	{
 		log_fp = fopen("tarragon.log", "w");
 	}
-	fprintf(stderr, "jfc pls work");
+	fprintf(stdout, "jfc pls work");
 	LOG("starting tarragon");
 	/* setbuf(stdin, NULL); */
 	/* setbuf(stdout, NULL); */
-	return ls_listen(stdin, stdout);
-	ENDLOG
+	int res = ls_listen(stdin, stdout);
+	ENDLOG;
+	return res;
 	/* echo(100, stdin, log_fp); */
 
 	/* bp_initializingreceive(stdin); */

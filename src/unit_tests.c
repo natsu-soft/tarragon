@@ -1,11 +1,12 @@
 #include <unistd.h>
 #include <assert.h>
+#define LOG_FILE_HERE
 #include "logger.h"
 /* #include "scratch.h" */
 #include "benchmark.h"
 
 
-
+FILE* log_fp;
 
 
 #define UNIT_TESTS								\
@@ -27,6 +28,7 @@ int main(int argc, char** argv)
 	#define TEST(A) printf("\n[%d] Testing " #A ".c\n", i++); assert(A##_test(argc, argv) == 0); printf("A-OK: " #A ".c\n");
 	UNIT_TESTS;
 	#undef TEST
+	LOG("finished unit tests")
 	ENDLOG;
 	return 0;
 }

@@ -38,7 +38,7 @@ typedef struct text_document_t
 
 /* lsp_t* lsp(void); */
 
-int ls_listen(FILE* in,FILE* out);
+int ls_listen(FILE* in, FILE* out);
 
 char* ls_generate_config(const char* dir);
 

@@ -42,14 +42,16 @@ void bp_reset(void)
 	decode_state = CACHING_HEADER;
 }
 
-void bp_send(FILE* stream, char* content)
+uint32_t bp_send(FILE* stream, char* content)
 {
+	uint32_t res = strlen(content);
 	#if _WIN32
-	fprintf(stream, "Content-Length: %llu\r\n\r\n%s\n", strlen(content), content);
+	fprintf(stream, "Content-Length: %llu\r\n\r\n%s", res, content);
 	#else
-	fprintf(stream, "Content-Length: %lu\r\n\r\n%s\n", strlen(content), content);
+	fprintf(stream, "Content-Length: %lu\r\n\r\n%s", res, content);
 	#endif
 	fflush(stream);
+	return res;
 }
 
 
@@ -74,11 +76,12 @@ static int32_t decode_nosleep(FILE* stream, char** out_json)
 			for (i = 0; i < decode_arena.size && temp[i] != ' '; ++i);
 			char* endptr = temp + decode_arena.size;
 			content_length = strtoul(temp + i + 1, &endptr, 10);
+			LOG("content_length: %d", content_length);
 			if (content_length == 0)
 			{
 				return -1;
 			}
-			if (content_length + 1 > decode_arena.cap)
+			else if (content_length + 1 > decode_arena.cap)
 			{
 				temp = realloc(decode_arena.allocation, content_length + ARENA_OVERHEAD);
 				assert(temp && "failed to realloc memory for base protocol arena!");
@@ -146,11 +149,19 @@ void echo(uint32_t n, FILE* in, FILE* out)
 	}
 }
 
+static uint32_t write_initialize_request_test(void)
+{
+	FILE* fp = fopen("test_stuff/initialize_request.json", "w");
+	uint32_t res = bp_send(fp, "{\"jsonrpc\":\"2.0\",\"id\": 0,\"method\":\"initialize\",\"params\":{\"processId\":null,\"clientInfo\":{\"name\":\"testing\",}\"capabilities\":{}}}");
+	fclose(fp);
+	return res;
+}
+
 #define TEST_STRING "{\"testing\":true}"
 
 int base_protocol_test(int argc, char** argv)
 {
-	printf("testing rpc encoding/decoding\n");
+	printf(" > testing rpc encoding/decoding\n");
 	FILE* fp = fopen("test_stuff/rpc_encode", "w");
 	bp_send(fp, TEST_STRING);
 	fclose(fp);
@@ -164,16 +175,16 @@ int base_protocol_test(int argc, char** argv)
 	content[len] = '\0';
 	LOG("base_protocol.c: length: %d\ncontent: %s\n", len, content);
 	assertf(strncmp(TEST_STRING, dest, len) == 0, "bp_content content mismatch");
-	// NOTE: IMPOSSIBLE to test--thanks for including \r\n in the standard, Microshit!
-	/* printf("initialize request test\n"); */
-	/* fp = fopen("test_stuff/initialize_request.json", "r"); */
-	/* len = bp_receive_nosleep(fp, &dest); */
-	/* fclose(fp); */
-	/* assertf(len == 160, "decoded length: %d; expected: 160\n", len); */
-	/* content = scratch_calloc(len + 1); */
-	/* memcpy(content, dest, len); */
-	/* content[len] = '\0'; */
-	/* printf("%s\n", content); */
-	/* LOG("%s", content); */
+	printf(" > initialize request test\n");
+	uint32_t req_len = write_initialize_request_test();
+	fp = fopen("test_stuff/initialize_request.json", "r");
+	len = bp_receive_nosleep(fp, &dest);
+	fclose(fp);
+	assertf(len == req_len, "decoded length: %d; expected: %d\n", len, req_len);
+	content = scratch_calloc(len + 1);
+	memcpy(content, dest, len);
+	content[len] = '\0';
+	printf("%s\n", content);
+	LOG("%s", content);
 	return 0;
 }
