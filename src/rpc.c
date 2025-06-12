@@ -19,12 +19,12 @@ static void parse_rpc (char* str, int len, rpc_t* rpc)
 	json_t json = {0};
 	CLEANUP_SCRATCH arena_t* scratch = scratch_checkout();
 	json_id_t res = json_parse(&json, scratch, str, len);
-	if (res ^ JSON_SUCCESS)
+	if ((res & JSON_SUCCESS) != JSON_SUCCESS)
 	{
 		ERROR("failed to decode:\n%s", str);
 		return;
 	}
-	else if (res ^ JSON_OBJECT)
+	else if ((res & JSON_OBJECT) != JSON_OBJECT)
 	{
 		ERROR("rpc is not a json object:\n%s", str);
 		return;
