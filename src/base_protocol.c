@@ -80,7 +80,7 @@ static int32_t decode_nosleep(FILE* stream, char** out_json)
 			}
 			if (content_length + 1 > decode_arena.cap)
 			{
-				temp = realloc(&decode_arena.allocation, content_length + ARENA_OVERHEAD);
+				temp = realloc(decode_arena.allocation, content_length + ARENA_OVERHEAD);
 				assert(temp && "failed to realloc memory for base protocol arena!");
 				decode_arena.allocation = temp;
 				decode_arena.cap = content_length + ARENA_OVERHEAD;
@@ -148,7 +148,6 @@ void echo(uint32_t n, FILE* in, FILE* out)
 
 #define TEST_STRING "{\"testing\":true}"
 
-// segfalting
 int base_protocol_test(int argc, char** argv)
 {
 	printf("testing rpc encoding/decoding\n");
@@ -163,7 +162,7 @@ int base_protocol_test(int argc, char** argv)
 	char* content = scratch_alloc(len + 1);
 	memcpy(content, dest, len);
 	content[len] = '\0';
-	printf("length: %d\ncontent: %s\n", len, content);
+	LOG("base_protocol.c: length: %d\ncontent: %s\n", len, content);
 	assertf(strncmp(TEST_STRING, dest, len) == 0, "bp_content content mismatch");
 	// NOTE: IMPOSSIBLE to test--thanks for including \r\n in the standard, Microshit!
 	/* printf("initialize request test\n"); */
@@ -176,6 +175,5 @@ int base_protocol_test(int argc, char** argv)
 	/* content[len] = '\0'; */
 	/* printf("%s\n", content); */
 	/* LOG("%s", content); */
-	fclose(fp);
 	return 0;
 }
