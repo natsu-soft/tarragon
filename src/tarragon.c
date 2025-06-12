@@ -116,7 +116,7 @@ int main(int argc, char** argv) {
 	/* 	PLAIN_LOG("%c", c); */
 	/* } */
 	LOG("exiting");
-	ENDLOG
+	ENDLOG;
 	return 0;
 	char cwd[PATH_MAX];
 	if (getcwd(cwd, PATH_MAX) == NULL)

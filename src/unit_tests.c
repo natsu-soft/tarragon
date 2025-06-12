@@ -26,9 +26,9 @@ int main(int argc, char** argv)
 	LOG("running unit tests");
 	unsigned int i = 1;
 	#define TEST(A) printf("\n[%d] Testing " #A ".c\n", i++); assert(A##_test(argc, argv) == 0); printf("A-OK: " #A ".c\n");
-	UNIT_TESTS;
+	UNIT_TESTS
 	#undef TEST
-	LOG("finished unit tests")
+	LOG("finished unit tests");
 	ENDLOG;
 	return 0;
 }
