@@ -88,4 +88,8 @@ uint8_t json_c(void* dest, const json_t* json);
 #define JS_MEMBER(KEY, VALUE, ...) #KEY ":" VALUE __VA_ARGS__
 #define JS_VALUE(VALUE, ...) #VALUE __VA_ARGS__
 
+// TODO: these
+void json_object_start(arena_t* dest);
+void json_object_end(arena_t* dest);
+
 #endif /* End JSON_H */
