@@ -2,6 +2,7 @@
 #define JSON_H
 
 #include <stdint.h>
+#include <string.h>
 
 #ifdef _WIN32
 typedef struct _iobuf FILE;
@@ -83,13 +84,50 @@ uint8_t json_c(void* dest, const json_t* json);
  */
 
 // NOTE: https://xkcd.com/297/
-#define JS_OBJECT(BODY, ...) "{" BODY "}" __VA_ARGS__
-#define JS_ARRAY(BODY, ...) "[" BODY "]" __VA_ARGS__
-#define JS_MEMBER(KEY, VALUE, ...) #KEY ":" VALUE __VA_ARGS__
-#define JS_VALUE(VALUE, ...) #VALUE __VA_ARGS__
+/* #define JS_OBJECT(BODY, ...) "{" BODY "}" __VA_ARGS__ */
+/* #define JS_ARRAY(BODY, ...) "[" BODY "]" __VA_ARGS__ */
+/* #define JS_MEMBER(KEY, VALUE, ...) #KEY ":" VALUE __VA_ARGS__ */
+/* #define JS_VALUE(VALUE, ...) #VALUE __VA_ARGS__ */
 
-// TODO: these
-void json_object_start(arena_t* dest);
-void json_object_end(arena_t* dest);
+
+#define COMMA arena_dynamic_push(JS_ARENA, ",", 1);
+
+#define JS_OBJECT(BODY, ...)					\
+	arena_dynamic_push(JS_ARENA, "{", 1);		\
+	BODY										\
+	arena_dynamic_push(JS_ARENA, "}", 1);		\
+	__VA_ARGS__
+
+#define JS_ARRAY(BODY, ...)						\
+	arena_dynamic_push(JS_ARENA, "[", 1);		\
+	BODY										\
+	arena_dynamic_push(JS_ARENA, "]", 1);		\
+	__VA_ARGS__
+
+#define JS_VAL(VALUE, ...)								\
+	arena_dynamic_push(JS_ARENA, #VALUE, strlen(#VALUE));	\
+	__VA_ARGS__
+
+#define JS_VAR(VAR, ...)						\
+	arena_dynamic_push(JS_ARENA, VAR, strlen(VAR)); \
+	__VA_ARGS__
+
+#define JS_MEMBER(KEY, VALUE, ...)											\
+	arena_dynamic_push(JS_ARENA, "\"" #KEY "\":", strlen(#KEY) + 3);	\
+	arena_dynamic_push(JS_ARENA, #VALUE, strlen(#VALUE));	\
+	__VA_ARGS__
+
+#define JS_MEMBER_MACRO(KEY, MACRO, ...)								\
+	arena_dynamic_push(JS_ARENA, "\"" #KEY "\":", strlen(#KEY) + 3);	\
+	MACRO																\
+	__VA_ARGS__
+
+#define JS_MEMBER_VAR(KEY, VAR, ...)										\
+	arena_dynamic_push(JS_ARENA, "\"" #KEY "\":", strlen(#KEY) + 3);	\
+	arena_dynamic_push(JS_ARENA, VAR, strlen(VAR)); \
+	__VA_ARGS__
+
+#define JS_DUMP (arena_dynamic_push(JS_ARENA, "\0", 1), JS_ARENA->allocation)
+
 
 #endif /* End JSON_H */

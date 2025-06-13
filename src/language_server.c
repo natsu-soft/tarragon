@@ -3,8 +3,8 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <unistd.h>
-#include "error_macros.h"
 #include <string.h>
+#include "error_macros.h"
 #include "json.h"
 #include "rpc.h"
 #include "file_sys.h"
@@ -12,9 +12,16 @@
 #include "logger.h"
 #include "arena.h"
 #include "scratch.h"
-/* #include "json.h" */ /* TODO: THIS! */
+#include "json.h"
 
 #define KILOBYTE 1024
+
+	/* JS_OBJECT(JS_MEMBER(jsonrpc, "2.0", COMMA) JS_MEMBER_VAR(id, rpc->id, COMMA) BODY) */
+#define JSON_RPC(BODY)													\
+	arena_dynamic_push(JS_ARENA, "{\"jsonrpc\":\"2.0\",\"id\":", 22);	\
+	JS_VAR(rpc->id, COMMA)										\
+	BODY															\
+	arena_dynamic_push(JS_ARENA, "}", 1);							\
 
 extern unsigned char default_config_json[];
 extern unsigned int default_config_json_len;
@@ -40,34 +47,10 @@ static struct
 /* 	return &lsp_singleton; */
 /* } */
 
-void respond(FILE* out, char* msg)
+static void respond(FILE* out, char* msg, const uint32_t n)
 {
-	bp_send(out, msg);
-	bp_send(log_fp, msg);
-}
-
-json_t* boilerplate()
-{
-	/* json_t* o = json_object(); */
-	/* json_object_set(o, "jsonrpc", json_string("2.0")); */
-	/* return o; */
-	return NULL;
-}
-
-json_t* add_id(json_t* o, const rpc_t* rpc)
-{
-	// NOTE: SPEED IS LIFE
-	// rpc->id[0] ^ '\0'
-	/* uint32_t id; */
-	/* if (sscanf(&rpc->id[0], "%ul", &id)) */
-	/* { */
-	/* 	json_object_set(o, "id", json_integer(id)); */
-	/* } */
-	/* else */
-	/* { */
-	/* 	json_object_set(o, "id", json_string(&rpc->id[0])); */
-	/* } */
-	/* return o; */
+	bp_sendn(out, msg, n);
+	bp_sendn(log_fp, msg, n);
 }
 
 // I do NOT thing this one works (mb just not with eglot)
@@ -86,19 +69,24 @@ void log_client(char* message)
 void handle_initialize(FILE* out, const rpc_t* rpc)
 {
 	LOG("received an initialize request!");
-	// TODO: this
-	/* json_t* o = add_id(boilerplate(), rpc); */
-	/* json_t* result_o = json_object(); */
-	/* json_object_set(result_o, "capabilties", json_object()); */
-	/* json_t* info_o = json_object(); */
-	/* json_object_set(info_o, "name", json_string("tarragon")); */
-	/* json_object_set(info_o, "version", json_string("0.0.lol")); */
-	/* json_object_set(result_o, "serverInfo", info_o); */
-	/* json_object_set(o, "result", result_o); */
-	/* LOG("request id: %s", &rpc->id[0]); */
-	/* LOG("initialize processId: %d", rpc->params.process_id); */
-	/* lsp_singleton.state = LSP_INITIALIZING; */
-	/* respond(out, o); */
+	arena_t* scratch = scratch_checkout();
+	LOG("scratch: %x, allocation: %x", scratch, scratch->allocation);
+	#define JS_ARENA scratch
+/* 	JSON_RPC( */
+/* 		JS_MEMBER_MACRO(capabilities, JS_OBJECT(), COMMA) */
+/* 		JS_MEMBER_MACRO(serverInfo, JS_OBJECT( */
+/* 							JS_MEMBER(name, "tarragon") */
+/* 							JS_MEMBER(version, "0.0.lmao") */
+/* 							))) */
+/* 	/\* respond(out, JS_DUMP, scratch->size - 1); *\/ */
+/* 		LOG("intiialize response:\n%s", JS_DUMP); */
+/* #undef JS_ARENA */
+	/* JS_OBJECT() */
+		/* char* bar = JS_DUMP; */
+	#undef JS_ARENA
+        LOG("foo!");
+	lsp.state = LSP_INITIALIZING;
+	/* scratch_checkin(scratch); */
 }
 
 void handle_initialized(FILE* out, const rpc_t* rpc)
@@ -174,7 +162,6 @@ void handle(FILE* out, const rpc_t* rpc)
 
 int ls_listen(FILE* in, FILE* out)
 {
-	LOG("ls_listen");
 	/* arena_init(&scratch, KILOBYTE * sizeof(json_t)); */
 	lsp.out = out;
 	/* for(uint32_t i = 0; i < 10; ++i) */

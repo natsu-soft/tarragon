@@ -13,9 +13,11 @@ typedef struct arena_t
 
 void arena_init(arena_t* arena, const size_t bytes);
 
-void arena_resize(arena_t* arena, const size_t bytes);
+void arena_grow(arena_t* arena, const size_t bytes);
 
 void* arena_alloc(arena_t* arena, const size_t bytes);
+
+void* arena_dynamic_alloc(arena_t* arena, const size_t bytes);
 
 void* arena_calloc(arena_t* arena, const size_t bytes);
 
@@ -27,6 +29,8 @@ void arena_free(arena_t* arena, const size_t bytes);
 void* arena_pop(arena_t* arena, const size_t bytes);
 
 void arena_push(arena_t* arena, const void* src, const size_t bytes);
+
+void arena_dynamic_push(arena_t* arena, const void* src, const size_t bytes);
 
 void* arena_peek(arena_t* arena, const size_t bytes);
 

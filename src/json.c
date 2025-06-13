@@ -1,12 +1,14 @@
 #include "json.h"
-#include <ctype.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
+#include <assert.h>
 #include "file_sys.h"
 #include "token.h"
 #include "arena.h"
+#include "scratch.h"
 
 #define TOKENIZE_RESIZE_OVERHEAD 2048
 
@@ -163,7 +165,6 @@ static uint32_t tokenize(token_t** tokens, json_id_t** ids, arena_t* arena, cons
 	const size_t req_size = num_tokens * (sizeof **tokens + sizeof **ids);
 	if (arena->cap < req_size)
 	{
-		printf("-- increasing arena size to: %zu bytes\n", req_size + TOKENIZE_RESIZE_OVERHEAD);
 		if (arena->allocation != NULL)
 		{
 			free(arena->allocation);
@@ -832,29 +833,27 @@ json_id_t json_parse(json_t* json, arena_t* arena, const char* src, const uint32
 
 int json_test(int argc, char** argv)
 {
-	printf("testing json tokenizing\n");
-	char* foo = "{ \"lmao\":true,\"lol\":[0,-1.022,null,{\"bruh\":\"L, loser\"},false], \"OwO\":\"UwU\"}";
-	char* bar = JS_OBJECT(
-		JS_MEMBER("lmao", JS_VALUE(true), ",")
-		JS_MEMBER("lol", JS_ARRAY(
-					  JS_VALUE(0, ",")
-					  JS_VALUE(-1.022, ",")
-					  JS_VALUE(null, ",")
-					  JS_OBJECT(JS_MEMBER("bruh", JS_VALUE("L, loser")), ", ")
-					  JS_VALUE(false)), ",")
-		JS_MEMBER("OwO", JS_VALUE("UwU")));
-	/* char* foo = "{ \"lmao\": true, \"lol\" :     null}"; */
-	/* token_t* tokens = NULL; */
-	/* json_id_t* ids = NULL; */
-	/* uint32_t num_tokens = tokenize(&tokens, &ids, foo, strlen(foo)); */
-	/* for (int i = 0; i < num_tokens; ++i) */
-	/* { */
-	/* 	printf("%d:%d:\t%#06x - %s\n", tokens[i].line, tokens[i].col, ids[i], tokens[i].string); */
-	/* } */
-	/* free(tokens); */
-	arena_t a = {0};
+	printf(" > testing json tokenizing\n");
+	char* foo = "{\"lmao\":true,\"lol\":[0,-1.022,null,{\"bruh\":\"L, loser\"},false],\"OwO\":\"UwU\"}";
+	SCRATCH* dest = scratch_checkout();
+	#define JS_ARENA dest
+	JS_OBJECT(
+		JS_MEMBER(lmao, true, COMMA)
+		JS_MEMBER_MACRO(lol, JS_ARRAY(
+							JS_VAL(0, COMMA)
+							JS_VAL(-1.022, COMMA)
+							JS_VAL(null, COMMA)
+							JS_OBJECT(JS_MEMBER(bruh, "L, loser"), COMMA)
+							JS_VAL(false)),
+						COMMA)
+		JS_MEMBER(OwO, "UwU"))
+		char* bar = JS_DUMP;
+	assert(strncmp(foo, bar, strlen(bar)) == 0);
+	printf("foo: %s\n", foo);
+	printf("bar: %s\n", bar);
+	SCRATCH* json_arena = scratch_checkout();
 	json_t json = {0};
-	json_id_t p_res = json_parse(&json, &a, bar, strlen(bar));
+	json_id_t p_res = json_parse(&json, json_arena, bar, dest->size - 1);
 	printf("parse_result: %s\n", p_res & JSON_SUCCESS ? "SUCCESS!" : "error");
 	if (p_res & JSON_SUCCESS)
 	{

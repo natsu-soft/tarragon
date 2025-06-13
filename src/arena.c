@@ -4,6 +4,8 @@
 #include "error_macros.h"
 #include "logger.h"
 
+#define REALLOC_OVERHEAD 4096
+
 void arena_init(arena_t* arena, const size_t bytes)
 {
 	arena->size = 0;
@@ -11,12 +13,11 @@ void arena_init(arena_t* arena, const size_t bytes)
 	arena->allocation = malloc(bytes);
 }
 
-void arena_resize(arena_t* arena, const size_t bytes)
+void arena_grow(arena_t* arena, const size_t bytes)
 {
 	uint8_t* allocation = realloc(arena->allocation, bytes);
-	assert(allocation);
+	assert(allocation && "failed to reallocate arena more memory!");
 	arena->cap = bytes;
-	arena->size = bytes > arena->size ? arena->size : bytes;
 }
 
 void* arena_alloc(arena_t* arena, const size_t bytes)
@@ -34,6 +35,16 @@ void* arena_alloc(arena_t* arena, const size_t bytes)
 		return addr;
 	}
 }
+
+void* arena_dynamic_alloc(arena_t* arena, const size_t bytes)
+{
+	if (arena->size + bytes > arena->cap)
+	{
+		arena_grow(arena, arena->size + bytes + REALLOC_OVERHEAD);
+	}
+	return arena_alloc(arena, bytes);
+}
+
 
 void* arena_calloc(arena_t* arena, const size_t bytes)
 {
@@ -82,6 +93,16 @@ void arena_push(arena_t* arena, const void* src, const size_t bytes)
 	memcpy(arena->allocation + arena->size, src, bytes);
 	arena->size += bytes;
 }
+
+void arena_dynamic_push(arena_t* arena, const void* src, const size_t bytes)
+{
+	if (arena->size + bytes > arena->cap)
+	{
+		arena_grow(arena, arena->size + bytes + REALLOC_OVERHEAD);
+	}
+	arena_push(arena, src, bytes);
+}
+
 
 void* arena_peek(arena_t* arena, const size_t bytes)
 {

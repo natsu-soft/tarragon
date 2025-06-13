@@ -34,18 +34,30 @@ __attribute__((constructor)) void bp_init(void)
 	arena_init(&decode_arena, ARENA_OVERHEAD);
 }
 
-const uint32_t bp_send(FILE* stream, char* content)
+const uint32_t bp_send(FILE* stream, const char* content)
 {
 	const uint32_t res = strlen(content);
 #ifdef _WIN32
 	/* fprintf(stream, "Content-Length: %llu\r\n\r\n%s", res, content); */
-	fprintf(stream, "Content-Length: %llu\n\n%s", res, content);
+	fprintf(stream, "Content-Length: %u\n\n%s", res, content);
 #else
 	fprintf(stream, "Content-Length: %lu\r\n\r\n%s", res, content);
 #endif
 	fflush(stream);
 	return res;
 }
+
+const uint32_t bp_sendn(FILE* stream, const char* content, const uint32_t n)
+{
+#ifdef _WIN32
+	/* fprintf(stream, "Content-Length: %llu\r\n\r\n%s", res, content); */
+	fprintf(stream, "Content-Length: %u\n\n%s", n, content);
+#else
+	fprintf(stream, "Content-Length: %lu\r\n\r\n%s", n, content);
+#endif
+	return n;
+}
+
 
 
 // TODO: test the windows shit with something other than eglot

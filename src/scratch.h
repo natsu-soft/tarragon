@@ -15,9 +15,9 @@ struct arena_t* scratch_checkout(void);
 
 void scratch_checkin(struct arena_t* scratch);
 
-#ifndef CLEANUP_SCRATCH
+#ifndef SCRATCH
 static inline void _cleanup_scratch(struct arena_t** p) { scratch_checkin(*p); }
-#define CLEANUP_SCRATCH __attribute__((__cleanup__(_cleanup_scratch)))
+#define SCRATCH __attribute__((__cleanup__(_cleanup_scratch))) arena_t
 #endif
 
 #endif /* End SCRATCH_H */
