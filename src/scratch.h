@@ -7,13 +7,13 @@
 // memory leaks are a skill issue
 // so are double frees
 
-void* scratch_alloc(const uint32_t size);
-
-void* scratch_calloc(const uint32_t size);
-
 struct arena_t* scratch_checkout(void);
 
 void scratch_checkin(struct arena_t* scratch);
+
+void* scratch_alloc(const uint32_t size);
+
+void* scratch_calloc(const uint32_t size);
 
 #ifndef SCRATCH
 static inline void _cleanup_scratch(struct arena_t** p) { scratch_checkin(*p); }
