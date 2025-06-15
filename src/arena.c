@@ -15,9 +15,11 @@ void arena_init(arena_t* arena, const size_t bytes)
 
 void arena_grow(arena_t* arena, const size_t bytes)
 {
-	uint8_t* allocation = realloc(arena->allocation, bytes);
-	assert(allocation && "failed to reallocate arena more memory!");
-	arena->cap = bytes;
+	if (arena->cap >= bytes + REALLOC_OVERHEAD) return;
+	uint8_t* allocation = realloc(arena->allocation, bytes + REALLOC_OVERHEAD);
+	assert(allocation != NULL && "failed to grow arena!");
+	arena->allocation = allocation;
+	arena->cap = bytes + REALLOC_OVERHEAD;
 }
 
 void* arena_alloc(arena_t* arena, const size_t bytes)
@@ -40,7 +42,7 @@ void* arena_dynamic_alloc(arena_t* arena, const size_t bytes)
 {
 	if (arena->size + bytes > arena->cap)
 	{
-		arena_grow(arena, arena->size + bytes + REALLOC_OVERHEAD);
+		arena_grow(arena, arena->size + bytes);
 	}
 	return arena_alloc(arena, bytes);
 }
@@ -63,6 +65,14 @@ void* arena_alloc_aligned(arena_t* arena, const size_t bytes, const size_t align
 	void* addr = arena->allocation + arena->size + mod;
 	arena->size += mod + bytes;
 	return addr;
+}
+
+void arena_align2(arena_t* arena, const size_t alignment)
+{
+	assert((alignment & (alignment - 1)) == 0);
+	const size_t addr = (size_t)arena->allocation + arena->size;
+	const size_t mod = addr % (alignment - 1);
+	arena->size += mod;
 }
 
 
@@ -90,7 +100,10 @@ void* arena_pop(arena_t* arena, const size_t bytes)
 void arena_push(arena_t* arena, const void* src, const size_t bytes)
 {
 	assert(arena->cap >= arena->size + bytes);
-	memcpy(arena->allocation + arena->size, src, bytes);
+	const char* str = src;
+	void* dest = arena->allocation + arena->size;
+	assert(dest != NULL && dest + bytes != NULL && "wtf?");
+	memcpy(dest, src, bytes);
 	arena->size += bytes;
 }
 
@@ -98,7 +111,7 @@ void arena_dynamic_push(arena_t* arena, const void* src, const size_t bytes)
 {
 	if (arena->size + bytes > arena->cap)
 	{
-		arena_grow(arena, arena->size + bytes + REALLOC_OVERHEAD);
+		arena_grow(arena, arena->size + bytes);
 	}
 	arena_push(arena, src, bytes);
 }
@@ -107,4 +120,13 @@ void arena_dynamic_push(arena_t* arena, const void* src, const size_t bytes)
 void* arena_peek(arena_t* arena, const size_t bytes)
 {
 	return arena->allocation + arena->size - bytes;
+}
+
+void arena_cat(arena_t* arena0, const arena_t* other)
+{
+	if (arena0->size + other->size < arena0->cap)
+	{
+		arena_grow(arena0, arena0->size + other->size);
+	}
+	memcpy(arena0->allocation + arena0->size, other->allocation, other->size);
 }

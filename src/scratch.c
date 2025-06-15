@@ -1,6 +1,6 @@
 #include "scratch.h"
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <assert.h>
 #include "logger.h"
@@ -9,15 +9,17 @@
 #define SCRATCH_OVERHEAD 4096
 #define NUM_SCRATCHPADS 16
 
-struct
+static struct
 {
-	arena_t arenas[NUM_SCRATCHPADS];
+	arena_t* arenas;
 	uint16_t availability_mask;
-} scratch_table;
+} scratch_table = {0};
 
 
 __attribute__((constructor)) static void scratch_init(void)
 {
+	scratch_table.arenas = calloc(NUM_SCRATCHPADS, sizeof *scratch_table.arenas);
+	assert(scratch_table.arenas && "scratch_init(): failed to allocate scratch arenas! How are you ALREADY out of memory?");
 	arena_init(scratch_table.arenas, SCRATCH_OVERHEAD);
 	scratch_table.availability_mask = ~0;
 }
@@ -32,7 +34,8 @@ arena_t* scratch_checkout(void)
 			return scratch_table.arenas + i;
 		}
 	}
-	assert(NULL && "out of scratchpad arenas :(");
+	ERROR("OUT OF SCRATCHPADS!");
+	assert(0 && "out of scratchpad arenas :(");
 	return NULL;
 }
 
@@ -45,11 +48,12 @@ static void* table_peek(void)
 			return scratch_table.arenas + i;
 		}
 	}
-	assert(NULL && "out of scratchpad arenas :(");
+	ERROR("OUT OF SCRATCHPADS!");
+	assert(0 && "out of scratchpad arenas :(");
 	return NULL;
 }
 
-void scratch_checkin(arena_t* arena)
+void scratch_checkin(const arena_t* arena)
 {
 	for (uint8_t i = 0; i < NUM_SCRATCHPADS; ++i)
 	{
@@ -59,6 +63,12 @@ void scratch_checkin(arena_t* arena)
 		}
 	}
 }
+
+void scratch_checkin_all(void)
+{
+	scratch_table.availability_mask = ~0;
+}
+
 
 void* scratch_alloc(const uint32_t size)
 {
@@ -89,23 +99,20 @@ int scratch_test (int argc, char** argv)
 		/* assert(scratch->cap == 0); */
 		assert(scratch->size == 0);
 	}
-	arena_t* s0 = scratch_checkout();
-	SCRATCH* s1 = scratch_checkout();
-	SCRATCH* s2 = scratch_checkout();
-	SCRATCH* s3 = scratch_checkout();
-	SCRATCH* s4 = scratch_checkout();
-	SCRATCH* s5 = scratch_checkout();
-	SCRATCH* s6 = scratch_checkout();
-	SCRATCH* s7 = scratch_checkout();
-	SCRATCH* s8 = scratch_checkout();
-	SCRATCH* s9 = scratch_checkout();
-	SCRATCH* s10 = scratch_checkout();
-	SCRATCH* s11 = scratch_checkout();
-	SCRATCH* s12 = scratch_checkout();
-	SCRATCH* s13 = scratch_checkout();
-	SCRATCH* s14 = scratch_checkout();
-	SCRATCH* s15 = scratch_checkout();
-	scratch_checkin(s0);
-	SCRATCH* s16 = scratch_checkout();
+	for (uint8_t i = 0; i < NUM_SCRATCHPADS; ++i)
+	{
+		arena_t* scratch = scratch_checkout();
+		arena_dynamic_push(scratch, "foo bar baz bru\0", 16);
+		/* printf("%d: %s\n", i, scratch->allocation); */
+	}
+	scratch_checkin_all();
+	for (uint8_t i = 0; i < NUM_SCRATCHPADS; ++i)
+	{
+		arena_t* scratch = scratch_checkout();
+		/* printf("%d: %s\n", i, scratch->allocation); */
+		const uint32_t cap = scratch->cap;
+		const void* addr0 = scratch->allocation;
+	}
+	scratch_checkin_all();
 	return 0;
 }

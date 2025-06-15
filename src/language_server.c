@@ -70,23 +70,28 @@ void handle_initialize(FILE* out, const rpc_t* rpc)
 {
 	LOG("received an initialize request!");
 	arena_t* scratch = scratch_checkout();
-	LOG("scratch: %x, allocation: %x", scratch, scratch->allocation);
-	#define JS_ARENA scratch
-/* 	JSON_RPC( */
-/* 		JS_MEMBER_MACRO(capabilities, JS_OBJECT(), COMMA) */
-/* 		JS_MEMBER_MACRO(serverInfo, JS_OBJECT( */
-/* 							JS_MEMBER(name, "tarragon") */
-/* 							JS_MEMBER(version, "0.0.lmao") */
-/* 							))) */
-/* 	/\* respond(out, JS_DUMP, scratch->size - 1); *\/ */
-/* 		LOG("intiialize response:\n%s", JS_DUMP); */
-/* #undef JS_ARENA */
-	/* JS_OBJECT() */
-		/* char* bar = JS_DUMP; */
-	#undef JS_ARENA
-        LOG("foo!");
+	assert(scratch && "U FOKN WOT");
+	assert(scratch->allocation);
+	const void* addr0 = scratch->allocation;
+	assert(scratch);
+	arena_grow(scratch, 5);
+	const void* addr1 = scratch->allocation;
+	char* temp = arena_alloc(scratch, 5);
+	temp[0] = 'H';
+	temp[1] = 'E';
+	temp[2] = 'L';
+	temp[3] = 'P';
+	temp[4] = '\0';
+	/* memcpy(temp, "HELP\0", 5); */
+	/* LOG("scratch: %x, allocation: %x", scratch, scratch->allocation); */
+	/* #define JS_ARENA scratch */
+	/* arena_dynamic_push(scratch, "HALP\0", 4); */
+	/* char* msg = JS_DUMP; */
+	LOG("%s", temp);
+	/* #undef JS_ARENA */
+	LOG("foo!");
 	lsp.state = LSP_INITIALIZING;
-	/* scratch_checkin(scratch); */
+	scratch_checkin(scratch);
 }
 
 void handle_initialized(FILE* out, const rpc_t* rpc)
