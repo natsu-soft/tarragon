@@ -17,6 +17,8 @@ void* scratch_alloc(const uint32_t size);
 
 void* scratch_calloc(const uint32_t size);
 
+void scratch_audit(void);
+
 
 #ifndef SCRATCH
 static inline void _cleanup_scratch(struct arena_t** p) { scratch_checkin(*p); }

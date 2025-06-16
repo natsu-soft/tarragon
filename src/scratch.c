@@ -31,7 +31,9 @@ arena_t* scratch_checkout(void)
 		if (scratch_table.availability_mask & (1 << i))
 		{
 			scratch_table.availability_mask ^= 1 << i;
-			return scratch_table.arenas + i;
+			arena_t* res = scratch_table.arenas + i;
+			res->size = 0;
+			return res;
 		}
 	}
 	ERROR("OUT OF SCRATCHPADS!");
@@ -45,7 +47,9 @@ static void* table_peek(void)
 	{
 		if (scratch_table.availability_mask & (1 << i))
 		{
-			return scratch_table.arenas + i;
+			arena_t* res = scratch_table.arenas + i;
+			res->size = 0;
+			return res;
 		}
 	}
 	ERROR("OUT OF SCRATCHPADS!");
@@ -114,5 +118,16 @@ int scratch_test (int argc, char** argv)
 		const void* addr0 = scratch->allocation;
 	}
 	scratch_checkin_all();
+	scratch_audit();
 	return 0;
+}
+
+void scratch_audit(void)
+{
+	uint8_t cum = 0;
+	for (uint8_t i = 0; i < NUM_SCRATCHPADS; ++i)
+	{
+		if (scratch_table.availability_mask & (1 << i)) ++cum;
+	}
+	printf("%d/%d scratchpads available\n", cum, NUM_SCRATCHPADS);
 }
