@@ -124,11 +124,11 @@ void* arena_peek(arena_t* arena, const size_t bytes)
 
 void arena_cat(arena_t* arena0, const arena_t* arena1)
 {
-	if (arena0->size + arena1->size < arena0->cap)
+	if (arena0->size + arena1->size > arena0->cap)
 	{
-		uint8_t* temp = realloc(arena0->allocation, arena0->size + arena1->size);
-		assert(temp);
-		arena0->allocation = temp;
+		uint8_t* addr = realloc(arena0->allocation, arena0->size + arena1->size);
+		assert(addr != NULL && "failed to reallocate memory for arena in arena_cat()");
+		arena0->allocation = addr;
 		arena0->cap = arena0->size + arena1->size;
 		/* arena_grow(arena0, arena0->size + other->size); */
 	}
