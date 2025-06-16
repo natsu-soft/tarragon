@@ -30,33 +30,35 @@ static void parse_rpc (char* str, int len, rpc_t* rpc)
 		return;
 	}
 	char* key;
+	uint32_t key_len;
 	json_t tmp = {0};
 	rpc->id[0] = '\0';
-	while ((res = json_next_key(&json, &key)) & JSON_KEY)
+	while ((res = json_next_key(&json, &key, &key_len)) & JSON_KEY)
 	{
-		if (strncmp(key, "id", 2) == 0)
+		if (strncmp(key, "id", key_len) == 0)
 		{
 			res = json_next_value(&json, &tmp); // assume the LSP client is to spec.
-			memcpy(rpc->id, *tmp.tokens, strlen(*tmp.tokens));
+			memcpy(rpc->id, tmp.tokens->string, tmp.tokens->len);
+			rpc->id[tmp.tokens->len] = '\0';
 		}
-		else if (strncmp(key, "method", 6) == 0)
+		else if (strncmp(key, "method", key_len) == 0)
 		{
 			res = json_next_value(&json, &tmp); // assume the LSP client is to spec.
 			char* method;
-			assertf(json_c(&method, &tmp), "Failed to convert token \"%s\" to a char*\n", tmp.tokens[0]);
-			if (strncmp(method, "initialize", 10) == 0)
+			assertf(json_c(&method, &tmp), "Failed to convert token \"%s\" to a char*\n", tmp.tokens->string);
+			if (strcmp(method, "initialize") == 0)
 			{
 				rpc->method = INITIALIZE;
 			}
-			else if (strncmp(method, "initialized", 11) == 0)
+			else if (strcmp(method, "initialized") == 0)
 			{
 				rpc->method = INITIALIZED;
 			}
-			else if (strncmp(method, "shutdown", 8) == 0)
+			else if (strcmp(method, "shutdown") == 0)
 			{
 				rpc->method = SHUTDOWN;
 			}
-			else if (strncmp(method, "exit", 4) == 0)
+			else if (strcmp(method, "exit") == 0)
 			{
 				rpc->method = EXIT;
 			}
@@ -65,7 +67,7 @@ static void parse_rpc (char* str, int len, rpc_t* rpc)
 				rpc->method = UNKNOWN;
 			}
 		}
-		else if (strncmp(key, "params", 6) == 0)
+		else if (strncmp(key, "params", key_len) == 0)
 		{
 			res = json_next_value(&json, &tmp);
 			switch(rpc->method)
@@ -100,8 +102,9 @@ static void initialize_params(rpc_t* rpc, json_t* json)
 	// the process with PID 0 is responsible for paging, ergo it is NOT the parent process id (so keep using ur unsigned int u degenerate)
 	json_id_t res = {0};
 	char* key;
+	uint32_t key_len;
 	json_t tmp = {0};
-	while ((res = json_next_key(json, &key)) & JSON_KEY)
+	while ((res = json_next_key(json, &key, &key_len)) & JSON_KEY)
 	{
 		if (strncmp(key, "processId", 9) == 0)
 		{
