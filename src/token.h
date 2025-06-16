@@ -5,7 +5,7 @@
 
 typedef struct  token_t
 {
-	const char* string;
+	char* string;
 	uint32_t pos;
 	uint32_t len;
 } token_t;
