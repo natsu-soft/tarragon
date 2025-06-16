@@ -36,6 +36,7 @@ void arena_dynamic_push(arena_t* arena, const void* src, const size_t bytes);
 
 void* arena_peek(arena_t* arena, const size_t bytes);
 
+// tight pack cat
 void arena_cat(arena_t* arena0, const arena_t* arena1);
 
 #endif /* End ARENA_H */

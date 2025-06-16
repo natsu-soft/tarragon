@@ -122,11 +122,16 @@ void* arena_peek(arena_t* arena, const size_t bytes)
 	return arena->allocation + arena->size - bytes;
 }
 
-void arena_cat(arena_t* arena0, const arena_t* other)
+void arena_cat(arena_t* arena0, const arena_t* arena1)
 {
-	if (arena0->size + other->size < arena0->cap)
+	if (arena0->size + arena1->size < arena0->cap)
 	{
-		arena_grow(arena0, arena0->size + other->size);
+		uint8_t* temp = realloc(arena0->allocation, arena0->size + arena1->size);
+		assert(temp);
+		arena0->allocation = temp;
+		arena0->cap = arena0->size + arena1->size;
+		/* arena_grow(arena0, arena0->size + other->size); */
 	}
-	memcpy(arena0->allocation + arena0->size, other->allocation, other->size);
+	memcpy(arena0->allocation + arena0->size, arena1->allocation, arena1->size);
+	arena0->size += arena1->size;
 }
