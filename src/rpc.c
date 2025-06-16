@@ -64,6 +64,7 @@ static void parse_rpc (char* str, int len, rpc_t* rpc)
 			}
 			else
 			{
+				ERROR("rpc contains an unknown method: %s", method);
 				rpc->method = UNKNOWN;
 			}
 		}
@@ -79,21 +80,22 @@ static void parse_rpc (char* str, int len, rpc_t* rpc)
 			}
 		}
 	}
-	if (rpc->id[0] == '\0')
-	{
-		ERROR("rpc does not contain an id!");
-		return;
-	}
+	/* not required, actually */
+	/* if (rpc->id[0] == '\0') */
+	/* { */
+	/* 	ERROR("rpc does not contain an id!"); */
+	/* 	return; */
+	/* } */
 	if (rpc->method == NO_METHOD)
 	{
 		ERROR("rpc does not contain a method key!");
 		return;
 	}
-	else if (rpc->method == UNKNOWN)
-	{
-		ERROR("rpc contains an unknown method!");
-		return;
-	}
+	/* else if (rpc->method == UNKNOWN) */
+	/* { */
+	/* 	ERROR("rpc contains an unknown method!"); */
+	/* 	return; */
+	/* } */
 	// TODO: param checking.
 }
 
