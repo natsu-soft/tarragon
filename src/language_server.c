@@ -148,8 +148,8 @@ void handle(FILE* out, const rpc_t* rpc)
 	case EXIT:
 		handle_exit(out, rpc);
 		break;
-	default:
-		LOG("unknown method!");
+	/* default: */
+		/* LOG("unknown method!"); */
 	}
 }
 
