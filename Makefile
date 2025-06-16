@@ -26,7 +26,7 @@ OBJ += $(HEX_OBJS) $(JSON_OBJS)
 
 .PHONY: default dependencies clean clean-dep clean-emacs clean-api clean-all dep_dir obj_dirs lsp-test jansson-test test test2 test/%
 
-default: unit-tests
+default: tarragon
 
 test/%:
 	cat src/$*.c | sed 's/$*_test/main/' | $(CC) $(CFLAGS) -o test_$(patsubst %.c,%,$*) -Isrc -x c -
