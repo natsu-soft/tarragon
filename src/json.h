@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <string.h>
+#include "token.h"
 
 #ifdef _WIN32
 typedef struct _iobuf FILE;
@@ -11,41 +12,41 @@ typedef struct _IO_FILE FILE;
 #endif
 
 #define JSON_STRUCTURE_LIST	\
-	JSON_X('{', JSON_OBJECT_START) \
-	JSON_X('}', JSON_OBJECT_END) \
-	JSON_X('[', JSON_ARRAY_START) \
-	JSON_X(']', JSON_ARRAY_END) \
-	JSON_X(':', JSON_NAME_SEP) \
-	JSON_X(',', JSON_VALUE_SEP)
+	X('{', JSON_OBJECT_START) \
+	X('}', JSON_OBJECT_END) \
+	X('[', JSON_ARRAY_START) \
+	X(']', JSON_ARRAY_END) \
+	X(':', JSON_NAME_SEP) \
+	X(',', JSON_VALUE_SEP)
 
 #define JSON_IDS								       \
-	JSON_X(JSON_ERROR,        0x0000)	\
-	JSON_X(JSON_OBJECT_START, 0x0004)	\
-	JSON_X(JSON_OBJECT_END,   0x0008)	\
-	JSON_X(JSON_ARRAY_START,  0x0010)   \
-	JSON_X(JSON_ARRAY_END,    0x0020)	\
-	JSON_X(JSON_NAME_SEP,     0x0040)	\
-	JSON_X(JSON_VALUE_SEP,    0x0080)	\
-	JSON_X(JSON_NUMBER,       0x0100)	\
-	JSON_X(JSON_INTEGER,      0x0101)	\
-	JSON_X(JSON_FLOAT,        0x0102)	\
-	JSON_X(JSON_STRING,       0x0200)	\
-	JSON_X(JSON_NULL,         0x0400)	\
-	JSON_X(JSON_BOOL,         0x0800)	\
-	JSON_X(JSON_TRUE,         0x0801)	\
-	JSON_X(JSON_FALSE,        0x0802)	\
-	JSON_X(JSON_SUCCESS,      0x1000) \
+	X(JSON_ERROR,        0x0000)	\
+	X(JSON_OBJECT_START, 0x0004)	\
+	X(JSON_OBJECT_END,   0x0008)	\
+	X(JSON_ARRAY_START,  0x0010)   \
+	X(JSON_ARRAY_END,    0x0020)	\
+	X(JSON_NAME_SEP,     0x0040)	\
+	X(JSON_VALUE_SEP,    0x0080)	\
+	X(JSON_NUMBER,       0x0100)	\
+	X(JSON_INTEGER,      0x0101)	\
+	X(JSON_FLOAT,        0x0102)	\
+	X(JSON_STRING,       0x0200)	\
+	X(JSON_NULL,         0x0400)	\
+	X(JSON_BOOL,         0x0800)	\
+	X(JSON_TRUE,         0x0801)	\
+	X(JSON_FALSE,        0x0802)	\
+	X(JSON_SUCCESS,      0x1000) \
 	/* GOTTA GO FAST */ \
-	JSON_X(JSON_KEY,   0x2000) \
-	JSON_X(JSON_VALUE, 0x4000)
+	X(JSON_KEY,   0x2000) \
+	X(JSON_VALUE, 0x4000)
 	/* JSON_X(JSON_ARRAY_ITEM,   0x8000) \ */
 
 
 typedef enum json_id_t
 {
-	#define JSON_X(NAME, VALUE) NAME = VALUE,
+	#define X(NAME, VALUE) NAME = VALUE,
 	JSON_IDS
-	#undef JSON_X
+	#undef X
 	JSON_NESTED_START = JSON_OBJECT_START | JSON_ARRAY_START,
 	JSON_SINGLE_TOKEN_VALUE = JSON_NUMBER | JSON_STRING | JSON_NULL | JSON_BOOL,
 	JSON_ALL_VALUES = JSON_NESTED_START | JSON_SINGLE_TOKEN_VALUE
@@ -57,7 +58,7 @@ typedef enum json_id_t
 
 typedef struct json_t
 {
-	char** tokens;
+	token_t* tokens;
 	json_id_t* ids;
 	uint32_t num_tokens;
 	uint32_t pos;
@@ -67,14 +68,15 @@ typedef struct arena_t arena_t;
 
 json_id_t json_parse(json_t* json, arena_t* arena, const char* src, const uint32_t len);
 
-json_id_t json_next_key(json_t* json, char** key);
+json_id_t json_next_key(json_t* json, char** key, uint32_t* key_len);
 
+// NOTE: USE STRNCMP OTHERWISE UR TURBO FUCKED.
 json_id_t json_next_value(json_t* json, json_t* value); // for both objects AND arrays
 
+// NOTE: uses a scratch backing for a string, so memcpy it if you need it elsewhere
 uint8_t json_c(void* dest, const json_t* json);
 
-// NOTE: NEVER free--I'm arena chadding this, just REUSE the memory lmao
-/* void json_free(json_t* json); // NOTE: have to free **tokens and *ids individually! */
+
 
 /* NOTE
  * These might come to bite me in the ass, but for now I like them.
@@ -127,7 +129,7 @@ uint8_t json_c(void* dest, const json_t* json);
 	arena_dynamic_push(JS_ARENA, VAR, strlen(VAR)); \
 	__VA_ARGS__
 
-#define JS_DUMP (arena_dynamic_push(JS_ARENA, "\0", 1), JS_ARENA->allocation)
+#define JS_TERMINATE (arena_dynamic_push(JS_ARENA, "\0", 1), JS_ARENA->allocation)
 
 
 #endif /* End JSON_H */

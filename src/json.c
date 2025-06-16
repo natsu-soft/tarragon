@@ -1,58 +1,33 @@
 #include "json.h"
-#include <stdio.h>
+
 #include <stdint.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <ctype.h>
 #include <assert.h>
-#include "file_sys.h"
 #include "token.h"
 #include "arena.h"
 #include "scratch.h"
+#include "logger.h"
 
-#define TOKENIZE_RESIZE_OVERHEAD 2048
 
-/* struct token_ll */
-/* { */
-/* 	struct token_ll *next; */
-/* 	token_t* token; */
-/* }; */
-
+static void make_token(arena_t *token_arena, arena_t *id_arena, const char *src,  const uint32_t pos, const uint32_t len, const uint32_t line, const uint32_t col);
 static json_id_t id_token(const token_t* token, const uint32_t line, const uint32_t col);
-
-/* static struct token_ll* new_token(arena_t* arena, const char* src, const uint32_t n, const int line, const int col); */
-
-static void make_token(arena_t* token_arena, arena_t* id_arena, const char* src, const uint32_t pos, const uint32_t len, const uint32_t line, const uint32_t col);
-
 static uint32_t tokenize(token_t** tokens, json_id_t** ids, arena_t* arena, const char* src, const int n);
-
 static uint32_t find_end(const json_id_t closing_id, const json_id_t* ids, const token_t* token, const uint32_t num, const char* src);
-
 static uint32_t find_end_quiet(const json_id_t closing_id, const json_id_t* ids, const uint32_t num);
-
 static uint16_t analyze_object(json_id_t* ids, const token_t* tokens, const uint32_t num, const char* src);
-
 static uint16_t analyze_array(json_id_t* ids, const token_t* tokens, const uint32_t num, const char* src);
 
-#define JSON_CHARS \
-	JSON_CHAR('{') ||  \
-	JSON_CHAR('}') ||  \
-	JSON_CHAR('[') ||  \
-	JSON_CHAR(']') ||  \
-	JSON_CHAR(',') ||  \
-	JSON_CHAR(':')
 
-#define DIGITS  \
-	DIGIT_X('0') && \
-	DIGIT_X('1') && \
-	DIGIT_X('2') && \
-	DIGIT_X('3') && \
-	DIGIT_X('4') && \
-	DIGIT_X('5') && \
-	DIGIT_X('6') && \
-	DIGIT_X('7') && \
-	DIGIT_X('8') && \
-	DIGIT_X('9')
+#define JSON_CHAR(CHAR) \
+	'{' == CHAR || \
+	'}' == CHAR || \
+	'[' == CHAR || \
+	']' == CHAR || \
+	',' == CHAR || \
+	':' == CHAR
 
 #define MATCH_DEPTH \
 	else if (id & JSON_OBJECT_START) \
@@ -76,24 +51,10 @@ static uint16_t analyze_array(json_id_t* ids, const token_t* tokens, const uint3
 	}
 
 
-/* static struct token_ll* new_token(arena_t* arena, const char* src, const uint32_t n, const int line, const int col) */
-/* { */
-/* 	struct token_ll* res = arena_alloc(arena, sizeof *res); */
-/* 	res->next = NULL; */
-/* 	token_t* token = arena_alloc(arena, sizeof *token); */
-/* 	token->line = line; */
-/* 	token->col = col - n; */
-/* 	char* str = arena_alloc(arena, n + 1); */
-/* 	memcpy(str, src, n); */
-/* 	str[n] = '\0'; */
-/* 	token->string = str; */
-/* 	res->token = token; */
-/* 	return res; */
-/* } */
 
-static void make_token(arena_t* token_arena, arena_t* id_arena, const char* src, const uint32_t pos, const uint32_t len, const uint32_t line, const uint32_t col)
+static void make_token(arena_t* token_arena, arena_t* id_arena, const char* src,  const uint32_t pos, const uint32_t len, const uint32_t line, const uint32_t col)
 {
-	token_t* token = arena_alloc(token_arena, sizeof *token);
+	token_t* token = arena_dynamic_alloc(token_arena, sizeof *token);
 	token->string = src + pos;
 	token->pos = pos;
 	token->len = len;
@@ -103,196 +64,8 @@ static void make_token(arena_t* token_arena, arena_t* id_arena, const char* src,
 	const uint8_t str_flag = token_id == JSON_STRING;
 	token->string += str_flag;
 	token->pos += str_flag;
-	token->len -= str_flag;
-	json_id_t* id = arena_alloc(id_arena, sizeof *id);
-	*id = token_id;
-}
-
-
-static uint32_t tokenize(token_t** tokens, json_id_t** ids, arena_t* arena, const char* src, const int n)
-{
-	/* printf("-- json size: %d bytes\n", n); */
-	if (arena == NULL || src == NULL || *tokens != NULL) return 0;
-	enum {
-		CHAR_TOKEN = 0x00,
-		BASIC_TOKEN,
-		STRING_TOKEN
-	} token_flag = CHAR_TOKEN;
-	uint32_t pos = 0;
-	uint32_t num_tokens = 0;
-	/* uint32_t num_chars = 0; */
-	#define JSON_CHAR(C) c == C
-	for (int i = 0; i < n; ++i)
-	{
-		char c = src[i];
-		switch (token_flag)
-		{
-		case STRING_TOKEN:
-			if (c == '"' && src[i - 1] != '\\')
-			{
-				/* int len = i - pos + 1; */
-				num_tokens += 1;
-				/* num_chars += len - 1; // NOTE: doing this to exclude the quotes around strings */
-				token_flag = CHAR_TOKEN;
-            }
-            break;
-		case BASIC_TOKEN:
-			if(isspace(c) || JSON_CHARS)
-			{
-				/* int len = i - pos; */
-				num_tokens += 1;
-				/* num_chars += len + 1; */
-				token_flag = CHAR_TOKEN;
-				__attribute__((fallthrough));
-			}
-			else {
-				break;
-			}
-	   default:
-		   if (JSON_CHARS)
-		   {
-				num_tokens += 1;
-				/* num_chars += 2; */
-		   }
-		   else if (!isspace(c))
-		   {
-			   pos = i;
-			   token_flag = c == '"' ? STRING_TOKEN : BASIC_TOKEN;
-		   }
-		}
-	}
-	/* const size_t req_size = num_tokens * (sizeof **tokens + sizeof **ids) + num_chars; */
-	const size_t req_size = num_tokens * (sizeof **tokens + sizeof **ids);
-	if (arena->cap < req_size)
-	{
-		if (arena->allocation != NULL)
-		{
-			free(arena->allocation);
-		}
-		arena->allocation = malloc(req_size + TOKENIZE_RESIZE_OVERHEAD);
-		arena->cap = req_size;
-	}
-	arena->size = 0;
-	// NOTE: has to be in THIS order or get fucked by alignment
-	arena_t token_arena =
-	{
-		.allocation = arena->allocation,
-		.cap = num_tokens * sizeof **tokens
-	};
-	arena_t id_arena =
-	{
-		.allocation = token_arena.allocation + token_arena.cap,
-		.cap = num_tokens * sizeof **ids
-	};
-	/* arena_t char_arena = */
-	/* { */
-	/* 	.memory = id_arena.memory + id_arena.cap, */
-	/* 	.cap = num_chars */
-	/* }; */
-	// TODO: better upper bound for how much space the arena will need
-	/* arena_init(&a, 16 * n); // NOTE: if segfault just give it more memory why not fuck it we ball */
-	/* struct token_ll** token = &a.memory; //  What do I use this for? PROPER LINKAGE */
-	uint32_t line = 1;
-	uint32_t col = 1;
-	pos = 0;
-	for (int i = 0; i < n; ++i)
-	{
-		char c = src[i];
-		if (c == '\n')
-		{
-			++line;
-			col = 1;
-		}
-		switch (token_flag)
-		{
-		case STRING_TOKEN:
-			if (c == '"' && src[i - 1] != '\\')
-			{
-				int len = i - pos + 1;
-				/* *token = new_token(&a, src + pos, len, line, col); */
-				make_token(&token_arena, &id_arena, src, pos, len, line, col);
-				/* token = &(*token)->next; */
-				/* num_tokens += 1; */
-				/* num_chars += len + 1; */
-				/* num_chars += len - 1; // NOTE: doing this to exclude the quotes around strings */
-				token_flag = CHAR_TOKEN;
-            }
-            break;
-		case BASIC_TOKEN:
-			if(isspace(c) || JSON_CHARS)
-			{
-				int len = i - pos;
-				make_token(&token_arena, &id_arena, src, pos, len, line, col);
-				/* *token = new_token(&a, src + pos, len, line, col); */
-				/* token = &(*token)->next; */
-				/* num_tokens += 1; */
-				/* num_chars += len + 1; */
-				token_flag = CHAR_TOKEN;
-				__attribute__((fallthrough));
-			}
-			else {
-				break;
-			}
-	   default:
-		   if (JSON_CHARS)
-		   {
-			   make_token(&token_arena, &id_arena, src, i, 1, line, col);
-				/* *token = new_token(&a, src + i, 1, line, col); */
-				/* token = &(*token)->next; */
-				/* num_tokens += 1; */
-				/* num_chars += 2; */
-		   }
-		   else if (!isspace(c))
-		   {
-			   pos = i;
-			   token_flag = c == '"' ? STRING_TOKEN : BASIC_TOKEN;
-		   }
-		}
-		++col;
-	}
-	#undef JSON_CHAR
-	// NOTE: ALIGNMENT!!!! WOW! ITS REAL!
-	/* arena_t token_arena = */
-	/* { */
-	/* 	.memory = malloc(num_tokens * sizeof **tokens), */
-	/* 	.cap = num_tokens * sizeof **tokens */
-	/* }; */
-	/* uint8_t* addr = malloc(num_chars + num_tokens * sizeof **ids); */
-	/* arena_t id_arena = */
-	/* { */
-	/* 	.memory = addr, */
-	/* 	.cap = num_tokens * sizeof(json_id_t) */
-	/* }; */
-	/* arena_t char_arena = */
-	/* { */
-	/* 	.memory = id_arena.memory + id_arena.cap, */
-	/* 	.cap = num_chars */
-	/* }; */
-	/* for (struct token_ll* t = a.memory /\* DOPAMINE DOPAMINE DOPAMINE *\/; t != NULL; t = t->next) */
-	/* { */
-	/* 	token_t* t_tok = t->token; */
-	/* 	token_t* token = arena_alloc(&token_arena, sizeof *token); */
-	/* 	json_id_t* id = arena_alloc(&id_arena, sizeof *id); */
-	/* 	*id = id_token(t_tok); */
-	/* 	token->col = t_tok->col; */
-	/* 	token->line = t_tok->line; */
-	/* 	int n = strlen(t_tok->string) + 1; */
-	/* 	if (*id == JSON_STRING) */
-	/* 	{ */
-	/* 		token->string = arena_alloc(&char_arena, n - 2); */
-	/* 		memcpy(token->string, t_tok->string + 1, n - 2); */
-	/* 		token->string[n - 3] = '\0'; */
-	/* 	} */
-	/* 	else */
-	/* 	{ */
-	/* 		token->string = arena_alloc(&char_arena, n); */
-	/* 		memcpy(token->string, t_tok->string, n); */
-	/* 	} */
-	/* } */
-	/* free(a.memory); */
-	*tokens = token_arena.allocation;
-	*ids = id_arena.allocation;
-	return num_tokens;
+	token->len -= str_flag << 1;
+	arena_dynamic_push(id_arena, &token_id, sizeof token_id);
 }
 
 static json_id_t id_token(const token_t* token, const uint32_t line, const uint32_t col)
@@ -301,11 +74,12 @@ static json_id_t id_token(const token_t* token, const uint32_t line, const uint3
 	char* str = alloca(n + 1);
 	memcpy(str, token->string, n);
 	str[n] = '\0';
+	/* printf("token: %s\n", str); */
 	switch (str[0])
 	{
-	#define JSON_X(C, A) case C: return A;
+	#define X(C, A) case C: return A;
 	JSON_STRUCTURE_LIST
-	#undef JSON_X
+	#undef X
 	case '-': __attribute__((fallthrough));
 	case '0' ... '9':
 		{
@@ -329,13 +103,11 @@ static json_id_t id_token(const token_t* token, const uint32_t line, const uint3
 					fprintf(stderr, "[NERD] LMAO: This parser doesn't support scientific notation, LOSER!\n%d:%d %s\n", line, col + i, str);
 					return JSON_ERROR;
 				}
-				#define DIGIT_X(C) str[i] != C
-				else if(DIGITS)
+				else if(str[i] < '0' || '9' < str[i])
 				{
 					fprintf(stderr, "[JSON] ERROR: Numbers can only contain digits and a single decimal point!\n%d:%d %s\n", line, col + i, str);
 					return JSON_ERROR;
 				}
-				#undef DIGIT_X
 			}
 			return int_flag ? JSON_INTEGER : JSON_FLOAT;
 		}
@@ -376,6 +148,77 @@ static json_id_t id_token(const token_t* token, const uint32_t line, const uint3
 	}
 	return JSON_ERROR;
 }
+
+static uint32_t tokenize(token_t** tokens, json_id_t** ids, arena_t* arena, const char* src, const int n)
+{
+	/* printf("-- json size: %d bytes\n", n); */
+	/* if (arena == NULL || src == NULL || *tokens != NULL) return 0; */
+	enum {
+		CHAR_TOKEN = 0x00,
+		BASIC_TOKEN,
+		STRING_TOKEN
+	} token_flag = CHAR_TOKEN;
+	uint32_t num_tokens = 0;
+	uint32_t line = 1;
+	uint32_t col = 1;
+	uint32_t pos = 0;
+	arena->size = 0;
+	SCRATCH* id_arena = scratch_checkout();
+	for (int i = 0; i < n; ++i)
+	{
+		char c = src[i];
+		if (c == '\n')
+		{
+			++line;
+			col = 1;
+		}
+		switch (token_flag)
+		{
+		case STRING_TOKEN:
+			if (c == '"' && src[i - 1] != '\\')
+			{
+				int len = i - pos + 1;
+				make_token(arena, id_arena, src, pos, len, line, col);
+				++num_tokens;
+				token_flag = CHAR_TOKEN;
+			}
+			break;
+		case BASIC_TOKEN:
+			if(isspace(c) || JSON_CHAR(c))
+			{
+				int len = i - pos;
+				make_token(arena, id_arena, src, pos, len, line, col);
+				++num_tokens;
+				token_flag = CHAR_TOKEN;
+				__attribute__((fallthrough));
+			}
+			else {
+				break;
+			}
+		default:
+			if (JSON_CHAR(c))
+			{
+				make_token(arena, id_arena, src, i, 1, line, col);
+				++num_tokens;
+			}
+			else if (!isspace(c))
+			{
+				pos = i;
+				token_flag = c == '"' ? STRING_TOKEN : BASIC_TOKEN;
+			}
+		}
+		++col;
+	}
+	// POSTERITY NOTE: ALIGNMENT!!!! WOW! ITS REAL!
+	arena_cat(arena, id_arena);
+	*tokens = arena->allocation;
+	*ids = *tokens + num_tokens;
+	token_t* temp = *tokens;
+	/* *tokens = token_arena->allocation; */
+	/* *ids = id_arena->allocation; */
+	return num_tokens;
+}
+
 
 static uint32_t find_end(const json_id_t closing_id, const json_id_t* ids, const token_t* token, const uint32_t num, const char* src)
 {
@@ -708,15 +551,17 @@ static json_id_t subtokens_at(json_t* dest, const json_t* src, const uint32_t po
 	return JSON_ERROR;
 }
 
-json_id_t json_next_key(json_t* json, char** key)
+json_id_t json_next_key(json_t* json, char** key, uint32_t* key_len)
 {
 	uint32_t depth = 0;
 	if (json->pos == 0) json->pos = 1;
 	for (uint32_t i = json->pos; i < json->num_tokens - 1; ++i) {
-		json_id_t id = json->ids[i];
+		const json_id_t id = json->ids[i];
 		if (id & JSON_KEY && depth == 0)
 		{
-			*key = json->tokens[i];
+			token_t token = json->tokens[i];
+			*key = token.string;
+			*key_len = token.len;
 			json->pos = i + 1;
 			return JSON_SUCCESS | id;
 		}
@@ -733,10 +578,10 @@ json_id_t json_next_value(json_t* json, json_t* value)
 	if (json->pos == 0) json->pos = 1;
 	for (uint32_t i = json->pos; i < json->num_tokens - 1; ++i)
 	{
-		json_id_t id = json->ids[i];
+		const json_id_t id = json->ids[i];
 		if (id & JSON_VALUE && depth == 0)
 		{
-			json_id_t res = subtokens_at(value, json, i);
+			const json_id_t res = subtokens_at(value, json, i);
 			if (res)
 			{
 				json->pos += value->num_tokens + 1;
@@ -754,31 +599,36 @@ uint8_t json_c(void* dest, const json_t* json)
 {
 	if (json->num_tokens == 1)
 	{
+		const token_t token = json->tokens[0];
+		const uint32_t token_len = token.len;
+		char* token_str = scratch_alloc(token_len + 1);
+		memcpy(token_str, token.string, token_len);
+		token_str[token_len] = '\0';
 		// NOTE: do NOT handle JSON_NULL--you already know its value via json_value
 		switch(json->ids[0] & JSON_SINGLE_TOKEN_VALUE)
 		{
 		case JSON_INTEGER:
 			{
 				int* p = dest;
-				*p = atoi(json->tokens[0]);
+				*p = atoi(token_str);
 			}
 			break;
 		case JSON_FLOAT:
 			{
 				float* p = dest;
-				*p = atof(json->tokens[0]);
+				*p = atof(token_str);
 			}
 			break;
 		case JSON_STRING:
 			{
-				char** p = dest;
-				*p = json->tokens[0];
+				char** s = dest;
+				*s = token_str;
 			}
 			break;
 		case JSON_BOOL:
 			{
 				unsigned char* p = dest;
-				*p = strcmp(json->tokens[0], "false"); // strcmp
+				*p = strncmp(token_str, "false", token_len); // strcmp
 			}
 			break;
 		}
@@ -789,6 +639,12 @@ uint8_t json_c(void* dest, const json_t* json)
 		return 0x00;
 	}
 }
+
+uint8_t json_str(char* dest, uint32_t len, const json_t* json)
+{
+	/* TODO */
+}
+
 
 /* void json_free(json_t* json) */
 /* { */
@@ -810,16 +666,10 @@ json_id_t json_parse(json_t* json, arena_t* arena, const char* src, const uint32
 	json_id_t res = json_syntax_analysis(ids, tokens, num_tokens, src);
 	if (res & JSON_SUCCESS)
 	{
-		/* json->tokens = malloc(num_tokens * sizeof *json->tokens); */
 		json->tokens = tokens; // DEVILISH
-		for (uint32_t i = 1; i < num_tokens; ++i)
-		{
-			json->tokens[i] = tokens[i].string;
-		}
 		json->ids = ids;
 		json->num_tokens = num_tokens;
 		json->pos = 0;
-		/* free(tokens); */
 		return res;
 	}
 	else
@@ -847,24 +697,29 @@ int json_test(int argc, char** argv)
 							JS_VAL(false)),
 						COMMA)
 		JS_MEMBER(OwO, "UwU"))
-		char* bar = JS_DUMP;
-	assert(strncmp(foo, bar, strlen(bar)) == 0);
+	char* bar = JS_TERMINATE;
+	#undef JS_ARENA
+	assert(strncmp(foo, bar, strlen(dest)) == 0);
 	printf("foo: %s\n", foo);
 	printf("bar: %s\n", bar);
 	SCRATCH* json_arena = scratch_checkout();
 	json_t json = {0};
-	json_id_t p_res = json_parse(&json, json_arena, bar, dest->size - 1);
+	json_id_t p_res = json_parse(&json, json_arena, bar, dest->size);
 	printf("parse_result: %s\n", p_res & JSON_SUCCESS ? "SUCCESS!" : "error");
 	if (p_res & JSON_SUCCESS)
 	{
 		if (p_res & JSON_OBJECT)
 		{
 			char* key;
+			uint32_t k_len;
 			json_t tmp = {0};
-			while ((p_res = json_next_key(&json, &key)) & JSON_KEY)
+			while ((p_res = json_next_key(&json, &key, &k_len)) & JSON_KEY)
 			{
 				p_res = json_next_value(&json, &tmp);
-				printf("%s: %#06x\n", key, p_res);
+				char* key_str = alloca(k_len + 1);
+				memcpy(key_str, key, k_len);
+				key_str[k_len] = '\0';
+				printf("%s: %#06x\n", key_str, p_res);
 				switch (p_res & JSON_SINGLE_TOKEN_VALUE)
 				{
 					case JSON_BOOL:
@@ -874,13 +729,13 @@ int json_test(int argc, char** argv)
 							printf("bool: %s\n", b ? "true" : "false");
 						}
 						break;
-				case JSON_STRING:
-					{
-						char* str;
-						json_c(&str, &tmp);
-						printf("string: %s\n", str);
-					}
-					break;
+					case JSON_STRING:
+						{
+							char* str;
+							json_c(&str, &tmp);
+							printf("string: %s\n", str);
+						}
+						break;
 				}
 				/* printf("value: %#06x", json_value(&json, &tmp)); */
 			}
