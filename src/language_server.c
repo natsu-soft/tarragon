@@ -21,7 +21,7 @@
 	arena_dynamic_push(JS_ARENA, "{\"jsonrpc\":\"2.0\",\"id\":", 22);	\
 	JS_VAR(rpc->id, COMMA)										\
 	BODY															\
-	arena_dynamic_push(JS_ARENA, "}", 1);							\
+	arena_dynamic_push(JS_ARENA, "}", 1)							\
 
 extern unsigned char default_config_json[];
 extern unsigned int default_config_json_len;
@@ -50,7 +50,7 @@ static struct
 static void respond(FILE* out, char* msg, const uint32_t n)
 {
 	bp_sendn(out, msg, n);
-	bp_sendn(log_fp, msg, n);
+	fflush(out);
 }
 
 // I do NOT thing this one works (mb just not with eglot)
@@ -69,29 +69,19 @@ void log_client(char* message)
 void handle_initialize(FILE* out, const rpc_t* rpc)
 {
 	LOG("received an initialize request!");
-	arena_t* scratch = scratch_checkout();
-	assert(scratch && "U FOKN WOT");
-	assert(scratch->allocation);
-	const void* addr0 = scratch->allocation;
-	assert(scratch);
-	arena_grow(scratch, 5);
-	const void* addr1 = scratch->allocation;
-	char* temp = arena_alloc(scratch, 5);
-	temp[0] = 'H';
-	temp[1] = 'E';
-	temp[2] = 'L';
-	temp[3] = 'P';
-	temp[4] = '\0';
-	/* memcpy(temp, "HELP\0", 5); */
-	/* LOG("scratch: %x, allocation: %x", scratch, scratch->allocation); */
-	/* #define JS_ARENA scratch */
-	/* arena_dynamic_push(scratch, "HALP\0", 4); */
-	/* char* msg = JS_DUMP; */
-	LOG("%s", temp);
-	/* #undef JS_ARENA */
-	LOG("foo!");
+	SCRATCH* scratch = scratch_checkout();
+	#define JS_ARENA scratch
+	JSON_RPC(
+		JS_MEMBER_MACRO(result, JS_OBJECT(
+							JS_MEMBER_MACRO(capabilities, JS_OBJECT(), COMMA)
+							JS_MEMBER_MACRO(serverInfo, JS_OBJECT(
+												JS_MEMBER(name, "tarragon", COMMA)
+												JS_MEMBER(version, "0.0.0-lmao"))))));
+	char* msg = JS_TERMINATE;
+	#undef JS_ARENA
+	LOG("initialize response: %s\n", msg);
+	respond(out, msg, scratch->size - 1);
 	lsp.state = LSP_INITIALIZING;
-	scratch_checkin(scratch);
 }
 
 void handle_initialized(FILE* out, const rpc_t* rpc)
@@ -202,6 +192,7 @@ int ls_listen(FILE* in, FILE* out)
 			LOG("exiting with code: %d", lsp.state - LSP_EXIT_0);
 			return lsp.state - LSP_EXIT_0;
 		}
+		scratch_checkin_all();
 	}
 	return 1;
 }
