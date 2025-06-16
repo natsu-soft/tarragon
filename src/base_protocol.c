@@ -89,7 +89,7 @@ static int32_t decode_nosleep(FILE* stream, char** out_json)
 			for (i = 0; i < decode_arena.size && temp[i] != ' '; ++i);
 			char* endptr = temp + decode_arena.size;
 			content_length = strtoul(temp + i + 1, &endptr, 10);
-			LOG("content_length: %d", content_length);
+			/* LOG("content_length: %d", content_length); */
 			if (content_length == 0)
 			{
 				return -1;
