@@ -4,8 +4,10 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <string.h>
+#include "gdscript_parser.h"
 #include "token.h"
 #include "arena.h"
+#include "scratch.h"
 #include "mem_sys.h"
 
 #define RESIZE_OVERHEAD  4096
@@ -33,6 +35,7 @@ static const gdscript_id_t id_token(const token_t* token);
 static void new_token(arena_t* token_arena, const char* src, const int pos, const int len);
 static const gdscript_id_t verify_number(const char* src, const uint32_t n);
 static void cull_line_continuations(token_t* tokens, gdscript_id_t* ids, uint32_t* num_tokens);
+static void classify_gdscript_tokens(token_t* tokens, gdscript_id_t* ids, const uint32_t n);
 
 static void do_nothing_with_token(const token_t* t, const char* message)
 {
@@ -85,17 +88,17 @@ static uint32_t string_starter(const char* str, const unsigned int n, uint8_t* s
 		{ \
 			if (str[i] != temp[i]) \
 			{ \
-				goto stop_##ID; \
+				goto STOP_##ID; \
 			} \
 		} \
 		else \
 		{ \
-			goto stop_##ID; \
+			goto STOP_##ID; \
 		} \
 	} \
 	*str_bitmask = BITFLAG > 0x08 ? BITFLAG >> 4 : BITFLAG; \
 	return len; \
-	stop_##ID:
+	STOP_##ID:
 	STRING_DELIMITERS
 	return 0;
 	#undef STR_X
@@ -115,16 +118,16 @@ static uint32_t string_ender(const char* str, const unsigned int n, const uint8_
 			{ \
 				if (str[i] != temp[i]) \
 				{ \
-					goto stop_##BITFLAG; \
+					goto STOP_##BITFLAG; \
 				} \
 			} \
 			else \
 			{ \
-				goto stop_##BITFLAG; \
+				goto STOP_##BITFLAG; \
 			} \
 		} \
 		return len; \
-	stop_##BITFLAG: \
+	STOP_##BITFLAG: \
 		break;
 	switch (str_bitmask)
 	{
@@ -141,17 +144,17 @@ static const gdscript_id_t id_token(const token_t* token)
 	unsigned int len;
 #define X(STR, ID)								\
 	temp = STR;									\
-	len	 = strlen(temp);						\
-	len	 = len > token->len ? token->len : len;	\
+	len = strlen(temp);							\
+	len = len > token->len ? token->len : len;	\
 	for (unsigned int i = 0; i < len; ++i)		\
 	{											\
 		if (str[i] != temp[i])					\
 		{										\
-			goto stop_##ID;						\
+			goto STOP_##ID;						\
 		}										\
 	}											\
 	return GDSCRIPT_##ID;						\
-	stop_##ID:
+	STOP_##ID:
 	GDSCRIPT_BUILTIN_TOKENS
 	if (isdigit(str[0]) || (str[0] == '.' && strlen(str) > 1))
 	{
@@ -161,14 +164,14 @@ static const gdscript_id_t id_token(const token_t* token)
 	{
 		return GDSCRIPT_NONE;
 	}
-	#undef X
+#undef X
 }
 
 
 
 static void new_token(arena_t* token_arena, const char* src, const int pos, const int len)
 {
-	token_t* token = arena_alloc(token_arena, sizeof *token);
+	token_t* token = arena_dynamic_alloc(token_arena, sizeof *token);
 	token->string = src + pos;
 	token->pos = pos;
 	token->len = len;
@@ -428,149 +431,8 @@ uint32_t gdscript_tokenize(arena_t* arena, token_t** tokens, gdscript_id_t** ids
 	} str_bitmask = STR_BITMASK_NONE;
 	uint32_t offset = 0;
 	uint32_t pos = 0;
-	state = LEADING_WHITESPACE;
-	str_bitmask = STR_BITMASK_NONE;
-
-	for (uint32_t i = 0; i < n; ++i)
-	{
-		const char c = src[i];
-		switch (state)
-		{
-		case LEADING_WHITESPACE:
-			switch (c)
-			{
-			case '#':
-				pos = i;
-				state = COMMENT;
-				break;
-			case ' ': __attribute__((fallthrough));
-			case '\t':
-				num_tokens++;
-				break;
-			default:
-				if ((offset = string_starter(src + i, n - i, &str_bitmask)) > 0)
-				{
-					pos = i;
-					i += offset - 1;
-					state = STRING;
-				}
-				else if ((offset = delimiting_token(src + i, n - i)) > 0)
-				{
-					num_tokens++;
-					i += offset - 1;
-					state = WAITING_CHAR;
-				}
-				else
-				{
-					pos = i;
-					state = WSB_TOKEN;
-				}
-			}
-			break;
-		case WSB_TOKEN:
-			if ((offset = delimiting_token(src + i, n - i)) > 0)
-			{
-				num_tokens += 2;
-				state = c == '\n' ? LEADING_WHITESPACE : WAITING_CHAR;
-				i += offset - 1;
-			}
-			else if (isspace(c))
-			{
-				num_tokens++;
-				state = WAITING_CHAR;
-			}
-			break;
-		case WAITING_CHAR:
-			if ((offset = string_starter(src + i, n - i, &str_bitmask)) > 0)
-			{
-				pos = i;
-				i += offset - 1;
-				state = STRING;
-			}
-			else if ((offset = delimiting_token(src + i, n - i)) > 0)
-			{
-				num_tokens++;
-				i += offset - 1;
-				switch (c) {
-				case '\n':
-					state = LEADING_WHITESPACE;
-					break;
-				case '#':
-					pos = i;
-					state = COMMENT;
-					break;
-				default:
-					state = WAITING_CHAR;
-				}
-			}
-			else if (!isspace(c))
-			{
-				pos = i;
-				state = WSB_TOKEN;
-			}
-			else
-			{
-				num_tokens++;
-			}
-			break;
-		case COMMENT:
-			switch (c)
-			{
-			case '\n':
-				num_tokens += 2;
-				state = LEADING_WHITESPACE;
-				break;
-			}
-			break;
-		case STRING:
-			if (src[i - 1] != '\\' && (offset = string_ender(src + i, n - i, str_bitmask)) > 0)
-			{
-				num_tokens++;
-				i += offset - 1;
-				str_bitmask = STR_BITMASK_NONE;
-				state = WAITING_CHAR;
-			}
-			break;
-		}
-	}
-	if (state & (WSB_TOKEN | STRING | COMMENT)) {
-		num_tokens++;
-	}
-
-	if (num_tokens == 0)
-	{
-		*tokens = NULL;
-		*ids = NULL;
-		return 0;
-	}
-	num_tokens += 1;
-	// memory memery
-	size_t req_size = num_tokens * (sizeof **tokens + sizeof **ids);
-	if (arena->cap < req_size)
-	{
-		if (arena->allocation != NULL)
-		{
-			free(arena->allocation);
-		}
-		size_t arena_size = RESIZE_SCALE * req_size + RESIZE_OVERHEAD;
-		arena->allocation = malloc(arena_size);
-		arena->cap = arena_size;
-	}
 	arena->size = 0;
-	arena_t token_arena =
-	{
-		/* .allocation = arena_alloc_aligned(arena, num_tokens * sizeof **tokens, sizeof(size_t)), */
-		.allocation = arena_alloc(arena, num_tokens * sizeof **tokens),
-		.cap = num_tokens * sizeof **tokens
-	};
-	arena_t id_arena =
-	{
-		.allocation = arena_alloc(arena, num_tokens * sizeof **ids),
-		.cap = num_tokens * sizeof **ids
-	};
-
-	state = LEADING_WHITESPACE;
-	str_bitmask = STR_BITMASK_NONE;
+	SCRATCH* id_arena = scratch_checkout();
 	for (uint32_t i = 0; i < n; ++i)
 	{
 		const char c = src[i];
@@ -586,9 +448,12 @@ uint32_t gdscript_tokenize(arena_t* arena, token_t** tokens, gdscript_id_t** ids
 			case ' ':
 				__attribute__((fallthrough));
 			case '\t':
-				gdscript_id_t *id = arena_alloc(&id_arena, sizeof *id);
-				*id = GDSCRIPT_LEADING_WHITESPACE;
-				new_token(&token_arena, src, i, 1);
+				{
+					gdscript_id_t *id = arena_dynamic_alloc(id_arena, sizeof *id);
+					*id = GDSCRIPT_LEADING_WHITESPACE;
+					new_token(arena, src, i, 1);
+					++num_tokens;
+				}
 				break;
 			default:
 				if ((offset = string_starter(src + i, n - i, &str_bitmask)) > 0)
@@ -599,32 +464,37 @@ uint32_t gdscript_tokenize(arena_t* arena, token_t** tokens, gdscript_id_t** ids
 				}
 				else if ((offset = delimiting_token(src + i, n - i)) > 0)
 				{
-					gdscript_id_t *id = arena_alloc(&id_arena, sizeof *id);
+					gdscript_id_t *id = arena_dynamic_alloc(id_arena, sizeof *id);
 					*id = GDSCRIPT_NONE;
-					new_token(&token_arena, src, i, offset);
+					new_token(arena, src, i, offset);
 					i += offset - 1;
 					state = WAITING_CHAR;
-				} else {
+					++num_tokens;
+				}
+				else
+				{
 					pos = i;
 					state = WSB_TOKEN;
 				}
 			}
 			break;
 		case WSB_TOKEN:
-			if ((offset = delimiting_token(src + i, n - i)) > 0) {
-				gdscript_id_t* id = arena_alloc(&id_arena, sizeof *id);
-				*id = GDSCRIPT_NONE;
-				new_token(&token_arena, src, pos, i - pos);
-				id = arena_alloc(&id_arena, sizeof *id);
-				*id = GDSCRIPT_NONE;
-				new_token(&token_arena, src, i, offset);
+			if ((offset = delimiting_token(src + i, n - i)) > 0)
+			{
+				gdscript_id_t* id = arena_dynamic_alloc(id_arena, 2 * sizeof *id);
+				id[0] = GDSCRIPT_NONE;
+				id[1] = GDSCRIPT_NONE;
+				new_token(arena, src, pos, i - pos);
+				new_token(arena, src, i, offset);
 				state = c == '\n' ? LEADING_WHITESPACE : WAITING_CHAR;
 				i += offset - 1;
+				num_tokens += 2;
 			} else if (isspace(c)) {
-				gdscript_id_t *id = arena_alloc(&id_arena, sizeof *id);
+				gdscript_id_t *id = arena_dynamic_alloc(id_arena, sizeof *id);
 				*id = GDSCRIPT_NONE;
-				new_token(&token_arena, src, pos, i - pos);
+				new_token(arena, src, pos, i - pos);
 				state = WAITING_CHAR;
+				++num_tokens;
 			}
 			break;
 		case WAITING_CHAR:
@@ -636,9 +506,10 @@ uint32_t gdscript_tokenize(arena_t* arena, token_t** tokens, gdscript_id_t** ids
 			}
 			else if ((offset = delimiting_token(src + i, n - i)) > 0)
 			{
-				gdscript_id_t *id = arena_alloc(&id_arena, sizeof *id);
+				gdscript_id_t *id = arena_dynamic_alloc(id_arena, sizeof *id);
 				*id = GDSCRIPT_NONE;
-				new_token(&token_arena, src, i, offset);
+				new_token(arena, src, i, offset);
+				num_tokens++;
 				i += offset - 1;
 				switch (c)
 				{
@@ -660,53 +531,56 @@ uint32_t gdscript_tokenize(arena_t* arena, token_t** tokens, gdscript_id_t** ids
 			}
 			else
 			{
-				gdscript_id_t *id = arena_alloc(&id_arena, sizeof *id);
+				gdscript_id_t *id = arena_dynamic_alloc(id_arena, sizeof *id);
 				*id = GDSCRIPT_WHITESPACE;
-				new_token(&token_arena, src, i, 1);
+				new_token(arena, src, i, 1);
+				num_tokens++;
 			}
 			break;
 		case COMMENT:
-			switch (c)
+			if(c == '\n')
 			{
-			case '\n':
-				gdscript_id_t *id = arena_alloc(&id_arena, sizeof *id);
-				*id = GDSCRIPT_COMMENT;
-				new_token(&token_arena, src, pos, i - pos);
-				id = arena_alloc(&id_arena, sizeof *id);
-				*id = GDSCRIPT_LINE_END;
-				new_token(&token_arena, src, i, 1);
+				gdscript_id_t *id = arena_dynamic_alloc(id_arena, 2 * sizeof *id);
+				id[0] = GDSCRIPT_COMMENT;
+				id[1] = GDSCRIPT_LINE_END;
+				new_token(arena, src, pos, i - pos);
+				new_token(arena, src, i, 1);
 				state = LEADING_WHITESPACE;
-				break;
+				num_tokens += 2;
 			}
 			break;
 		case STRING:
 			if (src[i - 1] != '\\' && (offset = string_ender(src + i, n - i, str_bitmask)) > 0)
 			{
-				gdscript_id_t *id = arena_alloc(&id_arena, sizeof *id);
+				gdscript_id_t *id = arena_dynamic_alloc(id_arena, sizeof *id);
 				*id = GDSCRIPT_STRING;
-				new_token(&token_arena, src, pos, i - pos + offset);
+				new_token(arena, src, pos, i - pos + offset);
 				i += offset - 1;
 				str_bitmask = STR_BITMASK_NONE;
 				state = WAITING_CHAR;
+				++num_tokens;
 			}
 			break;
 		}
 	}
 	if (state & (WSB_TOKEN | STRING | COMMENT))
 	{
-		gdscript_id_t *id = arena_alloc(&id_arena, sizeof *id);
+		gdscript_id_t *id = arena_dynamic_alloc(id_arena, sizeof *id);
 		*id = GDSCRIPT_STRING;
-		new_token(&token_arena, src, pos, n - pos);
+		new_token(arena, src, pos, n - pos);
+		++num_tokens;
 	}
 
-	token_t* t = arena_alloc(&token_arena, sizeof *t);
+	token_t* t = arena_dynamic_alloc(arena, sizeof *t);
 	t->string = src + n - 1;
 	t->pos = n - 1;
 	t->len = 0;
-	gdscript_id_t* id = arena_alloc(&id_arena, sizeof *id);
+	gdscript_id_t* id = arena_dynamic_alloc(id_arena, sizeof *id);
 	*id = GDSCRIPT_EOF;
-	*tokens = token_arena.allocation;
-	*ids = id_arena.allocation;
+	arena_cat(arena, id_arena);
+	*tokens = arena->allocation;
+	*ids = *tokens + num_tokens;
+	++num_tokens; // don't have to classify the last one, so don't!
 	return num_tokens;
 }
 
@@ -800,7 +674,8 @@ static void trim_token (token_t* tokens, gdscript_id_t* ids, uint32_t* num_token
 
 void preprocess_tokens(token_t* tokens, gdscript_id_t* ids, uint32_t* num_tokens)
 {
-	classify_gdscript_tokens(tokens, ids, *num_tokens);
+	classify_gdscript_tokens(tokens, ids, *num_tokens - 1); // don't gotta classify the last token -- it's EOF
+	/* classify_gdscript_tokens(tokens, ids, *num_tokens); */
 	coalesce_numbers(tokens, ids, num_tokens);
 	/* printf("coalesce_numbers: %d\n", *num_tokens); */
 	trim_token(tokens, ids, num_tokens, GDSCRIPT_WHITESPACE);
@@ -825,6 +700,7 @@ void preprocess_tokens(token_t* tokens, gdscript_id_t* ids, uint32_t* num_tokens
 		const gdscript_id_t id = ids[i];
 		ids[i] += (id == GDSCRIPT_NONE) * GDSCRIPT_IDENTIFIER;
 	}
+	memmove(ids, tokens + n, n * sizeof *ids); // the gucci move
 }
 
 /* static void pv(const char* str, const int n) */
