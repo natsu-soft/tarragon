@@ -66,9 +66,9 @@ void log_client(char* message)
 }
 
 
-void handle_initialize(FILE* out, const rpc_t* rpc)
+static void handle_initialize(FILE* out, const rpc_t* rpc)
 {
-	LOG("received an initialize request!");
+	PLAIN_LOG(" > handle_initialize()");
 	SCRATCH* scratch = scratch_checkout();
 	#define JS_ARENA scratch
 	JSON_RPC(
@@ -84,17 +84,17 @@ void handle_initialize(FILE* out, const rpc_t* rpc)
 	lsp.state = LSP_INITIALIZING;
 }
 
-void handle_initialized(FILE* out, const rpc_t* rpc)
+static void handle_initialized(FILE* out, const rpc_t* rpc)
 {
+	PLAIN_LOG(" > handle_initialized()");
 	lsp.state = LSP_INITIALIZED;
-	LOG("received an initialized notice!");
 	/* log_client("tarragon is initialized!"); */
 }
 
-void handle_shutdown(FILE* out, const rpc_t* rpc)
+static void handle_shutdown(FILE* out, const rpc_t* rpc)
 {
+	PLAIN_LOG(" > handle_shutdown()");
 	lsp.state = LSP_SHUTDOWN;
-	LOG("received a shutdown request!");
 	/* json_t* o = add_id(boilerplate(), rpc); */
 	/* json_object_set(o, "result", json_null()); */
 	/* respond(out, o); */
@@ -103,9 +103,9 @@ void handle_shutdown(FILE* out, const rpc_t* rpc)
 	lsp.state = LSP_EXIT_0;
 }
 
-void handle_exit(FILE* out, const rpc_t* rpc)
+static void handle_exit(FILE* out, const rpc_t* rpc)
 {
-	LOG("received an exit notice!");
+	PLAIN_LOG(" > handle_exit()");
 	switch(lsp.state)
 	{
 	case LSP_SHUTDOWN:
@@ -128,7 +128,7 @@ void handle_exit(FILE* out, const rpc_t* rpc)
 
 /*  NOTE: HOPE U DONT OVER ALLOCATE LMAO */
 
-void handle(FILE* out, const rpc_t* rpc)
+static void handle_rpc(FILE* out, const rpc_t* rpc)
 {
 	// why YES I am changing the json memory functions willy-nilly
 	/* json_set_alloc_funcs(&scratch_alloc, &scratch_free); */
@@ -162,6 +162,7 @@ int ls_listen(FILE* in, FILE* out)
 	/* for(uint32_t i = 0; i < 10; ++i) */
 	for(/* LOL */ ; /* LMAO */ ; /* EVEN */ )
 	{
+		scratch_checkin_all();
 		/* LOG("processing %d of 10", i); */
 		char* client_json;
 		fflush(in);
@@ -180,7 +181,7 @@ int ls_listen(FILE* in, FILE* out)
 				ERROR("json parse failure--shutting down!");
 				return 1;
 			}
-			handle(out, rpc);
+			handle_rpc(out, rpc);
 			/* bp_send(out, "{ \"method\": \"window/showMessage\",\"type\": 3,\"message\":\"based\"}"); */
 		}
 		else if (length == -1) {
@@ -192,7 +193,6 @@ int ls_listen(FILE* in, FILE* out)
 			LOG("exiting with code: %d", lsp.state - LSP_EXIT_0);
 			return lsp.state - LSP_EXIT_0;
 		}
-		scratch_checkin_all();
 	}
 	return 1;
 }

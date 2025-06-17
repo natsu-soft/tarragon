@@ -59,7 +59,6 @@ const uint32_t bp_sendn(FILE* stream, const char* content, const uint32_t n)
 }
 
 
-
 // TODO: test the windows shit with something other than eglot
 static int32_t decode_nosleep(FILE* stream, char** out_json)
 {

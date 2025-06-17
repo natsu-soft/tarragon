@@ -1,5 +1,6 @@
 #include "rpc.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 /* #include <tree_sitter/api.h> */
 #include "json.h"
@@ -16,19 +17,21 @@ static void initialize_params(rpc_t* rpc, json_t* json);
 // NOTE: assume the LSP client is to SPEC
 static void parse_rpc (char* str, int len, rpc_t* rpc)
 {
+	/* LOG("parsing rpc"); */
 	json_t json = {0};
 	SCRATCH* scratch = scratch_checkout();
 	json_id_t res = json_parse(&json, scratch, str, len);
-	if ((res & JSON_SUCCESS) != JSON_SUCCESS)
+	/* if ((res & JSON_SUCCESS) != JSON_SUCCESS) */
+	if (res ^ (JSON_SUCCESS | JSON_OBJECT))
 	{
 		ERROR("failed to decode:\n%s", str);
 		return;
 	}
-	else if ((res & JSON_OBJECT) != JSON_OBJECT)
-	{
-		ERROR("rpc is not a json object:\n%s", str);
-		return;
-	}
+	/* else if ((res & JSON_OBJECT) != JSON_OBJECT) */
+	/* { */
+	/* 	ERROR("rpc is not a json object:\n%s", str); */
+	/* 	return; */
+	/* } */
 	char* key;
 	uint32_t key_len;
 	json_t tmp = {0};
@@ -46,6 +49,7 @@ static void parse_rpc (char* str, int len, rpc_t* rpc)
 			res = json_next_value(&json, &tmp); // assume the LSP client is to spec.
 			char* method;
 			assertf(json_c(&method, &tmp), "Failed to convert token \"%s\" to a char*\n", tmp.tokens->string);
+			PLAIN_LOG(" > rpc method: %s", method);
 			if (strcmp(method, "initialize") == 0)
 			{
 				rpc->method = INITIALIZE;
@@ -83,7 +87,7 @@ static void parse_rpc (char* str, int len, rpc_t* rpc)
 	/* not required, actually */
 	/* if (rpc->id[0] == '\0') */
 	/* { */
-	/* 	ERROR("rpc does not contain an id!"); */
+	/* 	LOG("rpc does not contain an id!"); */
 	/* 	return; */
 	/* } */
 	if (rpc->method == NO_METHOD)

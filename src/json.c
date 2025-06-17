@@ -1,5 +1,4 @@
 #include "json.h"
-
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -9,7 +8,6 @@
 #include "token.h"
 #include "arena.h"
 #include "scratch.h"
-#include "logger.h"
 
 
 static void make_token(arena_t *token_arena, arena_t *id_arena, const char *src,  const uint32_t pos, const uint32_t len, const uint32_t line, const uint32_t col);
@@ -213,9 +211,6 @@ static uint32_t tokenize(token_t** tokens, json_id_t** ids, arena_t* arena, cons
 	arena_cat(arena, id_arena);
 	*tokens = arena->allocation;
 	*ids = *tokens + num_tokens;
-	token_t* temp = *tokens;
-	/* *tokens = token_arena->allocation; */
-	/* *ids = id_arena->allocation; */
 	return num_tokens;
 }
 
