@@ -5,8 +5,6 @@
 #include <stdint.h>
 #include "gdscript_parser.h"
 
-typedef struct free_list_t free_list_t;
-typedef struct token_t token_t;
 
 #define TODO_EXPR_TYPE /* TODO: expressions should include what type they evaluate to */
 
@@ -52,7 +50,8 @@ typedef struct token_t token_t;
 	X(BREAKPOINT)\
 	X(BREAK) \
 	X(CONTINUE) \
-	X(PASS)
+	X(PASS) \
+	X(SCOPE) // the secrete statement
 
 // parameters in signature statement
 	/* X(PARAMETERS)							\ */
@@ -210,6 +209,7 @@ typedef struct ast_node_t
 		};
 		struct ast_node_t* operand[2]; // for unary, can refer to with just operand->
 		token_t* symbol;
+		size_t scope_len;
 	};
 	struct ast_node_t* parent;
 	union
@@ -231,7 +231,7 @@ typedef struct ast_node_t
 	/* ast_id_t last_child_id; // you shouldn't need this but ur lazy tbqh */
 } ast_node_t;
 
-ast_node_t* gdscript_ast_generate(free_list_t* fl, const token_t* tokens, gdscript_id_t* ids, const uint32_t num_tokens);
+ast_node_t* gdscript_ast_generate(struct free_list_t* arena, const struct token_t* tokens, gdscript_id_t* ids, const uint32_t num_tokens);
 
 void gdscript_ast_check(ast_node_t* root);
 

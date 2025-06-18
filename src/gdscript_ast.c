@@ -8,7 +8,6 @@
 #include "free_list.h"
 #include "token.h"
 #include "scratch.h"
-#include "arena.h"
 
 // TODO: panic is CRINGE, function specific errors are BASED
 
@@ -29,7 +28,6 @@ typedef struct context_t
 	free_list_t* fl;
 	ast_node_t* root;
 	uint32_t n;
-	uint32_t req_lws;
 } context_t;
 
 // NOTE: awful.
@@ -120,7 +118,6 @@ KEYVALUES
 
 
 static bool_t process_tokens(ast_node_t* parent, context_t* ctx, uint32_t* index);
-static bool_t process_line(ast_node_t* parent, context_t* ctx, uint32_t* index);
 static bool_t parse_arguments(ast_node_t* parent, context_t* ctx, uint32_t* index, panic_t panic);
 
 
@@ -156,6 +153,25 @@ static bool_t match(bool_t* matches, const gdscript_id_t* seq, const uint32_t le
 	return res;
 }
 
+// NOTE: assumes index is ONE AFTER a scope start.
+static uint32_t pos_scope_end(const uint32_t index, const gdscript_id_t* ids, const uint32_t n)
+{
+	uint16_t depth = 0;
+	for (uint32_t i = index; i < n; ++i)
+	{
+		switch(ids[i])
+		{
+		case GDSCRIPT_SCOPE_START:
+			++depth;
+			break;
+		case GDSCRIPT_SCOPE_END:
+			if (depth-- == 0) return i;
+			break;
+		}
+	}
+	return 0;
+}
+
 static uint32_t pos_pair(const gdscript_id_t opener, const uint32_t index, const gdscript_id_t* ids, const uint32_t n)
 {
 	uint16_t depth = 0;
@@ -189,7 +205,7 @@ static uint32_t pos_colon(const uint32_t index, const gdscript_id_t* ids, const 
 		switch(id * (depth > 0 || id != GDSCRIPT_COLON)) // this is excessive even for you
 		{
 		case 0: // bro this is disgusting
-			return i - index;
+			return i;
 		case GDSCRIPT_PAREN_CLOSE:
 			depth--;
 			break;
@@ -811,19 +827,45 @@ static bool_t parse_expr_binary(ast_node_t* parent, context_t* ctx, uint32_t* in
 static bool_t parse_stmt_if(ast_node_t* parent, context_t* ctx, uint32_t* index)
 {
 	// keyword 'if' at index
+	const uint32_t i0 = *index;
 	ast_node_t* node = add_child(&parent, ctx, AST_STMT_IF);
-	const uint32_t pos = pos_colon(*index, ctx->ids, ctx->n);
+	const uint32_t pos = pos_colon(i0, ctx->ids, ctx->n);
 	/* if (parse_expression(node, ctx, &j, 1) && ctx->ids[j + 1] == GDSCRIPT_COLON) */
 	if (pos > 0)
 	{
-		context_t cond_ctx = *ctx;
-		cond_ctx.n = pos;
-		parse_expression(node, &cond_ctx, index, panic_err);
-		*index = pos + 2; // next character is a newline, so go 1 beyond pls
-		uint32_t req_lws0 = ctx->req_lws;
-		ctx->req_lws++;
-		process_tokens(node, ctx, index);
-		ctx->req_lws = req_lws0;
+		context_t subctx = *ctx;
+		subctx.n = pos;
+		parse_expression(node, &subctx, index, panic_err);
+		// TODO: OOB errors
+		// check  if id after colon is a newline
+		if (ctx->ids[pos + 1] != GDSCRIPT_LINE_END)
+		{
+			*index = pos + 1;
+			if (ctx->ids[pos + 1] == GDSCRIPT_RETURN)
+			{
+			}
+			subctx.n = ctx->n;
+			process_line(node, &subctx, index);
+			// if not it's a one line if-statement
+		}
+		// else go two after & check for a scope start
+		else if (ctx->ids[pos + 2] == GDSCRIPT_SCOPE_START)
+		{
+			*index = pos + 2;
+			subctx.n = pos_scope_end(pos + 2, ctx->ids, ctx->n);
+			if (subctx.n > 0)
+			{
+				*index += 1;
+				process_tokens(node, &subctx, index);
+			}
+		}
+		else
+		{
+			node->id = AST_ERROR;
+			node->err_token = ctx->tokens + i0;
+			node->err_len = pos - i0;
+			*index = pos;
+		}
 	}
 	else
 	{
@@ -842,21 +884,43 @@ static bool_t parse_stmt_if(ast_node_t* parent, context_t* ctx, uint32_t* index)
 
 static bool_t parse_stmt_elif(ast_node_t* parent, context_t* ctx, uint32_t* index)
 {
-{
-	// keyword 'if' at index
+	// keyword 'elif' at index
+	const uint32_t i0 = *index;
 	ast_node_t* node = add_child(&parent, ctx, AST_STMT_ELIF);
-	const uint32_t pos = pos_colon(*index, ctx->ids, ctx->n);
+	const uint32_t pos = pos_colon(i0, ctx->ids, ctx->n);
 	/* if (parse_expression(node, ctx, &j, 1) && ctx->ids[j + 1] == GDSCRIPT_COLON) */
 	if (pos > 0)
 	{
-		context_t cond_ctx = *ctx;
-		cond_ctx.n = pos;
-		parse_expression(node, &cond_ctx, index, panic_err);
-		*index = pos + 2; // next character is a newline, so go 1 beyond pls
-		uint32_t req_lws0 = ctx->req_lws;
-		ctx->req_lws++;
-		process_tokens(node, ctx, index);
-		ctx->req_lws = req_lws0;
+		context_t subctx = *ctx;
+		subctx.n = pos;
+		parse_expression(node, &subctx, index, panic_err);
+		// TODO: OOB errors
+		// check  if id after colon is a newline
+		if (ctx->ids[pos + 1] != GDSCRIPT_LINE_END)
+		{
+			*index = pos + 1;
+			subctx.n = ctx->n;
+			process_line(node, &subctx, index);
+			// if not it's a one line if-statement
+		}
+		// else go two after & check for a scope start
+		else if (ctx->ids[pos + 2] == GDSCRIPT_SCOPE_START)
+		{
+			*index = pos + 2;
+			subctx.n = pos_scope_end(pos + 2, ctx->ids, ctx->n);
+			if (subctx.n > 0)
+			{
+				*index += 1;
+				process_tokens(node, &subctx, index);
+			}
+		}
+		else
+		{
+			node->id = AST_ERROR;
+			node->err_token = ctx->tokens + i0;
+			node->err_len = pos - i0;
+			*index = pos;
+		}
 	}
 	else
 	{
@@ -870,22 +934,46 @@ static bool_t parse_stmt_elif(ast_node_t* parent, context_t* ctx, uint32_t* inde
 		*index =  n;
 	}
 	return 1;
-}}
+}
 
 static bool_t parse_stmt_else(ast_node_t* parent, context_t* ctx, uint32_t* index)
 {
+
 	// keyword 'else' at index
+	const uint32_t i0 = *index;
 	ast_node_t* node = add_child(&parent, ctx, AST_STMT_ELSE);
-	uint32_t j = *index + 1;
-	/* parse_expression(if_node, ctx, &j, 1); */
-	if (ctx->ids[j] == GDSCRIPT_COLON)
+	const uint32_t pos = pos_colon(i0, ctx->ids, ctx->n);
+	/* if (parse_expression(node, ctx, &j, 1) && ctx->ids[j + 1] == GDSCRIPT_COLON) */
+	if (pos > 0)
 	{
-		uint32_t req_lws0 = ctx->req_lws;
-		ctx->req_lws++;
-		j++;
-		*index = j + 1;
-		process_tokens(node, ctx, index);
-		ctx->req_lws = req_lws0;
+		context_t subctx = *ctx;
+		// TODO: OOB errors
+		// check  if id after colon is a newline
+		if (ctx->ids[pos + 1] != GDSCRIPT_LINE_END)
+		{
+			*index = pos + 1;
+			subctx.n = ctx->n;
+			process_line(node, &subctx, index);
+			// if not it's a one line if-statement
+		}
+		// else go two after & check for a scope start
+		else if (ctx->ids[pos + 2] == GDSCRIPT_SCOPE_START)
+		{
+			*index = pos + 2;
+			subctx.n = pos_scope_end(pos + 2, ctx->ids, ctx->n);
+			if (subctx.n > 0)
+			{
+				*index += 1;
+				process_tokens(node, &subctx, index);
+			}
+		}
+		else
+		{
+			node->id = AST_ERROR;
+			node->err_token = ctx->tokens + i0;
+			node->err_len = pos - i0;
+			*index = pos;
+		}
 	}
 	else
 	{
@@ -1207,30 +1295,49 @@ static bool_t parse_stmt_pass(ast_node_t* parent, context_t* ctx, uint32_t* inde
 
 static bool_t process_tokens(ast_node_t* parent, context_t* ctx, uint32_t* index)
 {
-	uint32_t lws = 0;
 	const uint32_t num_tokens = ctx->n;
 	const gdscript_id_t* ids = ctx->ids;
 	for (uint32_t i = *index; i < num_tokens; ++i)
 	{
-		if (lws == ctx->req_lws)
+		const gdscript_id_t id = ids[i];
+		switch (id)
 		{
-			ctx->req_lws = process_line(parent, ctx, &i) * (ctx->req_lws > 0);
-			lws = 0;
-		}
-		else if (ids[i] == GDSCRIPT_LEADING_WHITESPACE)
-		{
-			lws++;
-		}
-		else if (ids[i] == GDSCRIPT_LINE_END)
-		{
-			lws = 0;
-		}
-		else
-		{
-			*index = i - 1;
-			return 1;
-			/* shallow_line_error(parent, ctx, &i); */
-			/* lws = 0; */
+		case GDSCRIPT_LINE_END: break;
+		case GDSCRIPT_SEMICOLON: break;
+		#define X(ENUM, FUNC) case GDSCRIPT_##ENUM: parse_##FUNC(parent, ctx, index); break;
+			KEYVALUES
+		#undef X
+		case GDSCRIPT_SCOPE_START:
+			{
+				context_t subctx = *ctx;
+				// find scope end
+				ast_node_t* node = add_child(&parent, ctx, AST_STMT_SCOPE);
+				subctx.n = pos_scope_end(i, ctx->ids, ctx->n);
+				node->scope_len = subctx.n;
+				if (subctx.n > 0)
+				{
+					process_tokens(node, &subctx, &i);
+				}
+				else
+				{
+					// TODO: big brain error handling
+				}
+			}
+			break;
+		default:
+			{
+				context_t expr_ctx = *ctx;
+				// figure out where the next endl or semicolon is
+				for (uint32_t j = i + 1; j < n; ++j)
+				{
+					if (ids[j] == GDSCRIPT_LINE_END || ids[j] == GDSCRIPT_SEMICOLON)
+					{
+						expr_ctx.n = j;
+						break;
+					}
+				}
+				parse_expression(parent, &expr_ctx, index, panic_err);
+			}
 		}
 	}
 	return 1;
@@ -1246,18 +1353,9 @@ static bool_t process_line(ast_node_t* parent, context_t* ctx, uint32_t* index)
 		const gdscript_id_t id = ids[i];
 		switch (id)
 		{
-		case GDSCRIPT_LEADING_WHITESPACE:
-			ctx->req_lws++;
-			break;
-		case GDSCRIPT_LINE_END:
-			*index = i;
-			return ctx->req_lws;
+		case GDSCRIPT_LINE_END: __attribute__((fallthrough));
 		case GDSCRIPT_SEMICOLON:
-			*index = i + 1;
-			context_t semicolon_ctx = *ctx;
-			semicolon_ctx.req_lws = 0;
-			process_line(parent, &semicolon_ctx, index);
-			return ctx->req_lws;
+			return 1;
 		#define X(ENUM, FUNC) case GDSCRIPT_##ENUM: parse_##FUNC(parent, ctx, index); break;
 			KEYVALUES
 		#undef X

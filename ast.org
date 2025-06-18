@@ -19,8 +19,8 @@
     - [X] if
     - [X] elif
     - [X] else
-    - [X] for
-    - [X] while
+    - [ ] for
+    - [ ] while
     - [ ] match
     - [ ] pattern
     - [ ] get
@@ -29,7 +29,7 @@
     - [X] break
     - [X] continue
     - [X] pass
-  - [-] Declarations
+  - [ ] Declarations
     - this one is leaning HEAVILY on post-gen check
     - CZEK UR RANGES
     - [ ] class
@@ -40,7 +40,7 @@
     - [ ] enum
     - [ ] signal
     - [ ] subclass
-    - [X] static
+    - [ ] static
   - [ ] Annotations
     - this ALSO leans heavily on post-gen check
     - GUH
