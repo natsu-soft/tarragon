@@ -72,6 +72,7 @@
 	X(">>=", OP_ASSIGNMENT_BITSHIFT_RIGH) \
 	X("^=",  OP_ASSIGNMENT_XOR) \
 	X(":=",  OP_ASSIGNMENT_TYPED) \
+	X("==",  OP_EQUALS) \
 	X("=",   OP_ASSIGNMENT) \
 
 #define GDSCRIPT_UNARY_OPERATORS \
@@ -94,7 +95,6 @@
 	X("<<",  OP_BITSHIFT_LEFT) \
 	X(">>",  OP_BITSHIFT_RIGHT) \
 	X("^",   OP_BITWISE_XOR) \
-	X("==",  OP_EQUALS) \
 	X("!=",  OP_INEQUALS) \
 	X("<=",  OP_LESS_THAN_EQUALS) \
 	X("<",   OP_LESS_THAN) \
