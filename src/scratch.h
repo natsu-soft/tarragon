@@ -9,6 +9,8 @@
 
 struct arena_t* scratch_checkout(void);
 
+struct arena_t* scratch_checkout_size(const uint32_t size);
+
 void scratch_checkin(const struct arena_t* scratch);
 
 void scratch_checkin_all(void);

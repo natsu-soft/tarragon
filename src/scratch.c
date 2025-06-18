@@ -41,6 +41,41 @@ arena_t* scratch_checkout(void)
 	return NULL;
 }
 
+struct arena_t* scratch_checkout_size(const uint32_t size)
+{
+	uint8_t available = NUM_SCRATCHPADS;
+	for (uint8_t i = 0; i < NUM_SCRATCHPADS; ++i)
+	{
+		if (scratch_table.availability_mask & (1 << i))
+		{
+			available = i;
+			arena_t* res = scratch_table.arenas + i;
+			if (res->cap < size)
+			{
+				continue;
+			}
+			scratch_table.availability_mask ^= 1 << i;
+			res->size = 0;
+			return res;
+		}
+	}
+	if (available < NUM_SCRATCHPADS)
+	{
+		arena_t* res = scratch_table.arenas + available;
+		arena_grow(res, size);
+		scratch_table.availability_mask ^= 1 << available;
+		res->size = 0;
+		return res;
+	}
+	else
+	{
+		ERROR("OUT OF SCRATCHPADS!");
+		assert(0 && "out of scratchpad arenas :(");
+		return NULL;
+	}
+}
+
+
 static void* table_peek(void)
 {
 	for (uint8_t i = 0; i < NUM_SCRATCHPADS; ++i)
