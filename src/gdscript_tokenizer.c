@@ -37,6 +37,7 @@ static void new_token(arena_t* token_arena, const char* src, const int pos, cons
 static const gdscript_id_t verify_number(const char* src, const uint32_t n);
 static void cull_line_continuations(token_t* tokens, gdscript_id_t* ids, uint32_t* num_tokens);
 static void lws_to_scopes(arena_t* token_arena, arena_t* id_arena, uint32_t* num_tokens);
+static void trim_token (token_t* tokens, gdscript_id_t* ids, uint32_t* num_tokens, const gdscript_id_t trim_token);
 
 static void do_nothing_with_token(const token_t* t, const char* message)
 {
@@ -587,8 +588,11 @@ uint32_t gdscript_tokenize(arena_t* arena, token_t** tokens, gdscript_id_t** ids
 	gdscript_id_t* id = arena_dynamic_alloc(id_arena, sizeof *id);
 	*id = GDSCRIPT_EOF;
 	++num_tokens;
+	printf("num tokens0: %d, ", num_tokens);
 	preprocess_tokens(arena->allocation, id_arena->allocation, &num_tokens);
+	printf("num tokens1: %d, ", num_tokens);
 	lws_to_scopes(arena, id_arena, &num_tokens);
+	printf("num tokens2: %d\n", num_tokens);
 	/* uint8_t* temp = realloc(arena, num_tokens * (sizeof *tokens + sizeof *ids)); */
 	const size_t req_size = num_tokens * (sizeof **tokens + sizeof **ids);
 	if (arena->cap < req_size)
@@ -604,22 +608,63 @@ uint32_t gdscript_tokenize(arena_t* arena, token_t** tokens, gdscript_id_t** ids
 static void lws_to_scopes(arena_t* token_arena, arena_t* id_arena, uint32_t* num_tokens)
 {
 	token_t* tokens = token_arena->allocation;
-	gdscript_id_t* ids = token_arena->allocation;
+	gdscript_id_t* ids = id_arena->allocation;
 	uint32_t lws0 = 0;
-	uint32_t lws1 = 0;
-	for (uint32_t i = 0; i < *num_tokens; ++i)
+	uint32_t n = *num_tokens;
+	SCRATCH* depth_arena = scratch_checkout();
+	const size_t token_size = sizeof *tokens;
+	const size_t id_size = sizeof *ids;
+	const gdscript_id_t scope_start = GDSCRIPT_SCOPE_START;
+	const gdscript_id_t scope_end = GDSCRIPT_SCOPE_END;
+	for (uint32_t i = 0; i < n; ++i)
 	{
-		switch(ids[i])
+		const uint32_t i0 = i;
+		const token_t token = { .pos = tokens[i0].pos };
+		for (; ids[i] == GDSCRIPT_LEADING_WHITESPACE && i < n; ++i); // find the first non lws token
+		uint32_t lws1 = i - i0;
+		/* printf("i0: %d, i: %d, lws0: %d, lws1: %d,\n", i0, i, lws0, lws1); */
+		if (lws1 > lws0)
 		{
-		case GDSCRIPT_LINE_END:
-			lws1 = 0;
-			break;
-		case GDSCRIPT_LEADING_WHITESPACE:
-			++lws1;
-			break;
-		default:
+			/* printf("INSERT SCOPE START!\n"); */
+			// insert a scope start at i0
+			arena_insert(token_arena, i0 * token_size, &token, token_size);
+			arena_insert(id_arena, i0 * id_size, &scope_start, id_size);
+			tokens = token_arena->allocation;
+			ids = id_arena->allocation;
+			lws0 = lws1;
+			++n;
+			arena_push(depth_arena, &lws0, sizeof lws0);
 		}
+		else if (lws1 < lws0)
+		{
+			/* printf("INSERT SCOPE END!\n"); */
+			lws0 = lws1;
+			uint32_t* d;
+			while(d = arena_peek(depth_arena, sizeof *d), *d > lws0)
+			{
+				arena_pop(depth_arena, sizeof *d);
+				arena_insert(token_arena, i0 * token_size, &token, token_size);
+				arena_insert(id_arena, i0 * id_size, &scope_end, id_size);
+				++n;
+			}
+			tokens = token_arena->allocation;
+			ids = id_arena->allocation;
+		}
+		for (; ids[i] != GDSCRIPT_LINE_END && i < n; ++i); // find the first non lws token
 	}
+	const token_t token = { .pos = tokens[n - 1].pos };
+	while (depth_arena->size > 0)
+	{
+		arena_pop(depth_arena, sizeof lws0);
+		arena_insert(token_arena, (n - 1) * token_size, &token, token_size);
+		arena_insert(id_arena, (n - 1) * id_size, &scope_end, id_size);
+		++n;
+	}
+	tokens = token_arena->allocation;
+	ids = id_arena->allocation;
+	// trim the lws tokens
+	trim_token(tokens, ids, &n, GDSCRIPT_LEADING_WHITESPACE);
+	*num_tokens = n;
 }
 
 
@@ -634,7 +679,6 @@ static void classify_gdscript_tokens(token_t* tokens, gdscript_id_t* ids, const 
 	}
 }
 
-// NOTE: not working :(
 static void coalesce_numbers(token_t* tokens, gdscript_id_t* ids, uint32_t* num_tokens)
 {
 	uint32_t n = *num_tokens;
@@ -649,7 +693,6 @@ static void coalesce_numbers(token_t* tokens, gdscript_id_t* ids, uint32_t* num_
 			for (int j = i; j < n; ++j)
 			{
 				len += tokens[j].len;
-				/* printf("verify: %s\n", temp); */
 				if (verify_number(str, len))
 				{
 					index = j;
@@ -824,3 +867,41 @@ void gdscript_error_token_func(void (*func_ptr)(const token_t*, const char* mess
 	error_token_func = func_ptr;
 }
 
+
+void gdscript_allman(const token_t* tokens, const gdscript_id_t* ids, const uint32_t n)
+{
+	uint8_t newline = 1;
+	uint32_t depth = 0;
+	for (uint32_t i = 0; i < n; ++i)
+	{
+		const token_t token = tokens[i];
+		if (newline)
+		{
+			for (uint32_t j = 0; j < depth; ++j) printf("\t");
+			newline = 0;
+		}
+		switch(ids[i])
+		{
+			case GDSCRIPT_SCOPE_START:
+				++depth;
+				printf("{\n");
+				newline = 1;
+				break;
+			case GDSCRIPT_SCOPE_END:
+				--depth;
+				printf("\b}\n");
+				newline = 1;
+				break;
+			case GDSCRIPT_LINE_END:
+				printf("\n");
+				newline = 1;
+				break;
+			default:
+				for (uint32_t j = 0; j < token.len; ++j)
+				{
+					printf("%c", token.string[j]);
+				}
+				printf(" ");
+		}
+	}
+}
