@@ -1326,62 +1326,29 @@ static bool_t process_tokens(ast_node_t* parent, context_t* ctx, uint32_t* index
 			break;
 		default:
 			{
-				context_t expr_ctx = *ctx;
+				context_t subctx = *ctx;
 				// figure out where the next endl or semicolon is
 				for (uint32_t j = i + 1; j < n; ++j)
 				{
-					if (ids[j] == GDSCRIPT_LINE_END || ids[j] == GDSCRIPT_SEMICOLON)
+					/* if (ids[j] == GDSCRIPT_LINE_END || ids[j] == GDSCRIPT_SEMICOLON) */
+					if (ids[j] == GDSCRIPT_LINE_END)
 					{
 						expr_ctx.n = j;
 						break;
 					}
 				}
-				parse_expression(parent, &expr_ctx, index, panic_err);
+				parse_expression(parent, &subctx, index, panic_err);
 			}
 		}
 	}
 	return 1;
 }
 
-
-static bool_t process_line(ast_node_t* parent, context_t* ctx, uint32_t* index)
+ast_node_t* gdscript_ast_generate(arena_t* arena, const token_t* tokens, gdscript_id_t* ids, const uint32_t num_tokens)
 {
-	const uint32_t n = ctx->n;
-	const gdscript_id_t* ids = ctx->ids;
-	for (uint32_t i = *index; i < n; ++i)
-	{
-		const gdscript_id_t id = ids[i];
-		switch (id)
-		{
-		case GDSCRIPT_LINE_END: __attribute__((fallthrough));
-		case GDSCRIPT_SEMICOLON:
-			return 1;
-		#define X(ENUM, FUNC) case GDSCRIPT_##ENUM: parse_##FUNC(parent, ctx, index); break;
-			KEYVALUES
-		#undef X
-		default:
-			{
-				context_t expr_ctx = *ctx;
-				// figure out where the next endl or semicolon is
-				for (uint32_t j = i + 1; j < n; ++j)
-				{
-					if (ids[j] == GDSCRIPT_LINE_END || ids[j] == GDSCRIPT_SEMICOLON)
-					{
-						expr_ctx.n = j;
-						break;
-					}
-				}
-				parse_expression(parent, &expr_ctx, index, panic_err);
-			}
-		}
-	}
-}
-
-
-
-ast_node_t* gdscript_ast_generate(free_list_t* fl, const token_t* tokens, gdscript_id_t* ids, const uint32_t num_tokens)
-{
-	ast_node_t* root = free_list_calloc(fl, sizeof *root);
+	free_list_t fl = { .allocation = arena->allocation, .cap = arena->cap };
+	free_list_clear(&fl);
+	ast_node_t* root = free_list_calloc(&fl, sizeof *root);
 	root->id = AST_ROOT;
 	/* root->len = num_tokens; */
 	context_t ctx =
@@ -1389,7 +1356,7 @@ ast_node_t* gdscript_ast_generate(free_list_t* fl, const token_t* tokens, gdscri
 		.tokens = tokens,
 		.ids = ids,
 		.n = num_tokens,
-		.fl=fl,
+		.fl=&*fl,
 		.root = root
 	};
 	uint32_t index = 0;
