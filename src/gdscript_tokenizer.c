@@ -877,7 +877,7 @@ void gdscript_allman(const token_t* tokens, const gdscript_id_t* ids, const uint
 		const token_t token = tokens[i];
 		if (newline)
 		{
-			for (uint32_t j = 0; j < depth; ++j) printf("\t");
+			for (uint32_t j = 0; j < depth; ++j) printf("  ");
 			newline = 0;
 		}
 		switch(ids[i])
@@ -889,7 +889,7 @@ void gdscript_allman(const token_t* tokens, const gdscript_id_t* ids, const uint
 				break;
 			case GDSCRIPT_SCOPE_END:
 				--depth;
-				printf("\b}\n");
+				printf("\b\b}\n");
 				newline = 1;
 				break;
 			case GDSCRIPT_LINE_END:
