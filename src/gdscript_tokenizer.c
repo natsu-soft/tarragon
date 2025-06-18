@@ -181,6 +181,12 @@ static void new_token(arena_t* token_arena, const char* src, const int pos, cons
 
 static const gdscript_id_t verify_number(const char* src, const uint32_t n)
 {
+	/* printf("verifying: "); */
+	/* for (uint32_t i = 0; i < n; ++i) */
+	/* { */
+	/* 	printf("%c", src[i]); */
+	/* } */
+	/* printf("\n"); */
 	enum __attribute__((packed)) {
 		NC_NONE = 0x00,
 		NC_HEX_FLAG = 0x01,
@@ -632,31 +638,19 @@ static void classify_gdscript_tokens(token_t* tokens, gdscript_id_t* ids, const 
 static void coalesce_numbers(token_t* tokens, gdscript_id_t* ids, uint32_t* num_tokens)
 {
 	uint32_t n = *num_tokens;
-	for (int i = 0; i < n; ++i)
+	for (uint32_t i = 0; i < n; ++i)
 	{
 		gdscript_id_t id = ids[i];
-		/* uint8_t attempt_flag = id == GDSCRIPT_NUMBER_CANDIDATE; */
-		/* attempt_flag |= id == GDSCRIPT_OP_SUM; */
-		/* attempt_flag |= id == GDSCRIPT_OP_DIFFERENCE; */
-		/* if (attempt_flag) */
-		if (id == GDSCRIPT_NUMBER_CANDIDATE)
+		if (id == GDSCRIPT_NUMBER_CANDIDATE || id == GDSCRIPT_OP_DOT || id == GDSCRIPT_PERIOD)
 		{
-			/* continue; */
 			int index = -1;
 			int len = 0;
+			char* str = tokens[i].string; // remember, token string is NO LONGER NULL TERMINATED :D
 			for (int j = i; j < n; ++j)
 			{
-				len += strlen(tokens[j].string);
-				char temp[len];
-				int cum  = 0;
-				for (int k = i; k <= j; ++k)
-				{
-					char* str = tokens[k].string;
-					int str_len = strlen(str);
-					memmove(temp + cum, str, str_len);
-					cum += str_len;
-				}
-				if (verify_number(temp, len))
+				len += tokens[j].len;
+				/* printf("verify: %s\n", temp); */
+				if (verify_number(str, len))
 				{
 					index = j;
 				}
@@ -667,12 +661,22 @@ static void coalesce_numbers(token_t* tokens, gdscript_id_t* ids, uint32_t* num_
 			}
 			if (index >= i)
 			{
+				if (index == i && ids[i] == GDSCRIPT_PERIOD || ids[i] == GDSCRIPT_OP_DOT)
+				{
+					continue;
+				}
 				ids[i] = GDSCRIPT_NUMBER;
+				token_t* token = tokens + i;
 				for (int j = i + 1; j <= index; ++j)
 				{
-					int token_len = strlen(tokens[i].string);
-					memmove(tokens[i].string + token_len, tokens[j].string, strlen(tokens[j].string) + 1);
+					token->len += tokens[j].len;
 				}
+				/* printf("coalesced: "); */
+				/* for (uint32_t j = 0; j < token->len; ++j) */
+				/* { */
+				/* 	printf("%c", token->string[j]); */
+				/* } */
+				/* printf("\n"); */
 				if (i < index && index < n - 1)
 				{
 					size_t k = n - index;
