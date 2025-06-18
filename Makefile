@@ -1,8 +1,8 @@
+CC := clang -std=gnu99
 ifeq ($(OS),Windows_NT)
-	CC := clang -std=gnu99
 	RE := rg
 else
-	CC := gcc -std=gnu99
+	# CC := gcc -std=gnu99
 	RE := grep
 endif
 CFLAGS := -Wall -Wextra -Wno-int-conversion -fpermissive -fdiagnostics-show-option -ggdb -O0
