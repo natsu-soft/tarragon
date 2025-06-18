@@ -39,4 +39,6 @@ void* arena_peek(arena_t* arena, const size_t bytes);
 // tight pack cat
 void arena_cat(arena_t* arena0, const arena_t* arena1);
 
+void arena_insert(arena_t* arena, const size_t pos, const void* src, const size_t bytes);
+
 #endif /* End ARENA_H */

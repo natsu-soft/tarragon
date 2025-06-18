@@ -135,3 +135,15 @@ void arena_cat(arena_t* arena0, const arena_t* arena1)
 	memcpy(arena0->allocation + arena0->size, arena1->allocation, arena1->size);
 	arena0->size += arena1->size;
 }
+
+
+void arena_insert(arena_t* arena, const size_t pos, const void* src, const size_t bytes)
+{
+	if (arena->size + bytes > arena->cap)
+	{
+		arena_grow(arena, arena->size + bytes);
+	}
+	// TODO: some kind of assert
+	memmove(arena->allocation + pos + bytes, arena->allocation + pos, arena->size - pos);
+	memcpy(arena->allocation + pos, src, bytes);
+}
