@@ -28,6 +28,7 @@
 	STR_X("^\"",     0x82, NODE_PATH)				    \
 	STRING_ENDERS										\
 
+static void preprocess_tokens(token_t* tokens, gdscript_id_t* ids, uint32_t* num_tokens);
 static uint32_t delimiting_token(const char* str, const unsigned int n);
 static uint32_t string_starter(const char* str, const unsigned int n, uint8_t* str_bitmask);
 static uint32_t string_ender(const char* str, const unsigned int n, const uint8_t str_bitmask);
@@ -35,7 +36,7 @@ static const gdscript_id_t id_token(const token_t* token);
 static void new_token(arena_t* token_arena, const char* src, const int pos, const int len);
 static const gdscript_id_t verify_number(const char* src, const uint32_t n);
 static void cull_line_continuations(token_t* tokens, gdscript_id_t* ids, uint32_t* num_tokens);
-static void classify_gdscript_tokens(token_t* tokens, gdscript_id_t* ids, const uint32_t n);
+static void lws_to_scopes(arena_t* token_arena, arena_t* id_arena, uint32_t* num_tokens);
 
 static void do_nothing_with_token(const token_t* t, const char* message)
 {
@@ -141,11 +142,12 @@ static const gdscript_id_t id_token(const token_t* token)
 {
 	const char* str = token->string;
 	char* temp;
+	const uint32_t token_len = token->len;
 	unsigned int len;
 #define X(STR, ID)								\
 	temp = STR;									\
 	len = strlen(temp);							\
-	len = len > token->len ? token->len : len;	\
+	len = len > token_len ? token->len : len;	\
 	for (unsigned int i = 0; i < len; ++i)		\
 	{											\
 		if (str[i] != temp[i])					\
@@ -156,7 +158,7 @@ static const gdscript_id_t id_token(const token_t* token)
 	return GDSCRIPT_##ID;						\
 	STOP_##ID:
 	GDSCRIPT_BUILTIN_TOKENS
-	if (isdigit(str[0]) || (str[0] == '.' && strlen(str) > 1))
+	if (('0' <= str[0] && str[0] < '9') || (str[0] == '.' && token_len > 1))
 	{
 		return GDSCRIPT_NUMBER_CANDIDATE;
 	}
@@ -570,18 +572,48 @@ uint32_t gdscript_tokenize(arena_t* arena, token_t** tokens, gdscript_id_t** ids
 		new_token(arena, src, pos, n - pos);
 		++num_tokens;
 	}
-
+	// NOTE: this would be better after a TOUCH of postprocessing
+	/* lws_to_scopes(arena, id_arena, &num_tokens); */
 	token_t* t = arena_dynamic_alloc(arena, sizeof *t);
 	t->string = src + n - 1;
 	t->pos = n - 1;
 	t->len = 0;
 	gdscript_id_t* id = arena_dynamic_alloc(id_arena, sizeof *id);
 	*id = GDSCRIPT_EOF;
-	arena_cat(arena, id_arena);
+	++num_tokens;
+	preprocess_tokens(arena->allocation, id_arena->allocation, &num_tokens);
+	lws_to_scopes(arena, id_arena, &num_tokens);
+	/* uint8_t* temp = realloc(arena, num_tokens * (sizeof *tokens + sizeof *ids)); */
+	const size_t req_size = num_tokens * (sizeof **tokens + sizeof **ids);
+	if (arena->cap < req_size)
+	{
+		arena_grow(arena, req_size);
+	}
 	*tokens = arena->allocation;
-	*ids = *tokens + num_tokens;
-	++num_tokens; // don't have to classify the last one, so don't!
+	*ids = memcpy(*tokens + num_tokens, id_arena->allocation, num_tokens * sizeof **ids);
 	return num_tokens;
+}
+
+
+static void lws_to_scopes(arena_t* token_arena, arena_t* id_arena, uint32_t* num_tokens)
+{
+	token_t* tokens = token_arena->allocation;
+	gdscript_id_t* ids = token_arena->allocation;
+	uint32_t lws0 = 0;
+	uint32_t lws1 = 0;
+	for (uint32_t i = 0; i < *num_tokens; ++i)
+	{
+		switch(ids[i])
+		{
+		case GDSCRIPT_LINE_END:
+			lws1 = 0;
+			break;
+		case GDSCRIPT_LEADING_WHITESPACE:
+			++lws1;
+			break;
+		default:
+		}
+	}
 }
 
 
@@ -596,6 +628,7 @@ static void classify_gdscript_tokens(token_t* tokens, gdscript_id_t* ids, const 
 	}
 }
 
+// NOTE: not working :(
 static void coalesce_numbers(token_t* tokens, gdscript_id_t* ids, uint32_t* num_tokens)
 {
 	uint32_t n = *num_tokens;
@@ -672,7 +705,7 @@ static void trim_token (token_t* tokens, gdscript_id_t* ids, uint32_t* num_token
 	*num_tokens = swap;
 }
 
-void preprocess_tokens(token_t* tokens, gdscript_id_t* ids, uint32_t* num_tokens)
+static void preprocess_tokens(token_t* tokens, gdscript_id_t* ids, uint32_t* num_tokens)
 {
 	classify_gdscript_tokens(tokens, ids, *num_tokens - 1); // don't gotta classify the last token -- it's EOF
 	/* classify_gdscript_tokens(tokens, ids, *num_tokens); */
@@ -687,7 +720,7 @@ void preprocess_tokens(token_t* tokens, gdscript_id_t* ids, uint32_t* num_tokens
 	cull_pointless_lines(tokens, ids, num_tokens);
 	/* printf("cull_pointless_lines: %d\n", *num_tokens); */
 	const uint32_t n = *num_tokens;
-	// convert periods to dot operators
+	// convert remaining periods to dot operators
 	const int period_delta = GDSCRIPT_OP_DOT - GDSCRIPT_PERIOD;
 	for (int i = 0; i < n; ++i)
 	{
@@ -700,7 +733,6 @@ void preprocess_tokens(token_t* tokens, gdscript_id_t* ids, uint32_t* num_tokens
 		const gdscript_id_t id = ids[i];
 		ids[i] += (id == GDSCRIPT_NONE) * GDSCRIPT_IDENTIFIER;
 	}
-	memmove(ids, tokens + n, n * sizeof *ids); // the gucci move
 }
 
 /* static void pv(const char* str, const int n) */

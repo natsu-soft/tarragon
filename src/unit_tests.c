@@ -12,7 +12,8 @@ FILE* log_fp;
 #define UNIT_TESTS								\
 	TEST(scratch) \
 	TEST(base_protocol) \
-		TEST(json) \
+	TEST(json) \
+	TEST(gdscript_parser)
 	/* TEST(json)									\ */
 	/* TEST(gdscript_parser) */
 
