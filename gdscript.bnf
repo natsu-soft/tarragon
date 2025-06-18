@@ -1,6 +1,6 @@
 LWS = (' ' | '\t')+
 
-BODY = ((LWS LINE)? '\n')+
+BODY = SCOPE_START ((LWS LINE)? '\n')+ SCOPE_END
 
 LINE = EXPR
 LINE = STMT
