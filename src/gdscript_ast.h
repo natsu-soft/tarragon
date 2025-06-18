@@ -231,7 +231,7 @@ typedef struct ast_node_t
 	/* ast_id_t last_child_id; // you shouldn't need this but ur lazy tbqh */
 } ast_node_t;
 
-ast_node_t* gdscript_ast_generate(struct free_list_t* arena, const struct token_t* tokens, gdscript_id_t* ids, const uint32_t num_tokens);
+ast_node_t* gdscript_ast_generate(struct arena_t* arena, const struct token_t* tokens, gdscript_id_t* ids, const uint32_t num_tokens);
 
 void gdscript_ast_check(ast_node_t* root);
 
