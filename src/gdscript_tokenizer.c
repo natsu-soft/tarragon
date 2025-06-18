@@ -633,7 +633,7 @@ static void lws_to_scopes(arena_t* token_arena, arena_t* id_arena, uint32_t* num
 			ids = id_arena->allocation;
 			lws0 = lws1;
 			++n;
-			arena_push(depth_arena, &lws0, sizeof lws0);
+			arena_dynamic_push(depth_arena, &lws0, sizeof lws0);
 		}
 		else if (lws1 < lws0)
 		{
