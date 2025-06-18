@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <string.h>
+#include <assert.h>
 #include "gdscript_parser.h"
 #include "token.h"
 #include "arena.h"
@@ -611,7 +612,7 @@ static void lws_to_scopes(arena_t* token_arena, arena_t* id_arena, uint32_t* num
 	gdscript_id_t* ids = id_arena->allocation;
 	uint32_t lws0 = 0;
 	uint32_t n = *num_tokens;
-	SCRATCH* depth_arena = scratch_checkout();
+	SCRATCH* depth_arena = scratch_checkout_size(128 * sizeof lws0); // if this isn't enough the user deserves to segfault
 	const size_t token_size = sizeof *tokens;
 	const size_t id_size = sizeof *ids;
 	const gdscript_id_t scope_start = GDSCRIPT_SCOPE_START;
@@ -633,16 +634,18 @@ static void lws_to_scopes(arena_t* token_arena, arena_t* id_arena, uint32_t* num
 			ids = id_arena->allocation;
 			lws0 = lws1;
 			++n;
-			arena_dynamic_push(depth_arena, &lws0, sizeof lws0);
+			assert(depth_arena->size < 128 * sizeof lws0 && "REALLY, YOU HAVE MORE THAN 128 DEPTHS?  YOU DESERVE THIS ASSERT.");
+			arena_push(depth_arena, &lws0, sizeof lws0);
 		}
 		else if (lws1 < lws0)
 		{
 			/* printf("INSERT SCOPE END!\n"); */
 			lws0 = lws1;
 			uint32_t* d;
-			while(d = arena_peek(depth_arena, sizeof *d), *d > lws0)
+			const size_t d_size = sizeof *d;
+			while(depth_arena->size > d_size && *(d = arena_peek(depth_arena, d_size)) > lws0)
 			{
-				arena_pop(depth_arena, sizeof *d);
+				depth_arena->size -= d_size;
 				arena_insert(token_arena, i0 * token_size, &token, token_size);
 				arena_insert(id_arena, i0 * id_size, &scope_end, id_size);
 				++n;
@@ -655,7 +658,7 @@ static void lws_to_scopes(arena_t* token_arena, arena_t* id_arena, uint32_t* num
 	const token_t token = { .pos = tokens[n - 1].pos };
 	while (depth_arena->size > 0)
 	{
-		arena_pop(depth_arena, sizeof lws0);
+		depth_arena->size -= sizeof lws0;
 		arena_insert(token_arena, (n - 1) * token_size, &token, token_size);
 		arena_insert(id_arena, (n - 1) * id_size, &scope_end, id_size);
 		++n;
