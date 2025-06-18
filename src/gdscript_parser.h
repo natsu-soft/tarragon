@@ -59,30 +59,40 @@
 // but they're used during ast generation
 // after tokenizatin remaining periods get converted to the dot operator
 
-#define GDSCRIPT_BINARY_OPERATORS \
+#define GDSCRIPT_ASSIGNMENT_OPERATORS \
 	X("**=", OP_ASSIGNMENT_POWER) \
-	X("**",  OP_POWER) \
 	X("*=",  OP_ASSIGNMENT_PRODUCT) \
-	X("*",   OP_PRODUCT) \
 	X("+=",  OP_ASSIGNMENT_SUM) \
-	X("+",   OP_SUM) \
 	X("-=",  OP_ASSIGNMENT_DIFFERENCE) \
-	X("-",   OP_DIFFERENCE) \
 	X("/=",  OP_ASSIGNMENT_DIVISION) \
-	X("/",   OP_DIVISION) \
 	X("%=",  OP_ASSIGNMENT_MODULO) \
+	X("&=",  OP_ASSIGNMENT_BITWISE_AND) \
+	X("|=",  OP_ASSIGNMENT_BITWISE_OR) \
+	X("<<=", OP_ASSIGNMENT_BITSHIFT_LEFT) \
+	X(">>=", OP_ASSIGNMENT_BITSHIFT_RIGH) \
+	X("^=",  OP_ASSIGNMENT_XOR) \
+	X(":=",  OP_ASSIGNMENT_TYPED) \
+	X("=",   OP_ASSIGNMENT) \
+
+#define GDSCRIPT_UNARY_OPERATORS \
+	X("~", OP_BITWISE_NOT) \
+	X("+", OP_IDENTITY) \
+	X("-", OP_NEGATION) \
+	X("!", OP_BOOL_NOT)
+
+#define GDSCRIPT_BINARY_OPERATORS \
+	X("**",  OP_POWER) \
+	X("*",   OP_PRODUCT) \
+	X("+",   OP_SUM) \
+	X("-",   OP_DIFFERENCE) \
+	X("/",   OP_DIVISION) \
 	X("%",   OP_MODULO) \
 	X("&&",  OP_BOOL_AND) \
-	X("&=",  OP_ASSIGNMENT_BITWISE_AND) \
 	X("&",   OP_BITWISE_AND) \
 	X("||",  OP_BOOL_OR) \
-	X("|=",  OP_ASSIGNMENT_BITWISE_OR) \
 	X("|",   OP_BITWISE_OR) \
-	X("<<=", OP_ASSIGNMENT_BITSHIFT_LEFT) \
 	X("<<",  OP_BITSHIFT_LEFT) \
-	X(">>=", OP_ASSIGNMENT_BITSHIFT_RIGH) \
 	X(">>",  OP_BITSHIFT_RIGHT) \
-	X("^=",  OP_ASSIGNMENT_XOR) \
 	X("^",   OP_BITWISE_XOR) \
 	X("==",  OP_EQUALS) \
 	X("!=",  OP_INEQUALS) \
@@ -90,17 +100,9 @@
 	X("<",   OP_LESS_THAN) \
 	X(">=",  OP_GREATER_THAN_EQUALS) \
 	X(">",   OP_GREATER_THAN) \
-	X(":=",  OP_ASSIGNMENT_TYPED) \
-	X("=",   OP_ASSIGNMENT) \
 	X(":",   OP_PAIR) \
 	X(":",   OP_TYPE) \
 	X(".",   OP_DOT) \
-
-#define GDSCRIPT_UNARY_OPERATORS \
-	X("~", OP_BITWISE_NOT) \
-	X("+", OP_IDENTITY) \
-	X("-", OP_NEGATION) \
-	X("!", OP_BOOL_NOT)
 
 #define GDSCRIPT_ANNOTATIONS \
 	X("@export_category",            EXPORT_CATEGORY) \
@@ -182,8 +184,9 @@
 	X("NAN",   NAN)
 
 #define GDSCRIPT_OPERATORS \
-	GDSCRIPT_BINARY_OPERATORS \
-	GDSCRIPT_UNARY_OPERATORS
+	GDSCRIPT_ASSIGNMENT_OPERATORS \
+	GDSCRIPT_UNARY_OPERATORS \
+	GDSCRIPT_BINARY_OPERATORS
 
 #define GDSCRIPT_DELIMITING_TOKENS \
 	GDSCRIPT_STRUCTURE \
