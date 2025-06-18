@@ -777,6 +777,13 @@ static void preprocess_tokens(token_t* tokens, gdscript_id_t* ids, uint32_t* num
 		const gdscript_id_t id = ids[i];
 		ids[i] += (id == GDSCRIPT_PERIOD) * period_delta;
 	}
+	// convert semicolons to line ends
+	const int semicolon_delta = GDSCRIPT_LINE_END - GDSCRIPT_SEMICOLON;
+	for (int i = 0; i < n; ++i)
+	{
+		const gdscript_id_t id = ids[i];
+		ids[i] += (id == GDSCRIPT_SEMICOLON) * semicolon_delta;
+	}
 	// convert remaining to identifiers
 	for (int i = 0; i < n; ++i)
 	{
