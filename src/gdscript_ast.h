@@ -26,14 +26,14 @@
 // NOTE: symbolic expressions are expressions that are a SINGLE SYMBOL(token).
 // can be variables, strings, numbers, or literals.
 #define EXPRESSIONS								\
-	X(SYMBOLIC)								\
-	X(UNARY)								\
-	X(BINARY)								\
-	X(FUNC)									\
-	X(ARRAY)								\
-	X(DICT)									\
-	X(GROUP)								\
-	X(TERNARY)
+	X(SYMBOLIC, 0x01)							\
+	X(UNARY,    0x02)							\
+	X(BINARY,   0x04)							\
+	X(TERNARY,  0x08)						    \
+	X(FUNC,     0x10)							\
+	X(ARRAY,    0x20)							\
+	X(DICT,     0x40)							\
+	X(GROUP,    0x80)
 
 #define STATEMENTS							\
 	X(IF)										\
