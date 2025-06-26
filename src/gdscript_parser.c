@@ -50,6 +50,6 @@ int gdscript_parser_test(int argc, char** argv)
 	/* PRINT(GDSCRIPT_SCOPE_START); */
 	/* PRINT(GDSCRIPT_SCOPE_END); */
 	#undef PRINT
-	gdscript_allman(tokens, ids, num_tokens);
+	/* gdscript_allman(tokens, ids, num_tokens); */
 	return 0;
 }
