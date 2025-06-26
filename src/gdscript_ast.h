@@ -81,7 +81,7 @@ typedef enum __attribute__((packed)) ast_id_t
 	NODES
 	#undef X
 	/* EXPRESSIONS */
-	#define X(ID) AST_EXPR_##ID,
+	#define X(ID, _) AST_EXPR_##ID,
 	AST_EXPRESSION = 0x0800,
 	EXPRESSIONS
 	AST_EXPRESSION_END,
@@ -198,7 +198,7 @@ typedef struct ast_node_t
 		// for regular nodes
 		struct
 		{
-			struct ast_node_t* children;
+			struct ast_node_t* children; // sack up & use relative pointers
 			size_t num_children;
 		};
 		// for operator expressions
@@ -208,10 +208,10 @@ typedef struct ast_node_t
 			struct ast_node_t* rhs;
 		};
 		struct ast_node_t* operand[2]; // for unary, can refer to with just operand->
-		token_t* symbol;
+		struct token_t* symbol;
 		size_t scope_len;
 	};
-	struct ast_node_t* parent;
+	struct ast_node_t* parent; // NOTE: also relative >:^)
 	union
 	{
 		struct {
@@ -231,7 +231,10 @@ typedef struct ast_node_t
 	/* ast_id_t last_child_id; // you shouldn't need this but ur lazy tbqh */
 } ast_node_t;
 
-ast_node_t* gdscript_ast_generate(struct arena_t* arena, const struct token_t* tokens, gdscript_id_t* ids, const uint32_t num_tokens);
+typedef struct arena_t arena_t;
+typedef struct token_t token_t;
+
+ast_node_t* gdscript_ast_generate(arena_t* arena, const token_t* tokens, gdscript_id_t* ids, const uint32_t num_tokens);
 
 void gdscript_ast_check(ast_node_t* root);
 

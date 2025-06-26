@@ -5,33 +5,34 @@
 #include <stdlib.h>
 #include <string.h>
 #include "pointer_memes.h"
+#include "arena.h"
 #include "free_list.h"
 #include "token.h"
 #include "scratch.h"
 
-// TODO: panic is CRINGE, function specific errors are BASED
-
 /* (1) fuck it.
- * (2) just parse it, then:
- * (3) check afterwards :P */
+ * (2) just parse it
+ * (3) check afterwards B) */
 
 #define RESIZE_SCALE 1.618
 #define RESIZE_OVERHEAD 4096
 
 // FOR CLARITY'S SAKE
-typedef unsigned char bool_t;
+typedef uint8_t bool;
+#define true 1
+#define false 0
 
 typedef struct context_t
 {
 	token_t* tokens;
 	gdscript_id_t* ids;
 	free_list_t* fl;
-	ast_node_t* root;
-	uint32_t n;
+	uint32_t num_tokens;
 } context_t;
 
-// NOTE: awful.
-typedef void (*panic_t)(ast_node_t*, context_t*, const uint32_t*);
+#define UNPACK_CONTEXT(CTX) \
+	const gdscript_id_t* ids = CTX->ids; \
+	const uint32_t num_tokens = CTX->num_tokens;
 
 #define KEYVALUES								\
 	X(EXPORT_CATEGORY,				todo)		\
@@ -108,50 +109,34 @@ typedef void (*panic_t)(ast_node_t*, context_t*, const uint32_t*);
 	X(NAN,							expr_literal)	\
 	X(STRING,						expr_string)	\
 	X(NUMBER,						expr_number)	\
-	X(IDENTIFIER,				    identifier)
+	X(IDENTIFIER,				    expr_identifier)
 
 
 // TODO expand then delete the redundant forward declarations
-#define X(_, FUNC) static bool_t parse_##FUNC(ast_node_t* parent, context_t* ctx, uint32_t* index);
+#define X(_, FUNC) static bool parse_##FUNC(ast_node_t** parent, context_t* ctx, uint32_t* index);
 KEYVALUES
 #undef X
 
 
-static bool_t process_tokens(ast_node_t* parent, context_t* ctx, uint32_t* index);
-static bool_t parse_arguments(ast_node_t* parent, context_t* ctx, uint32_t* index, panic_t panic);
+static void absolute_ast(ast_node_t* node);
+static void process_tokens(ast_node_t** parent, context_t* ctx, uint32_t* index);
+static bool parse_arguments(ast_node_t** parent, context_t* ctx, uint32_t* index);
+static bool parse_parameters(ast_node_t** parent, context_t* ctx, uint32_t* index);
 
 
+/***********/
+/* KONBINI */
+/***********/
 
-/*****************************/
-/* CONVENIENT MACROS & FUNCS */
-/*****************************/
 
-
-#define BITFLAGS(DEST, BIT_ARRAY, N) \
-	for (uint32_t i = 0; i < N; ++i) \
+#define BITFLAGS(DEST, BIT_ARRAY, N)			\
+	for (uint32_t i = 0; i < N; ++i)			\
 		DEST |= BIT_ARRAY[i] << i;
 
-#define ERR_NODE									\
-	ast_node_t* error_node = add_error(&parent, ctx);	\
-	error_node->err_token = ctx->tokens + *index; \
+#define ERR_NODE											\
+	ast_node_t* error_node = add_error(parent, ctx->fl);	\
+	error_node->err_token = ctx->tokens + *index;			\
 	error_node->err_len = 1;
-
-static bool_t match(bool_t* matches, const gdscript_id_t* seq, const uint32_t len, const gdscript_id_t* ground_truth, const uint32_t n)
-{
-	bool_t res = 1;
-	for (uint32_t i = 0; i < len && i < n; ++i)
-	{
-		const bool_t temp = seq[i] == ground_truth[i];
-		matches[i] = temp;
-		res &= temp;
-	}
-	for (uint32_t i = n; i < len; ++i)
-	{
-		matches[i] = 0;
-		res = 0;
-	}
-	return res;
-}
 
 // NOTE: assumes index is ONE AFTER a scope start.
 static uint32_t pos_scope_end(const uint32_t index, const gdscript_id_t* ids, const uint32_t n)
@@ -172,16 +157,17 @@ static uint32_t pos_scope_end(const uint32_t index, const gdscript_id_t* ids, co
 	return 0;
 }
 
+// NOTE: assumes index is ONE AFTER an open paren
 static uint32_t pos_pair(const gdscript_id_t opener, const uint32_t index, const gdscript_id_t* ids, const uint32_t n)
 {
 	uint16_t depth = 0;
 	for (uint32_t i = index; i < n; ++i)
 	{
-		const gdscript_id_t id = ids[i];
-		switch(id * (depth > 0 || id != opener)) // this is excessive even for you
+		switch(ids[i])
 		{
 		case 0: // bro this is disgusting
-			return i;
+			if (depth == 0) return i;
+			break;
 		case GDSCRIPT_PAREN_CLOSE:
 			depth--;
 			break;
@@ -201,11 +187,11 @@ static uint32_t pos_colon(const uint32_t index, const gdscript_id_t* ids, const 
 	uint16_t depth = 0;
 	for (uint32_t i = index; i < n; ++i)
 	{
-		const gdscript_id_t id = ids[i];
-		switch(id * (depth > 0 || id != GDSCRIPT_COLON)) // this is excessive even for you
+		switch(ids[i]) // this is excessive even for you
 		{
-		case 0: // bro this is disgusting
-			return i;
+		case GDSCRIPT_COLON:
+			if (depth == 0) return i;
+			break;
 		case GDSCRIPT_PAREN_CLOSE:
 			depth--;
 			break;
@@ -225,7 +211,7 @@ static uint32_t pos_eol(const uint32_t index, const gdscript_id_t* ids, const ui
 	for (uint32_t i = index; i < n; ++i)
 	{
 		const gdscript_id_t id = ids[i];
-		if (id == GDSCRIPT_LINE_END)
+		if (id == GDSCRIPT_LINE_END || id == GDSCRIPT_SEMICOLON)
 		{
 			return i;
 		}
@@ -233,81 +219,53 @@ static uint32_t pos_eol(const uint32_t index, const gdscript_id_t* ids, const ui
 	return 0;
 }
 
-static void relative_children(ast_node_t* node)
-{
-	if (node->num_children > 0)
-	{
-		for (int i = 0; i < node->num_children; ++i)
-		{
-			relative_children(node->children + i);
-		}
-		point_relative(&node->children);
-	}
-}
-
-static void absolute_children(ast_node_t* node)
-{
-	if (node->num_children > 0)
-	{
-		point_absolute(&node->children);
-		for (int i = 0; i < node->num_children; ++i)
-		{
-			absolute_children(node->children + i);
-		}
-	}
-}
-
-static void* ast_alloc(free_list_t* fl, ast_node_t** root, const size_t size)
+static inline void* ast_alloc(free_list_t* fl, const size_t size)
 {
 	void* res = free_list_calloc(fl, size);
-	if (res == NULL)
+	while (res == NULL)
 	{
-		relative_children(*root);
-		point_relative_offset(root, fl->memory);
-		do {
-			free_list_grow(fl, RESIZE_SCALE * fl->size + RESIZE_OVERHEAD);
-			res = free_list_calloc(fl, size);
-		} while (res == NULL);
-		point_absolute_offset(root, fl->memory);
-		absolute_children(*root);
+		free_list_grow(fl, RESIZE_SCALE * fl->cap + RESIZE_OVERHEAD);
+		res = free_list_calloc(fl, size);
 	}
 	return res;
 }
 
-static ast_node_t* add_blank(ast_node_t** parent, context_t* ctx)
+static ast_node_t* add_blank(ast_node_t** parent, free_list_t* fl)
 {
 	const size_t num = (*parent)->num_children + 1;
-	point_relative_offset(parent, ctx->fl->memory);
-	ast_node_t* children = ast_alloc(ctx->fl, &ctx->root, num * sizeof **parent);
-	point_absolute_offset(parent, ctx->fl->memory);
+	point_relative_offset(parent, fl->allocation);
+	ast_node_t* children = ast_alloc(fl, num * sizeof *children);
+	point_absolute_offset(parent, fl->allocation);
 	ast_node_t* p = *parent;
 	if (num > 1)
 	{
+		point_absolute(&p->children);
 		memcpy(children, p->children, (num - 1) * sizeof *p);
-		free_list_free(ctx->fl, p->children);
+		free_list_free(fl, p->children);
 	}
-	memset(children + num - 1, 0x00, sizeof *p);
-	p->children = children;
-	p->num_children = num;
 	ast_node_t* last_child = children + num - 1;
+	memset(last_child, 0x00, sizeof *children);
+	p->children = ptr_rel_offset(children, &p->children);
+	p->num_children = num;
 	last_child->parent = p;
+	point_relative(&last_child->parent);
 	return last_child;
 }
 
-static ast_node_t* add_child(ast_node_t** parent, context_t* ctx, const ast_id_t id)
+static ast_node_t* add_child(ast_node_t** parent, free_list_t* fl, const ast_id_t id)
 {
-	ast_node_t* last_child = add_blank(parent, ctx);
+	ast_node_t* last_child = add_blank(parent, fl);
 	last_child->id = id;
 	/* (*parent)->last_child_id = id; */
 	return last_child;
 }
 
-static ast_node_t* add_error(ast_node_t** parent, context_t* ctx)
+static ast_node_t* add_error(ast_node_t** parent, free_list_t* fl)
 {
-	return add_child(parent, ctx, AST_ERROR);
+	return add_child(parent, fl, AST_ERROR);
 }
 
-static ast_node_t* last_child(const ast_node_t* node)
+static inline ast_node_t* last_child(const ast_node_t* node)
 {
 	const uint32_t n = node->num_children;
 	return node->children + n - 1;
@@ -324,40 +282,23 @@ static const size_t num_children_of_type(const ast_node_t* parent, const ast_id_
 }
 
 
-/*********/
-/* PANIC */
-/*********/
-// TODO: stop using these they're awful.
-
-
-static void panic_pass(ast_node_t* parent, context_t* ctx, const uint32_t* index) {}
-
-static void panic_err(ast_node_t* parent, context_t* ctx, const uint32_t* index)
-{
-	ast_node_t* n = add_error(&parent, ctx);
-	n->id = AST_ERROR;
-	n->err_token = ctx->tokens + *index;
-	n->err_len = 1;
-}
-
-
 /*********************/
 /* PARSING -- BASICS */
 /*********************/
 
 
-static bool_t parse_error(ast_node_t* parent, context_t* ctx, const uint32_t index)
+static bool parse_error(ast_node_t** parent, context_t* ctx, const uint32_t index)
 {
-	ast_node_t* n = add_error(&parent, ctx);
+	ast_node_t* n = add_error(parent, ctx->fl);
 	n->id = AST_ERROR;
 	n->err_token = ctx->tokens + index;
 	n->err_len = 1;
 	return 1;
 }
 
-static bool_t parse_identifier(ast_node_t* parent, context_t* ctx, uint32_t* index)
+static bool parse_identifier(ast_node_t** parent, context_t* ctx, const uint32_t* index)
 {
-	ast_node_t* n = add_child(&parent, ctx, AST_IDENTIFIER);
+	ast_node_t* n = add_child(parent, ctx->fl, AST_IDENTIFIER);
 	n->symbol = ctx->tokens + *index;
 	return 1;
 }
@@ -367,52 +308,71 @@ static bool_t parse_identifier(ast_node_t* parent, context_t* ctx, uint32_t* ind
 /* PARSING -- EXPRESSIONS */
 /**************************/
 
-static bool_t parse_expr_unary(ast_node_t* parent, context_t* ctx, uint32_t* index, const panic_t panic);
-static bool_t parse_expr_binary(ast_node_t* parent, context_t* ctx, uint32_t* index, const panic_t panic);
-static bool_t parse_expr_operation(ast_node_t* parent, context_t* ctx, uint32_t* index, const panic_t panic);
-static bool_t parse_expr_func(ast_node_t* parent, context_t* ctx, uint32_t* index, const panic_t panic);
-static bool_t parse_expr_group(ast_node_t* parent, context_t* ctx, uint32_t* index, const panic_t panic);
-static bool_t parse_expr_array(ast_node_t* parent, context_t* ctx, uint32_t* index, const panic_t panic);
-static bool_t parse_expr_dict(ast_node_t* parent, context_t* ctx, uint32_t* index, const panic_t panic);
-static bool_t parse_expr_ternary(ast_node_t* parent, context_t* ctx, uint32_t* index, const panic_t panic);
+
+static bool parse_expr_strict_unary(ast_node_t** parent, context_t* ctx, uint32_t* index, const bool errs);
+static bool parse_expr_unary(ast_node_t** parent, context_t* ctx, uint32_t* index, const bool errs);
+static bool parse_expr_binary(ast_node_t** parent, context_t* ctx, uint32_t* index, const bool errs);
+static bool parse_expr_operation(ast_node_t** parent, context_t* ctx, uint32_t* index, const bool errs);
+static bool parse_expr_func(ast_node_t** parent, context_t* ctx, uint32_t* index, const bool errs);
+static bool parse_expr_group(ast_node_t** parent, context_t* ctx, uint32_t* index, const bool errs);
+static bool parse_expr_array(ast_node_t** parent, context_t* ctx, uint32_t* index, const bool errs);
+static bool parse_expr_dict(ast_node_t** parent, context_t* ctx, uint32_t* index, const bool errs);
+static bool parse_expr_ternary(ast_node_t** parent, context_t* ctx, uint32_t* index, const bool errs);
 
 // NOTE: these funcs are ONLY called if they are what they are
-static bool_t parse_expr_identifier(ast_node_t* parent, context_t* ctx, uint32_t* index)
+static bool parse_expr_identifier(ast_node_t** parent, context_t* ctx, uint32_t* index)
 {
-	ast_node_t* n = add_child(&parent, ctx, AST_EXPR_SYMBOLIC);
+	ast_node_t* n = add_child(parent, ctx->fl, AST_EXPR_SYMBOLIC);
 	n->symbolic_id = SYMBOL_IDENTIFIER;
 	n->symbol = ctx->tokens + *index;
 	return 1;
 }
 
-static bool_t parse_expr_string(ast_node_t* parent, context_t* ctx, uint32_t* index)
+static bool parse_expr_string(ast_node_t** parent, context_t* ctx, uint32_t* index)
 {
-	ast_node_t* n = add_child(&parent, ctx, AST_EXPR_SYMBOLIC);
+	ast_node_t* n = add_child(parent, ctx->fl, AST_EXPR_SYMBOLIC);
 	n->symbolic_id = SYMBOL_STRING;
 	n->symbol = ctx->tokens + *index;
 	return 1;
 }
 
-static bool_t parse_expr_number(ast_node_t* parent, context_t* ctx, uint32_t* index)
+static bool parse_expr_number(ast_node_t** parent, context_t* ctx, uint32_t* index)
 {
-	ast_node_t* n = add_child(&parent, ctx, AST_EXPR_SYMBOLIC);
+	ast_node_t* n = add_child(parent, ctx->fl, AST_EXPR_SYMBOLIC);
 	n->symbolic_id = SYMBOL_NUMBER;
 	n->symbol = ctx->tokens + *index;
 	return 1;
 }
 
-static bool_t parse_expr_literal(ast_node_t* parent, context_t* ctx, uint32_t* index)
+static bool parse_expr_literal(ast_node_t** parent, context_t* ctx, uint32_t* index)
 {
-	ast_node_t* n = add_child(&parent, ctx, AST_EXPR_SYMBOLIC);
+	ast_node_t* n = add_child(parent, ctx->fl, AST_EXPR_SYMBOLIC);
 	n->symbolic_id = SYMBOL_LITERAL;
 	n->symbol = ctx->tokens + *index;
 	return 1;
 }
 
-static bool_t parse_expression(ast_node_t* parent, context_t* ctx, uint32_t* index, const panic_t panic)
+static bool parse_expr_symbolic(ast_node_t** parent, context_t* ctx, uint32_t* index, const bool errs)
 {
-	const gdscript_id_t* ids = ctx->ids;
-	for (uint32_t i = *index; i < ctx->n; ++i)
+	UNPACK_CONTEXT(ctx)
+	const uint32_t i = *index;
+	switch(ids[i])
+	{
+#define X(VAL, FUNC) case GDSCRIPT_##VAL: return parse_##FUNC(parent, ctx, index);
+		CONSTANTS_AND_LITERALS
+#undef X
+	}
+	if (errs)
+	{
+		parse_error(parent, ctx, i);
+	}
+	return 0;
+}
+
+static bool parse_expression(ast_node_t** parent, context_t* ctx, uint32_t* index, const bool errs)
+{
+	UNPACK_CONTEXT(ctx)
+	for (uint32_t i = *index; i < num_tokens; ++i)
 	{
 		switch (ids[i])
 		{
@@ -421,38 +381,128 @@ static bool_t parse_expression(ast_node_t* parent, context_t* ctx, uint32_t* ind
 			*index = i;
 			return 1;
 		case GDSCRIPT_IF:
-			parse_expr_ternary(parent, ctx, index, panic_err);
+			parse_expr_ternary(parent, ctx, index, errs);
 			break;
 		case GDSCRIPT_IDENTIFIER:
 			parse_expr_identifier(parent, ctx, index);
 			break;
 		case GDSCRIPT_PAREN_OPEN:
-			parse_expr_func(parent, ctx, index, panic) ||
-			parse_expr_group(parent, ctx, index, panic) ||
+			parse_expr_func(parent, ctx, index, false) ||
+			parse_expr_group(parent, ctx, index, false) ||
 			parse_error(parent, ctx, *index);
 			break;
 		case GDSCRIPT_BRACE_OPEN:
-			parse_expr_dict(parent, ctx, index, panic);
+			parse_expr_dict(parent, ctx, index, errs);
 			break;
 		case GDSCRIPT_BRACKET_OPEN:
-			parse_expr_array(parent, ctx, index, panic);
+			parse_expr_array(parent, ctx, index, errs);
 			break;
-		#define X(_, VALUE) case GDSCRIPT_##VALUE: parse_expr_operation(parent, ctx, index, panic); break;
+		#define X(_, VALUE) case GDSCRIPT_##VALUE: parse_expr_operation(parent, ctx, index, errs); break;
 			GDSCRIPT_OPERATORS
 		#undef X
 		default:
 			parse_error(parent, ctx, *index);
 		}
 	}
-	*index = ctx->n - 1;
-	return 1;
+	*index = num_tokens - 1;
+	return true;
 }
 
-static bool_t parse_expr_func(ast_node_t* parent, context_t* ctx, uint32_t* index, const panic_t panic)
+
+static bool parse_rexpression(ast_node_t** parent, context_t* ctx, uint32_t* index, const bool errs)
+{
+	UNPACK_CONTEXT(ctx)
+	for (uint32_t i = *index; i < num_tokens; ++i)
+	{
+		switch (ids[i])
+		{
+		case GDSCRIPT_SEMICOLON: __attribute__((fallthrough));
+		case GDSCRIPT_LINE_END:
+			*index = i;
+			return 1;
+		case GDSCRIPT_IF:
+			parse_expr_ternary(parent, ctx, index, errs);
+			break;
+		case GDSCRIPT_IDENTIFIER:
+			parse_expr_identifier(parent, ctx, index);
+			break;
+		case GDSCRIPT_PAREN_OPEN:
+			parse_expr_func(parent, ctx, index, false) ||
+			parse_expr_group(parent, ctx, index, false) ||
+			parse_error(parent, ctx, i);
+			break;
+		case GDSCRIPT_BRACE_OPEN:
+			parse_expr_dict(parent, ctx, index, errs);
+			break;
+		case GDSCRIPT_BRACKET_OPEN:
+			parse_expr_array(parent, ctx, index, errs);
+			break;
+		#define X(_, VALUE) case GDSCRIPT_##VALUE: parse_expr_operation(parent, ctx, index, errs); break;
+			GDSCRIPT_OPERATORS
+		#undef X
+		default:
+			parse_error(parent, ctx, *index);
+		}
+	}
+	*index = num_tokens - 1;
+	return true;
+}
+
+static bool parse_rexpression_to_colon(ast_node_t** parent, context_t* ctx, uint32_t* index, const bool errs)
+{
+	UNPACK_CONTEXT(ctx)
+	const uint32_t i0 = *index;
+	bool res = false;
+	for (uint32_t i = i0; i < num_tokens; ++i)
+	{
+		switch (ids[i])
+		{
+		case GDSCRIPT_COLON:
+			*index = i;
+			return res;
+		case GDSCRIPT_SEMICOLON: __attribute__((fallthrough));
+		case GDSCRIPT_LINE_END:
+			{
+				ast_node_t* err_node = add_error(parent, ctx->fl);
+				err_node->err_token = ctx->tokens + i0;
+				err_node->err_len = i - i0 + 1;
+			}
+			return 0;
+		case GDSCRIPT_IF:
+			res |= parse_expr_ternary(parent, ctx, index, errs);
+			break;
+		case GDSCRIPT_IDENTIFIER:
+			res |= parse_expr_identifier(parent, ctx, index);
+			break;
+		case GDSCRIPT_PAREN_OPEN:
+			res |= parse_expr_func(parent, ctx, index, 0) ||
+			parse_expr_group(parent, ctx, index, 0) ||
+			parse_error(parent, ctx, i);
+			break;
+		case GDSCRIPT_BRACE_OPEN:
+			res |= parse_expr_dict(parent, ctx, index, errs);
+			break;
+		case GDSCRIPT_BRACKET_OPEN:
+			res |= parse_expr_array(parent, ctx, index, errs);
+			break;
+		#define X(_, VALUE) case GDSCRIPT_##VALUE: res |= parse_expr_operation(parent, ctx, index, errs); break;
+			GDSCRIPT_OPERATORS
+		#undef X
+		default:
+			parse_error(parent, ctx, *index);
+		}
+	}
+	*index = num_tokens - 1;
+	return res;
+}
+
+
+static bool parse_expr_func(ast_node_t** parent, context_t* ctx, uint32_t* index, const bool errs)
 {
 	const uint32_t i = *index;
-	bool_t func_flag = parent->num_children > 0;
-	ast_node_t* node = func_flag ? parent->children + parent->num_children - 1 : NULL;
+	const ast_node_t* p = *parent;
+	bool func_flag = p->num_children > 0;
+	ast_node_t* node = func_flag ? p->children + p->num_children - 1 : NULL;
 	// check to see if preceeding child is an identifier or a dot expression
 	func_flag &= node->id == AST_IDENTIFIER ||
 		(node->id == AST_EXPR_SYMBOLIC && node->symbolic_id == SYMBOL_IDENTIFIER) ||
@@ -466,249 +516,178 @@ static bool_t parse_expr_func(ast_node_t* parent, context_t* ctx, uint32_t* inde
 		}
 		node->id = AST_EXPR_FUNC;
 		node->num_children = 0;
-		ast_node_t* temp = add_blank(&node, ctx);
+		ast_node_t* temp = add_blank(&node, ctx->fl);
 		memcpy(temp, &cache, sizeof cache);
 		temp->parent = node;
 		uint32_t j = i + 1;
-		parse_arguments(node, ctx, &j, panic_err);
+		parse_arguments(&node, ctx, &j);
 		*index = j;
-		return 1;
+		return true;
 	}
-	panic(parent, ctx, index);
-	return 0;
+	else if (errs)
+	{
+		// TODO: error node
+	}
+	return false;
 }
 
-static bool_t parse_expr_group(ast_node_t* parent, context_t* ctx, uint32_t* index, const panic_t panic)
+static bool parse_expr_group(ast_node_t** parent, context_t* ctx, uint32_t* index, const bool errs)
 {
+	UNPACK_CONTEXT(ctx)
 	const uint32_t i = *index;
-	gdscript_id_t* ids = ctx->ids;
-	const uint32_t n = ctx->n;
 	uint32_t pos;
-	bool_t flag = ids[i] == GDSCRIPT_PAREN_OPEN;
-	flag &= (pos = pos_pair(GDSCRIPT_PAREN_OPEN, i, ids, n)) > 0;
-	if (flag)
+	bool valid_group = ids[i] == GDSCRIPT_PAREN_OPEN;
+	valid_group &= (pos = pos_pair(GDSCRIPT_PAREN_OPEN, i, ids, num_tokens)) > 0;
+	if (valid_group)
 	{
-		ast_node_t* node = add_child(&parent, ctx, AST_EXPR_GROUP);
+		ast_node_t* node = add_child(parent, ctx->fl, AST_EXPR_GROUP);
 		uint32_t j = i + 1;
-		context_t group_ctx = *ctx;
-		group_ctx.n = pos;
-		parse_expression(node, &group_ctx, &j, panic_err);
+		context_t subctx = *ctx;
+		subctx.num_tokens = pos;
+		parse_rexpression(&node, &subctx, &j, true);
 		*index = j;
-		return 1;
+		return true;
 	}
-	panic(parent, ctx, index);
-	return 0;
-}
-
-// NOTE: also used for parameters, but strictly check for certain types parameter statements
-static bool_t parse_arguments(ast_node_t* parent, context_t* ctx, uint32_t* index, panic_t panic)
-{
-	uint32_t i = *index;
-	gdscript_id_t* ids = ctx->ids;
-	uint32_t n;
-	if (ids[i] == GDSCRIPT_PAREN_OPEN && (n = pos_pair(GDSCRIPT_PAREN_OPEN, i, ids, ctx->n)) > 0)
+	else if (errs)
 	{
-		context_t arg_ctx = *ctx;
-		/* for (uint32_t j = i + 1; j <= n; ++j) */ // NOTE: think--is it this one?
-		for (uint32_t j = i + 1; j < n; ++j)
-		{
-			arg_ctx.n = n;
-			for (uint32_t k = j + 1; k <= n; ++k)
-			{
-				if (ids[k] == GDSCRIPT_COMMA)
-				{
-					arg_ctx.n = k;
-					break;
-				}
-			}
-			if (arg_ctx.n > j)
-			{
-				parse_expression(parent, &arg_ctx, &j, panic_err);
-				j = arg_ctx.n;
-			}
-			else
-			{
-				ast_node_t* e = add_error(&parent, ctx);
-				e->err_token = ctx->tokens + j;
-				e->err_len = 1;
-			}
-		}
-		*index = i + n;
-		return 1;
+		// TODO: error
 	}
-	panic(parent, ctx, index);
-	return 0;
+	return false;
 }
 
-// Do I actually care about operator precedence aside from assignment?
+// Do I actually care about operator precedence aside from assignment? NO!
 // It's not like I'm compiling. I only really care about assignments.
-static bool_t parse_expr_operation(ast_node_t* parent, context_t* ctx, uint32_t* index, const panic_t panic)
+static bool parse_expr_operation(ast_node_t** parent, context_t* ctx, uint32_t* index, const bool errs)
 {
-#define BINARY_ASSIGNMENTS				\
-		X(OP_ASSIGNMENT_POWER,			OP_POWER)			\
-		X(OP_ASSIGNMENT_PRODUCT,		OP_PRODUCT)			\
-		X(OP_ASSIGNMENT_SUM,			OP_SUM)				\
-		X(OP_ASSIGNMENT_DIFFERENCE,		OP_DIFFERENCE)		\
-		X(OP_ASSIGNMENT_DIVISION,		OP_DIVISION)		\
-		X(OP_ASSIGNMENT_MODULO,			OP_MODULO)			\
-		X(OP_ASSIGNMENT_BITWISE_AND,	OP_BITWISE_AND)		\
-		X(OP_ASSIGNMENT_BITWISE_OR,		OP_BITWISE_OR)		\
-		X(OP_ASSIGNMENT_BITSHIFT_LEFT,	OP_BITSHIFT_LEFT)	\
-		X(OP_ASSIGNMENT_BITSHIFT_RIGH,	OP_BITSHIFT_RIGHT)	\
-		X(OP_ASSIGNMENT_XOR,			OP_BITWISE_XOR)		\
-		X(OP_ASSIGNMENT_TYPED,			OP_TYPE)
-#define BINARY_OPERATIONS			\
-		X(OP_POWER)					\
-		X(OP_PRODUCT)				\
-		X(OP_SUM)					\
-		X(OP_DIFFERENCE)			\
-		X(OP_DIVISION)				\
-		X(OP_MODULO)				\
-		X(OP_BOOL_AND)				\
-		X(OP_BITWISE_AND)			\
-		X(OP_BOOL_OR)				\
-		X(OP_BITWISE_OR)			\
-		X(OP_BITSHIFT_LEFT)			\
-		X(OP_BITSHIFT_RIGHT)		\
-		X(OP_BITWISE_XOR)			\
-		X(OP_EQUALS)				\
-		X(OP_INEQUALS)				\
-		X(OP_LESS_THAN_EQUALS)		\
-		X(OP_LESS_THAN)				\
-		X(OP_GREATER_THAN_EQUALS)	\
-		X(OP_GREATER_THAN) \
-		X(OP_DOT) \
-
-	const uint32_t i = *index;
-	const uint32_t n = ctx->n;
 	gdscript_id_t* ids = ctx->ids;
-	ast_op_t op;
-	switch(ids[i])
-	{
-	case GDSCRIPT_COLON:
-		if (parent->id == AST_EXPR_DICT && !parent->lua_dict)
-		{
-			op = OP_PAIR;
-			ids[i] = GDSCRIPT_OP_PAIR;
-		}
-		else
-		{
-			op = OP_TYPE;
-			ids[i] = GDSCRIPT_OP_TYPE;
-		}
-		break;
-	case GDSCRIPT_OP_ASSIGNMENT:
-		if (parent->id == AST_EXPR_DICT && parent->lua_dict)
-		{
-			op = OP_PAIR;
-			ids[i] = GDSCRIPT_OP_PAIR;
-		}
-		else
-		{
-			op = OP_ASSIGNMENT;
-		}
-		break;
-	#define X(NAME, VALUE) case GDSCRIPT_##NAME: op = VALUE | OP_ASSIGNMENT; break;
-	BINARY_ASSIGNMENTS
-	#undef X
-	#define X(A) case GDSCRIPT_##A: op = A; break;
-	BINARY_OPERATIONS
-	#undef X
-	default:
-		return 0;
-	}
-	// elevate assignments & dots
-	// NOTE: this IS wrong >:^(
-	bool_t binop_flag = 0;
-	/* bool_t binop_flag = parent->num_children > 0; */
-	/* binop_flag &= parent->last_child_id & AST_EXPRESSION && // NOTE: bitwise AND-assignment */
-	/* 	(parent->last_child_id == AST_EXPR_SYMBOLIC || */
-	/* 	 parent->last_child_id == AST_EXPR_UNARY || */
-	/* 	 parent->last_child_id == AST_EXPR_GROUP || */
-	/* 	 parent->last_child_id == AST_EXPR_FUNC); */
-	uint32_t j = i + 1;
-	bool_t res;
-	if (binop_flag)
+	const uint32_t num_tokens = ctx->num_tokens;
+	const uint32_t i = *index;
+#define AMBIGUOUS_OPS \
+	X(OP_IDENTITY, OP_SUM) \
+	X(OP_NEGATION, OP_DIFFERENCE)
+	const gdscript_id_t operation = ids[i];
+	/* Unary ops are NEVER proceeded by other operators */
+	/* Unary ops are immeadiately preceeded by:
+	   0. Nothing
+	   1. other ops
+	   2. commas
+	   3. newlines/semicolons
+	*/
+	uint8_t ambivalent_mask = operation == GDSCRIPT_OP_SUM ||
+		operation == GDSCRIPT_OP_IDENTITY ||
+		operation == GDSCRIPT_OP_DIFFERENCE ||
+		operation == GDSCRIPT_OP_NEGATION;
+	// 2nd bit is 1 if operator should be binary, 0 if unary
+	ambivalent_mask |= (i < num_tokens - 1 && (GDSCRIPT_OPERATORS_START < ids[i + 1] || ids[i + 1] < GDSCRIPT_OPERATORS_END)) << 1;
+	ambivalent_mask |= (i > 0 && (ids [i - 1] != GDSCRIPT_COMMA &&
+								  ids[i - 1] != GDSCRIPT_LINE_END &&
+								  ids[i - 1] != GDSCRIPT_SEMICOLON &&
+								  (ids[i - 1] < GDSCRIPT_OPERATORS_START || GDSCRIPT_OPERATORS_END < ids[i - 1]))) << 1;
+	if (ambivalent_mask == 0x01)
 	{
 		switch (ids[i])
 		{
-		case GDSCRIPT_OP_IDENTITY:
-			ids[i] = GDSCRIPT_OP_SUM;
-			op = OP_SUM;
-			break;
-		case GDSCRIPT_OP_NEGATION:
-			ids[i] = GDSCRIPT_OP_DIFFERENCE;
-			op = OP_DIFFERENCE;
-			break;
+			#define X(UNARY, BINARY) case GDSCRIPT_##BINARY: ids[i] = GDSCRIPT_##UNARY; break;
+			AMBIGUOUS_OPS
+			#undef X
 		}
-		ast_node_t* last_child = parent->children + parent->num_children - 1;
-		ast_node_t* temp = alloca(sizeof *temp);
-		memcpy(temp, last_child, sizeof *temp);
-		last_child->id = AST_EXPR_BINARY;
-		last_child->operation = op;
-		ast_node_t* lhs = add_child(&last_child, ctx, temp->id);
-		last_child->lhs = lhs; // redundant -- look at the structs
-		res = parse_expression(last_child, ctx, &j, 1);
-		last_child->rhs = last_child->children + 1;
+		return parse_expr_unary(parent, ctx, index, errs);
 	}
-	else
+	else if (ambivalent_mask == 0x03)
 	{
-		ast_node_t* unary_node = add_child(&parent, ctx, AST_EXPR_UNARY);
-		unary_node->operation = op;
-	#define UNARY_RHS \
-		X(group) || \
-		X(func) || \
-		X(symbolic)
-	#define X(A) parse_expr_##A(unary_node, ctx, &j, 0)
-		res = UNARY_RHS;
-		#undef X
+		switch (ids[i])
+		{
+			#define X(UNARY, BINARY) case GDSCRIPT_##UNARY: ids[i] = GDSCRIPT_##BINARY; break;
+			AMBIGUOUS_OPS
+			#undef X
+		}
 	}
-	*index = j;
-	return res;
+	return parse_expr_binary(parent, ctx, index, errs);
 }
 
-static bool_t parse_expr_unary(ast_node_t* parent, context_t* ctx, uint32_t* index, const panic_t panic)
+static bool parse_expr_unary(ast_node_t** parent, context_t* ctx, uint32_t* index, const bool errs)
 {
+	UNPACK_CONTEXT(ctx)
 	const uint32_t i = *index;
-	const uint32_t n = ctx->n;
-	gdscript_id_t* ids = ctx->ids;
 	ast_op_t op;
 	switch(ids[i])
 	{
-	case GDSCRIPT_OP_BITWISE_NOT:
-		op = OP_BITWISE_NOT;
-		break;
-	case GDSCRIPT_OP_BOOL_NOT:
-		op = OP_BOOL_NOT;
-		break;
-	case GDSCRIPT_OP_IDENTITY:
-		op = OP_IDENTITY;
-		break;
-	case GDSCRIPT_OP_NEGATION:
-		op = OP_NEGATION;
-		break;
+		#define X(_, OPERATION) case GDSCRIPT_##OPERATION: op = OPERATION; break;
+		GDSCRIPT_UNARY_OPERATORS
+		#undef X
 	default:
 		op = OP_NONE;
 	}
 	if (op)
 	{
-		ast_node_t* unary_node = add_child(&parent, ctx, AST_EXPR_UNARY);
+		ast_node_t* unary_node = add_child(parent, ctx->fl, AST_EXPR_UNARY);
 		unary_node->operation = op;
-		uint32_t j = i + 1;
-	#define UNARY_RHS \
-		X(group) || \
-		X(func) || \
-		X(symbolic)
-	#define X(A) parse_expr_##A(unary_node, ctx, &j, 0)
+		*index = i + 1;
+#define UNARY_RHS X(group) || X(func) || X(symbolic)
+#define X(A) parse_expr_##A(&unary_node, ctx, index, errs)
 		return UNARY_RHS;
-		#undef X
+#undef X
+#undef UNARY_RHS
 	}
-	panic(parent, ctx, index);
+	else if (errs)
+	{
+	/* TODO: error */
+	}
 	return 0;
 }
 
-static bool_t parse_expr_binary(ast_node_t* parent, context_t* ctx, uint32_t* index, const panic_t panic)
+static bool parse_expr_strict_unary(ast_node_t** parent, context_t* ctx, uint32_t* index, const bool errs)
 {
+	gdscript_id_t* ids = ctx->ids;
+	const uint32_t num_tokens = ctx->num_tokens;
+	const uint32_t i = *index;
+#define AMBIGUOUS_OPS \
+	X(OP_IDENTITY, OP_SUM) \
+	X(OP_NEGATION, OP_DIFFERENCE)
+	const gdscript_id_t operation = ids[i];
+	/* Unary ops are NEVER proceeded by other operators */
+	/* Unary ops are immeadiately preceeded by:
+	   0. Nothing
+	   1. other ops
+	   2. commas
+	   3. newlines/semicolons
+	*/
+	uint8_t ambivalent_mask = operation == GDSCRIPT_OP_SUM ||
+		operation == GDSCRIPT_OP_IDENTITY ||
+		operation == GDSCRIPT_OP_DIFFERENCE ||
+		operation == GDSCRIPT_OP_NEGATION;
+	// 2nd bit is 1 if operator should be binary, 0 if unary
+	ambivalent_mask |= (i < num_tokens - 1 && (GDSCRIPT_OPERATORS_START < ids[i + 1] || ids[i + 1] < GDSCRIPT_OPERATORS_END)) << 1;
+	ambivalent_mask |= (i > 0 && (ids [i - 1] != GDSCRIPT_COMMA &&
+								  ids[i - 1] != GDSCRIPT_LINE_END &&
+								  ids[i - 1] != GDSCRIPT_SEMICOLON &&
+								  (ids[i - 1] < GDSCRIPT_OPERATORS_START || GDSCRIPT_OPERATORS_END < ids[i - 1]))) << 1;
+	if (ambivalent_mask == 0x01)
+	{
+		switch (ids[i])
+		{
+			#define X(UNARY, BINARY) case GDSCRIPT_##BINARY: ids[i] = GDSCRIPT_##UNARY; break;
+			AMBIGUOUS_OPS
+			#undef X
+		}
+		return parse_expr_unary(parent, ctx, index, errs);
+	}
+	else if (ambivalent_mask == 0x03)
+	{
+		switch (ids[i])
+		{
+			#define X(UNARY, BINARY) case GDSCRIPT_##UNARY: ids[i] = GDSCRIPT_##BINARY; break;
+			AMBIGUOUS_OPS
+			#undef X
+		}
+	}
+	return 0;
+}
+
+static bool parse_expr_binary(ast_node_t** parent, context_t* ctx, uint32_t* index, const bool errs)
+{
+	UNPACK_CONTEXT(ctx)
+	const uint32_t i = *index;
 #define BINARY_ASSIGNMENTS				\
 		X(OP_ASSIGNMENT_POWER,			OP_POWER)			\
 		X(OP_ASSIGNMENT_PRODUCT,		OP_PRODUCT)			\
@@ -741,37 +720,13 @@ static bool_t parse_expr_binary(ast_node_t* parent, context_t* ctx, uint32_t* in
 		X(OP_LESS_THAN_EQUALS)		\
 		X(OP_LESS_THAN)				\
 		X(OP_GREATER_THAN_EQUALS)	\
-		X(OP_GREATER_THAN) \
-		X(OP_DOT) \
-
-	const uint32_t i = *index;
-	const uint32_t n = ctx->n;
-	gdscript_id_t* ids = ctx->ids;
+		X(OP_GREATER_THAN)		\
+		X(OP_DOT)
 	ast_op_t op;
 	switch(ids[i])
 	{
-	case GDSCRIPT_COLON:
-		if (parent->id == AST_EXPR_DICT && !parent->lua_dict)
-		{
-			op = OP_PAIR;
-			ids[i] = GDSCRIPT_OP_PAIR;
-		}
-		else
-		{
-			op = OP_TYPE;
-			ids[i] = GDSCRIPT_OP_TYPE;
-		}
-		break;
 	case GDSCRIPT_OP_ASSIGNMENT:
-		if (parent->id == AST_EXPR_DICT && parent->lua_dict)
-		{
-			op = OP_PAIR;
-			ids[i] = GDSCRIPT_OP_PAIR;
-		}
-		else
-		{
-			op = OP_ASSIGNMENT;
-		}
+		op = OP_ASSIGNMENT;
 		break;
 	#define X(NAME, VALUE) case GDSCRIPT_##NAME: op = VALUE | OP_ASSIGNMENT; break;
 	BINARY_ASSIGNMENTS
@@ -782,39 +737,62 @@ static bool_t parse_expr_binary(ast_node_t* parent, context_t* ctx, uint32_t* in
 	default:
 		op = OP_NONE;
 	}
-	bool_t flag = op > 0;
-	flag &= parent->num_children > 0 && // NOTE: bitwise AND-assignment
-		parent->last_child_id & AST_EXPRESSION &&
-		(parent->last_child_id == AST_EXPR_SYMBOLIC ||
-		 parent->last_child_id == AST_EXPR_UNARY ||
-		 parent->last_child_id == AST_EXPR_GROUP ||
-		 parent->last_child_id == AST_EXPR_FUNC);
+	const ast_node_t* p = *parent;
+	ast_node_t* last_child = p->children + p->num_children - 1;
+	const bool flag = op > 0 && p->num_children > 0 && last_child->id & AST_EXPRESSION;
 	if (flag)
 	{
 		ast_node_t* temp = alloca(sizeof *temp);
-		ast_node_t* node = parent->children + parent->num_children - 1;
-		memcpy(temp, node, sizeof *temp);
-		node->id = AST_EXPR_BINARY;
-		node->operation = op;
-		node->num_children = 0;
-		ast_node_t* lhs_node = add_blank(&node, ctx);
-		node->last_child_id = temp->id;
+		memcpy(temp, last_child, sizeof *temp);
+		last_child->id = AST_EXPR_BINARY;
+		last_child->operation = op;
+		last_child->num_children = 0;
+		ast_node_t* lhs_node = add_blank(&last_child, ctx->fl);
 		memcpy(lhs_node, temp, sizeof *temp);
-		lhs_node->parent = node;
-		/* node->pos = node->children->pos; */
-		/* node->len = node->children->len + 1; */
-		parent->last_child_id = AST_EXPR_BINARY;
-		uint32_t j = i + 1;
-		parse_expr_operand(node, ctx, &j, 1);
-		*index = j;
-		/* node->len += node->children[1].len; */
-		return 1;
+		lhs_node->parent = last_child;
+		*index += 1;
+#define BINARY_RHS X(group) || X(dict) || X(array) || X(func) || X(strict_unary) || X(symbolic)
+#define X(A) parse_expr_##A(&temp, ctx, index, errs)
+		return BINARY_RHS;
+#undef X
+#undef BINARY_RHS
 	}
 	else if (errs)
 	{
-		ERR_NODE;
+		// TODO: error
 	}
-	return 0;
+	return false;
+}
+
+
+/*****************/
+/* ARGS & PARAMS */
+/*****************/
+
+
+static bool parse_arguments(ast_node_t** parent, context_t* ctx, uint32_t* index)
+{
+	UNPACK_CONTEXT(ctx);
+	const uint32_t i0 = *index;
+	bool res = true;
+	for(uint32_t i = i0; i < num_tokens; ++i)
+	{
+		bool temp = parse_rexpression(parent, ctx, &i, true);
+		temp &= ids[i] == GDSCRIPT_COMMA ||
+			(i == num_tokens && ids[i] == GDSCRIPT_PAREN_CLOSE);
+		if (!temp)
+		{
+			ast_node_t* node = add_error(parent, ctx->fl);
+			res = false;
+			break;
+		}
+	}
+	return res;
+}
+
+static bool parse_parameters(ast_node_t** parent, context_t* ctx, uint32_t* index)
+{
+	return false;
 }
 
 
@@ -823,288 +801,206 @@ static bool_t parse_expr_binary(ast_node_t* parent, context_t* ctx, uint32_t* in
 /*************************/
 
 
-// NOTE: rewrite thse to make sure parse_expression context doesn't go past the colon
-static bool_t parse_stmt_if(ast_node_t* parent, context_t* ctx, uint32_t* index)
+static bool parse_stmt_if(ast_node_t** parent, context_t* ctx, uint32_t* index)
 {
-	// keyword 'if' at index
+	UNPACK_CONTEXT(ctx)
 	const uint32_t i0 = *index;
-	ast_node_t* node = add_child(&parent, ctx, AST_STMT_IF);
-	const uint32_t pos = pos_colon(i0, ctx->ids, ctx->n);
-	/* if (parse_expression(node, ctx, &j, 1) && ctx->ids[j + 1] == GDSCRIPT_COLON) */
-	if (pos > 0)
+	uint32_t i = *index;
+	ast_node_t* node = add_child(parent, ctx->fl, AST_STMT_IF);
+	*index = i + 1;
+	if (parse_rexpression_to_colon(&node, ctx, index, 1))
 	{
 		context_t subctx = *ctx;
-		subctx.n = pos;
-		parse_expression(node, &subctx, index, panic_err);
-		// TODO: OOB errors
-		// check  if id after colon is a newline
-		if (ctx->ids[pos + 1] != GDSCRIPT_LINE_END)
+		*index += 1;
+		i = *index;
+		if (i + 1 < num_tokens)
 		{
-			*index = pos + 1;
-			if (ctx->ids[pos + 1] == GDSCRIPT_RETURN)
+			switch(ids[i + 1])
 			{
+			case GDSCRIPT_SEMICOLON:
+				// is this allowed? I feel like it should NOT be.
+				// TODO: test this.
+				// I am ethicist & aesthete.
+				goto err_line;
+				break;
+			case GDSCRIPT_LINE_END:
+				if (i + 2 < num_tokens && ids[i + 2] == GDSCRIPT_SCOPE_START && (subctx.num_tokens = pos_scope_end(i + 3, ids, num_tokens)) > 0)
+				{
+					*index = i + 3;
+					process_tokens(&node, &subctx, index);
+					return 1;
+				}
+				else
+				{
+					goto err_line;
+				}
+				break;
+			default:
+				*index = i + 1;
+				return parse_expression(&node, ctx, index, 0);
 			}
-			subctx.n = ctx->n;
-			process_line(node, &subctx, index);
-			// if not it's a one line if-statement
-		}
-		// else go two after & check for a scope start
-		else if (ctx->ids[pos + 2] == GDSCRIPT_SCOPE_START)
-		{
-			*index = pos + 2;
-			subctx.n = pos_scope_end(pos + 2, ctx->ids, ctx->n);
-			if (subctx.n > 0)
-			{
-				*index += 1;
-				process_tokens(node, &subctx, index);
-			}
-		}
-		else
-		{
-			node->id = AST_ERROR;
-			node->err_token = ctx->tokens + i0;
-			node->err_len = pos - i0;
-			*index = pos;
 		}
 	}
-	else
-	{
-		// error til end of line
-		// mark entire line as an error
-		uint32_t n = pos_eol(*index, ctx->ids, ctx->n);
-		node->id = AST_ERROR;
-		const uint32_t i = *index;
-		node->err_token = ctx->tokens + i;
-		node->err_len = n > 0 ? n - i: ctx->n - i;
-		*index =  n;
-	}
-	return 1;
+err_line:
+	node->id = AST_ERROR;
+	node->err_token = ctx->tokens + i0;
+	const uint32_t eol = pos_eol(i0, ids, num_tokens);
+	node->err_len = pos_eol(i0, ids, num_tokens) - i0;
+	*index = eol;
+	return false;
 }
 
-
-static bool_t parse_stmt_elif(ast_node_t* parent, context_t* ctx, uint32_t* index)
+static bool parse_stmt_elif(ast_node_t** parent, context_t* ctx, uint32_t* index)
 {
-	// keyword 'elif' at index
+	UNPACK_CONTEXT(ctx)
 	const uint32_t i0 = *index;
-	ast_node_t* node = add_child(&parent, ctx, AST_STMT_ELIF);
-	const uint32_t pos = pos_colon(i0, ctx->ids, ctx->n);
-	/* if (parse_expression(node, ctx, &j, 1) && ctx->ids[j + 1] == GDSCRIPT_COLON) */
-	if (pos > 0)
+	uint32_t i = *index;
+	ast_node_t* node = add_child(parent, ctx->fl, AST_STMT_ELIF);
+	*index = i + 1;
+	if (parse_rexpression_to_colon(&node, ctx, index, 1))
 	{
 		context_t subctx = *ctx;
-		subctx.n = pos;
-		parse_expression(node, &subctx, index, panic_err);
-		// TODO: OOB errors
-		// check  if id after colon is a newline
-		if (ctx->ids[pos + 1] != GDSCRIPT_LINE_END)
+		*index += 1;
+		i = *index;
+		if (i + 1 < num_tokens)
 		{
-			*index = pos + 1;
-			subctx.n = ctx->n;
-			process_line(node, &subctx, index);
-			// if not it's a one line if-statement
-		}
-		// else go two after & check for a scope start
-		else if (ctx->ids[pos + 2] == GDSCRIPT_SCOPE_START)
-		{
-			*index = pos + 2;
-			subctx.n = pos_scope_end(pos + 2, ctx->ids, ctx->n);
-			if (subctx.n > 0)
+			switch(ids[i + 1])
 			{
-				*index += 1;
-				process_tokens(node, &subctx, index);
+			case GDSCRIPT_SEMICOLON:
+				goto err_line;
+				break;
+			case GDSCRIPT_LINE_END:
+				if (i + 2 < num_tokens && ids[i + 2] == GDSCRIPT_SCOPE_START && (subctx.num_tokens = pos_scope_end(i + 3, ids, num_tokens)) > 0)
+				{
+					*index = i + 3;
+					process_tokens(&node, &subctx, index);
+					return true;
+				}
+				else
+				{
+					goto err_line;
+				}
+				break;
+			default:
+				*index = i + 1;
+				return parse_expression(&node, ctx, index, 0);
 			}
 		}
-		else
-		{
-			node->id = AST_ERROR;
-			node->err_token = ctx->tokens + i0;
-			node->err_len = pos - i0;
-			*index = pos;
-		}
 	}
-	else
-	{
-		// error til end of line
-		// mark entire line as an error
-		uint32_t n = pos_eol(*index, ctx->ids, ctx->n);
-		node->id = AST_ERROR;
-		const uint32_t i = *index;
-		node->err_token = ctx->tokens + i;
-		node->err_len = n > 0 ? n - i: ctx->n - i;
-		*index =  n;
-	}
-	return 1;
+err_line:
+	node->id = AST_ERROR;
+	node->err_token = ctx->tokens + i0;
+	const uint32_t eol = pos_eol(i0, ids, num_tokens);
+	node->err_len = pos_eol(i0, ids, num_tokens) - i0;
+	*index = eol;
+	return false;
 }
 
-static bool_t parse_stmt_else(ast_node_t* parent, context_t* ctx, uint32_t* index)
+static bool parse_stmt_else(ast_node_t** parent, context_t* ctx, uint32_t* index)
 {
 
-	// keyword 'else' at index
-	const uint32_t i0 = *index;
-	ast_node_t* node = add_child(&parent, ctx, AST_STMT_ELSE);
-	const uint32_t pos = pos_colon(i0, ctx->ids, ctx->n);
-	/* if (parse_expression(node, ctx, &j, 1) && ctx->ids[j + 1] == GDSCRIPT_COLON) */
-	if (pos > 0)
-	{
-		context_t subctx = *ctx;
-		// TODO: OOB errors
-		// check  if id after colon is a newline
-		if (ctx->ids[pos + 1] != GDSCRIPT_LINE_END)
-		{
-			*index = pos + 1;
-			subctx.n = ctx->n;
-			process_line(node, &subctx, index);
-			// if not it's a one line if-statement
-		}
-		// else go two after & check for a scope start
-		else if (ctx->ids[pos + 2] == GDSCRIPT_SCOPE_START)
-		{
-			*index = pos + 2;
-			subctx.n = pos_scope_end(pos + 2, ctx->ids, ctx->n);
-			if (subctx.n > 0)
-			{
-				*index += 1;
-				process_tokens(node, &subctx, index);
-			}
-		}
-		else
-		{
-			node->id = AST_ERROR;
-			node->err_token = ctx->tokens + i0;
-			node->err_len = pos - i0;
-			*index = pos;
-		}
-	}
-	else
-	{
-		// error til end of line
-		// mark entire line as an error
-		uint32_t n = pos_eol(*index, ctx->ids, ctx->n);
-		node->id = AST_ERROR;
-		const uint32_t i = *index;
-		node->err_token = ctx->tokens + i;
-		node->err_len = n > 0 ? n - i: ctx->n - i;
-		*index =  n;
-	}
-	return 1;
-}
-
-static bool_t parse_stmt_for(ast_node_t* parent, context_t* ctx, uint32_t* index)
-{
-	ast_node_t* node = add_child(&parent, ctx, AST_STMT_FOR);
-	const uint32_t pos = pos_colon(*index, ctx->ids, ctx->n);
-	/* if (parse_expression(node, ctx, &j, 1) && ctx->ids[j] == GDSCRIPT_COLON) */
-	if (pos > 0)
-	{
-		context_t iter_ctx = *ctx;
-		iter_ctx.n = pos;
-		parse_expression(node, &iter_ctx, index, panic_err);
-		*index = pos + 2;
-		const uint32_t req_lws0 = ctx->req_lws;
-		ctx->req_lws++;
-		process_tokens(node, ctx, index);
-		ctx->req_lws = req_lws0;
-	}
-	else
-	{
-		// error til end of line
-		// mark entire line as an error
-		uint32_t n = pos_eol(*index, ctx->ids, ctx->n);
-		node->id = AST_ERROR;
-		const uint32_t i = *index;
-		node->err_token = ctx->tokens + i;
-		node->err_len = n > 0 ? n - i: ctx->n - i;
-		*index =  n;
-	}
-	return 1;
-}
-
-static bool_t parse_stmt_while(ast_node_t* parent, context_t* ctx, uint32_t* index)
-{
-	ast_node_t* node = add_child(&parent, ctx, AST_STMT_WHILE);
-	const uint32_t pos = pos_colon(*index, ctx->ids, ctx->n);
-	/* if (parse_expression(node, ctx, &j, 1) && ctx->ids[j] == GDSCRIPT_COLON) */
-	if (pos > 0)
-	{
-		context_t iter_ctx = *ctx;
-		iter_ctx.n = pos;
-		parse_expression(node, &iter_ctx, index, panic_err);
-		*index = pos + 2;
-		const uint32_t req_lws0 = ctx->req_lws;
-		ctx->req_lws++;
-		process_tokens(node, ctx, index);
-		ctx->req_lws = req_lws0;
-	}
-	else
-	{
-		// error til end of line
-		// mark entire line as an error
-		uint32_t n = pos_eol(*index, ctx->ids, ctx->n);
-		node->id = AST_ERROR;
-		const uint32_t i = *index;
-		node->err_token = ctx->tokens + i;
-		node->err_len = n > 0 ? n - i: ctx->n - i;
-		*index =  n;
-	}
-	return 1;
-}
-
-static bool_t parse_stmt_return(ast_node_t* parent, context_t* ctx, uint32_t* index)
-{
+	UNPACK_CONTEXT(ctx)
 	const uint32_t i = *index;
-	ast_node_t* node = add_child(&parent, ctx, AST_STMT_RETURN);
-	if (i + 1 > ctx->n && (ctx->ids[i + 1] != GDSCRIPT_LINE_END || ctx->ids[i + 1] != GDSCRIPT_SEMICOLON))
+	ast_node_t* node = add_child(parent, ctx->fl, AST_STMT_ELSE);
+	if (i + 1 < num_tokens && ids[i + 1] == GDSCRIPT_COLON)
 	{
-		uint32_t j = i + 1;
-		parse_expression(node, ctx, &j, panic_err);
-		*index = j;
-	}
-	return 1;
-}
-
-static void error_til_line_end(ast_node_t* parent, context_t* ctx, uint32_t* index)
-{
-	uint32_t err_len = 0;
-	const gdscript_id_t* ids = ctx->ids;
-	for (uint32_t i = *index; i < ctx->n; ++i)
-	{
-		if (!(ids[i] == GDSCRIPT_LINE_END || ids[i] == GDSCRIPT_SEMICOLON))
+		context_t subctx = *ctx;
+		if (i + 2 < num_tokens)
 		{
-			err_len += 1;
-		}
-		else
-		{
-			break;
+			switch(ids[i + 2])
+			{
+			case GDSCRIPT_SEMICOLON:
+				// is this allowed? I feel like it should NOT be.
+				// TODO: test this.
+				// I am ethicist & aesthete.
+				goto err_line;
+				break;
+			case GDSCRIPT_LINE_END:
+				if (i + 3 < num_tokens && ids[i + 3] == GDSCRIPT_SCOPE_START && (subctx.num_tokens = pos_scope_end(i + 4, ids, num_tokens)) > 0)
+				{
+					*index = i + 3;
+					process_tokens(&node, &subctx, index);
+					return true;
+				}
+				else
+				{
+					goto err_line;
+				}
+				break;
+			default:
+				*index = i + 2;
+				return parse_expression(&node, ctx, index, 0);
+			}
 		}
 	}
-	if (err_len - *index > 0)
+err_line:
+	node->id  = AST_ERROR;
+	node->err_token = ctx->tokens + i;
+	node->err_len = pos_eol(i, ids, num_tokens) - i;
+	// mark entire line as an error pls tytyty
+	// turn if node into an error--how long? TODO: FIGURE IT OUT!
+	return false;
+}
+
+static bool parse_stmt_for(ast_node_t** parent, context_t* ctx, uint32_t* index)
+{
+	return false;
+}
+
+static bool parse_stmt_while(ast_node_t** parent, context_t* ctx, uint32_t* index)
+{
+	return false;
+}
+
+static bool parse_stmt_return(ast_node_t** parent, context_t* ctx, uint32_t* index)
+{
+	UNPACK_CONTEXT(ctx)
+	const uint32_t i = *index;
+	ast_node_t* node = add_child(parent, ctx->fl, AST_STMT_RETURN);
+	if (i + 1 < num_tokens && (ids[i + 1] != GDSCRIPT_LINE_END || ids[i + 1] != GDSCRIPT_SEMICOLON))
 	{
-		ast_node_t* e = add_error(&parent, ctx);
-		e->err_token = ctx->tokens + *index;
-		e->err_len = err_len;
-		*index += err_len;
+		*index = i + 1;
+		parse_rexpression(&node, ctx, index, true);
+	}
+	return true;
+}
+
+static void error_til_line_end(ast_node_t** parent, context_t* ctx, uint32_t* index)
+{
+	UNPACK_CONTEXT(ctx)
+	const uint32_t i0 = *index;
+	const uint32_t i = pos_eol(i0, ids, num_tokens);
+	if (i > i0)
+	{
+		ast_node_t* e = add_error(parent, ctx->fl);
+		e->err_token = ctx->tokens + i0;
+		e->err_len = i - i0;
+		*index = i;
 	}
 }
 
-static bool_t parse_stmt_break(ast_node_t* parent, context_t* ctx, uint32_t* index)
+static bool parse_stmt_break(ast_node_t** parent, context_t* ctx, uint32_t* index)
 {
-	ast_node_t* node = add_child(&parent, ctx, AST_STMT_BREAK);
+	ast_node_t* node = add_child(parent, ctx->fl, AST_STMT_BREAK);
 	*index += 1;
-	error_til_line_end(node, ctx, index);
+	error_til_line_end(&node, ctx, index);
+	return true;
 }
 
-static bool_t parse_stmt_continue(ast_node_t* parent, context_t* ctx, uint32_t* index)
+static bool parse_stmt_continue(ast_node_t** parent, context_t* ctx, uint32_t* index)
 {
-	ast_node_t* node = add_child(&parent, ctx, AST_STMT_CONTINUE);
+	ast_node_t* node = add_child(parent, ctx->fl, AST_STMT_CONTINUE);
 	*index += 1;
-	error_til_line_end(node, ctx, index);
+	error_til_line_end(&node, ctx, index);
+	return true;
 }
 
-static bool_t parse_stmt_pass(ast_node_t* parent, context_t* ctx, uint32_t* index)
+static bool parse_stmt_pass(ast_node_t** parent, context_t* ctx, uint32_t* index)
 {
-	ast_node_t* node = add_child(&parent, ctx, AST_STMT_PASS);
+	ast_node_t* node = add_child(parent, ctx->fl, AST_STMT_PASS);
 	*index += 1;
-	error_til_line_end(node, ctx, index);
+	error_til_line_end(&node, ctx, index);
+	return true;
 }
 
 
@@ -1113,179 +1009,9 @@ static bool_t parse_stmt_pass(ast_node_t* parent, context_t* ctx, uint32_t* inde
 /***************************/
 
 
-/* static bool_t parse_decl_class(ast_node_t* parent, context_t* ctx, uint32_t* index) */
-/* { */
-/* 	ast_node_t* node = add_child(&parent, ctx, AST_DECL_CLASS); */
-/* 	gdscript_id_t* ids = ctx->ids; */
-/* 	const uint32_t i = *index + 1; */
-/* 	if (ids[i] == GDSCRIPT_IDENTIFIER) */
-/* 	{ */
-/* 		node = add_child(&node, ctx, AST_IDENTIFIER); */
-/* 		node->symbol = ctx->tokens + i; */
-/* 		*index = i; */
-/* 		return 1; */
-/* 	} */
-/* 	else */
-/* 	{ */
-/* 		node->id = AST_ERROR; */
-/* 		node->err_token = ctx->tokens + i - 1; */
-/* 		node->err_len = 1; */
-/* 		// TODO: something about expected to be followed by an identifier */
-/* 		return 0; */
-/* 	} */
-/* } */
-
-/* static bool_t parse_decl_extends(ast_node_t* parent, context_t* ctx, uint32_t* index) */
-/* { */
-/* 	ast_node_t* node = add_child(&parent, ctx, AST_DECL_EXTENDS); */
-/* 	const uint32_t i = *index + 1; */
-/* 	switch (ctx->ids[i]) */
-/* 	{ */
-/* 	case GDSCRIPT_IDENTIFIER: */
-/* 		node = add_child(&node, ctx, AST_IDENTIFIER); */
-/* 		node->symbol = ctx->tokens + i; */
-/* 		break; */
-/* 	case GDSCRIPT_STRING: */
-/* 		node = add_child(&node, ctx, AST_EXPR_SYMBOLIC); */
-/* 		node->symbolic_id = SYMBOL_STRING; */
-/* 		break; */
-/* 	default: */
-/* 		node->id = AST_ERROR; */
-/* 		node->err_token = ctx->tokens + i - 1; */
-/* 		node->err_len = 1; */
-/* 		return 0; */
-/* 	} */
-/* 	return 1; */
-/* } */
-
-/* static bool_t parse_decl_subclass(ast_node_t* parent, context_t* ctx, uint32_t* index) */
-/* { */
-/* 	ast_node_t* node = add_child(&parent, ctx, AST_DECL_SUBCLASS); */
-/* 	const gdscript_id_t* ids = ctx->ids; */
-/* 	const uint32_t i = *index; */
-/* 	if (ids[i + 1] == GDSCRIPT_IDENTIFIER && ids[i + 2] == GDSCRIPT_COLON) */
-/* 	{ */
-/* 		ast_node_t* id_node = add_child(&node, ctx, AST_IDENTIFIER); */
-/* 		id_node->symbol = ctx->tokens + i + 1; */
-/* 		uint32_t req_lws0 = ctx->req_lws; */
-/* 		ctx->req_lws++; */
-/* 		uint32_t j = i + 3; */
-/* 		process_tokens(node, ctx, &j); */
-/* 		ctx->req_lws = req_lws0; */
-/* 		return 1; */
-/* 	} */
-/* 	else */
-/* 	{ */
-/* 		node->id = AST_ERROR; */
-/* 		node->err_token = ctx->tokens; */
-/* 		node->err_len = 1; */
-/* 		return 0; */
-/* 	} */
-/* } */
-
-
-/* // NOTE: DON'T WORRY ABOUT IT, JUST PARSE IT.  CHECK AFTERWARDS. */
-/* static bool_t parse_decl_var(ast_node_t* parent, context_t* ctx, uint32_t* index) */
-/* { */
-/* 	ast_node_t* node = add_child(&parent, ctx, AST_DECL_VAR); */
-/* 	const uint32_t i = *index; */
-/* 	const gdscript_id_t* ids = ctx->ids; */
-/* 	if (ids[i + 1] == GDSCRIPT_IDENTIFIER) */
-/* 	{ */
-/* 		ast_node_t* identifier = add_child(&node, ctx, AST_IDENTIFIER); */
-/* 		identifier->symbol = ctx->tokens + i + 1; */
-/* 		const uint32_t j = i + 2; */
-/* 		if (parse_expression(node, ctx, &j, 0)) */
-/* 		{ */
-/* 			*index = j; */
-/* 		} */
-/* 		else */
-/* 		{ */
-/* 			*index = i + 1; */
-/* 		} */
-/* 		return 1; */
-/* 	} */
-/* 	else */
-/* 	{ */
-/* 		parent->last_child_id = AST_ERROR; */
-/* 		node->id = AST_ERROR; */
-/* 		return 0; */
-/* 	} */
-/* } */
-
-
-
-/* static bool_t parse_decl_const(ast_node_t* parent, context_t* ctx, uint32_t* index) */
-/* { */
-/* 	ast_node_t* node = add_child(&parent, ctx, AST_DECL_CONST); */
-/* 	const uint32_t i = *index; */
-/* 	const gdscript_id_t* ids = ctx->ids; */
-/* 	if (ids[i + 1] == GDSCRIPT_IDENTIFIER) */
-/* 	{ */
-/* 		ast_node_t* identifier = add_child(&node, ctx, AST_IDENTIFIER); */
-/* 		identifier->symbol = ctx->tokens + i + 1; */
-/* 		const uint32_t j = i + 2; */
-/* 		#define TEMP \ */
-/* 			X(typed_assignment) || \ */
-/* 			X(inferred_assignment) || \ */
-/* 			X(assignment) */
-/* 		#define X(A) parse_expr_##A(node, ctx, &j, 0) */
-/* 		if (TEMP) */
-/* 		{ */
-/* 			*index = j; */
-/* 		} */
-/* 		else */
-/* 		{ */
-/* 			*index = i + 1; */
-/* 		} */
-/* 		return 1; */
-/* 		#undef X */
-/* 		#undef TEMP */
-/* 	} */
-/* 	else */
-/* 	{ */
-/* 		parent->last_child_id = AST_ERROR; */
-/* 		node->id = AST_ERROR; */
-/* 		return 0; */
-/* 	} */
-/* } */
-
-
 /**************************/
 /* PARSING -- ANNOTATIONS */
 /**************************/
-
-
-/* static bool_t parse_annotation(ast_node_t* parent, context_t* ctx, uint32_t* index, const ast_id_t annotation_id) */
-/* { */
-/* 	const uint32_t i = *index; */
-/* 	ast_node_t* node = add_child(&parent, ctx, annotation_id); */
-/* 	node->annotation.id = ctx->ids[i]; */
-/* 	uint32_t temp = *index + 1; */
-/* 	if (parse_arguments(node, ctx, &temp, 0)) */
-/* 	{ */
-/* 		node->id = node->children->num_children > 0 ? AST_ERROR : annotation_id; */
-/* 		node->len = 3 + node->children->num_children; */
-/* 	} */
-/* } */
-
-/* static bool_t parse_annotation_stringn(ast_node_t* parent, context_t* ctx, uint32_t* index, const ast_id_t annotation_id, const uint32_t num_strings) */
-/* { */
-/* 	const uint32_t i = *index; */
-/* 	ast_node_t* node = add_child(&parent, ctx, annotation_id); */
-/* 	node->annotation_id = ctx->ids[i]; */
-/* 	uint32_t temp = *index + 1; */
-/* 	if (parse_arg_list(node, ctx, &temp)) */
-/* 	{ */
-/* 		node->id = node->children->num_children > 0 ? AST_ERROR : annotation_id; */
-/* 		node->len = 3 + node->children->num_children; */
-/* 	} */
-/* 	else */
-/* 	{ */
-/* 		node->id = AST_ERROR; */
-/* 	} */
-/* } */
-
 
 
 /********************/
@@ -1293,10 +1019,9 @@ static bool_t parse_stmt_pass(ast_node_t* parent, context_t* ctx, uint32_t* inde
 /********************/
 
 
-static bool_t process_tokens(ast_node_t* parent, context_t* ctx, uint32_t* index)
+static void process_tokens(ast_node_t** parent, context_t* ctx, uint32_t* index)
 {
-	const uint32_t num_tokens = ctx->n;
-	const gdscript_id_t* ids = ctx->ids;
+	UNPACK_CONTEXT(ctx)
 	for (uint32_t i = *index; i < num_tokens; ++i)
 	{
 		const gdscript_id_t id = ids[i];
@@ -1304,19 +1029,19 @@ static bool_t process_tokens(ast_node_t* parent, context_t* ctx, uint32_t* index
 		{
 		case GDSCRIPT_LINE_END: break;
 		case GDSCRIPT_SEMICOLON: break;
-		#define X(ENUM, FUNC) case GDSCRIPT_##ENUM: parse_##FUNC(parent, ctx, index); break;
+		#define X(ENUM, FUNC) case GDSCRIPT_##ENUM: parse_##FUNC(&parent, ctx, index); break;
 			KEYVALUES
 		#undef X
 		case GDSCRIPT_SCOPE_START:
 			{
 				context_t subctx = *ctx;
 				// find scope end
-				ast_node_t* node = add_child(&parent, ctx, AST_STMT_SCOPE);
-				subctx.n = pos_scope_end(i, ctx->ids, ctx->n);
-				node->scope_len = subctx.n;
-				if (subctx.n > 0)
+				ast_node_t* node = add_child(parent, ctx, AST_STMT_SCOPE);
+				subctx.num_tokens = pos_scope_end(i, ids, num_tokens);
+				node->scope_len = subctx.num_tokens;
+				if (subctx.num_tokens > 0)
 				{
-					process_tokens(node, &subctx, &i);
+					process_tokens(&node, &subctx, &i);
 				}
 				else
 				{
@@ -1327,21 +1052,11 @@ static bool_t process_tokens(ast_node_t* parent, context_t* ctx, uint32_t* index
 		default:
 			{
 				context_t subctx = *ctx;
-				// figure out where the next endl or semicolon is
-				for (uint32_t j = i + 1; j < n; ++j)
-				{
-					/* if (ids[j] == GDSCRIPT_LINE_END || ids[j] == GDSCRIPT_SEMICOLON) */
-					if (ids[j] == GDSCRIPT_LINE_END)
-					{
-						expr_ctx.n = j;
-						break;
-					}
-				}
-				parse_expression(parent, &subctx, index, panic_err);
+				subctx.num_tokens = pos_eol(i + 1, ids, num_tokens);
+				parse_expression(parent, &subctx, index, true);
 			}
 		}
 	}
-	return 1;
 }
 
 ast_node_t* gdscript_ast_generate(arena_t* arena, const token_t* tokens, gdscript_id_t* ids, const uint32_t num_tokens)
@@ -1349,25 +1064,41 @@ ast_node_t* gdscript_ast_generate(arena_t* arena, const token_t* tokens, gdscrip
 	free_list_t fl = { .allocation = arena->allocation, .cap = arena->cap };
 	free_list_clear(&fl);
 	ast_node_t* root = free_list_calloc(&fl, sizeof *root);
+	ast_node_t* rel_root = ptr_rel_offset(root, fl.allocation);
 	root->id = AST_ROOT;
 	/* root->len = num_tokens; */
 	context_t ctx =
 	{
 		.tokens = tokens,
 		.ids = ids,
-		.n = num_tokens,
-		.fl=&*fl,
-		.root = root
+		.num_tokens = num_tokens,
+		.fl= &fl,
 	};
 	uint32_t index = 0;
-	process_tokens(root, &ctx, &index);
+	process_tokens(&root, &ctx, &index);
 	if (index < num_tokens)
 	{
-		ast_node_t* err = add_error(&root, &ctx);
+		ast_node_t* err = add_error(&root, &fl);
 		err->err_token = tokens + index;
 		err->err_len = num_tokens - index;
 	}
-	return ctx.root;
+	// make children into absolute pointers
+	root = ptr_abs_offset(rel_root, fl.allocation);
+	absolute_ast(root);
+	// update the arena
+	arena->allocation = fl.allocation;
+	arena->cap = fl.cap;
+	return root;
+}
+
+static void absolute_ast(ast_node_t* node)
+{
+	point_absolute(&node->children);
+	for (uint32_t i = 0; i < node->num_children; ++i)
+	{
+		point_absolute(&node->children[i].parent);
+		absolute_ast(node->children + i);
+	}
 }
 
 
@@ -1427,8 +1158,8 @@ static void check_ast(ast_node_t* node, ast_node_t* parent, uint8_t* flags, cons
 	// check the location of other things
 	}
 	const uint32_t n = node->num_children;
-	for (uint32_t i = 0; i < n; ++i)
+	for (int32_t i = 0; i < n; ++i)
 	{
-		check_ast(node->children + i, flags, i, n);
+		check_ast(node->children + i, node, flags, i, n);
 	}
 }
