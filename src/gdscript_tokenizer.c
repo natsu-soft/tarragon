@@ -687,7 +687,7 @@ static void lws_to_scopes(arena_t* token_arena, arena_t* id_arena, uint32_t* num
 		const token_t token = tokens[i0];
 		for (; ids[i] == GDSCRIPT_LEADING_WHITESPACE && i < n; ++i); // find the first non lws token
 		uint32_t lws1 = i - i0;
-		printf("i0: %d, i: %d, lws0: %d, lws1: %d,\n", i0, i, lws0, lws1);
+		/* printf("i0: %d, i: %d, lws0: %d, lws1: %d,\n", i0, i, lws0, lws1); */
 		if (lws1 > lws0)
 		{
 			/* printf("INSERT SCOPE START!\n"); */
@@ -968,6 +968,44 @@ void gdscript_allman(const token_t* tokens, const gdscript_id_t* ids, const uint
 				printf("\n");
 				newline = 1;
 				break;
+			default:
+				for (uint32_t j = 0; j < token.len; ++j)
+				{
+					printf("%c", token.string[j]);
+				}
+				printf(" ");
+		}
+	}
+}
+
+void gdscript_clarity(const token_t* tokens, const gdscript_id_t* ids, const uint32_t n)
+{
+	/* uint8_t newline = 1; */
+	/* uint32_t depth = 0; */
+	for (uint32_t i = 0; i < n; ++i)
+	{
+		const token_t token = tokens[i];
+		/* if (newline) */
+		/* { */
+		/* 	for (uint32_t j = 0; j < depth; ++j) printf("  "); */
+		/* 	newline = 0; */
+		/* } */
+		switch(ids[i])
+		{
+			case GDSCRIPT_SCOPE_START:
+				/* ++depth; */
+				printf("++  ");
+				/* newline = 1; */
+				break;
+			case GDSCRIPT_SCOPE_END:
+				/* --depth; */
+				printf("--  ");
+				/* newline = 1; */
+				break;
+			/* case GDSCRIPT_LINE_END: */
+			/* 	printf("\n"); */
+			/* 	newline = 1; */
+			/* 	break; */
 			default:
 				for (uint32_t j = 0; j < token.len; ++j)
 				{

@@ -10,6 +10,7 @@
 uint32_t gdscript_tokenize(arena_t* arena, token_t** tokens, gdscript_id_t** ids, const char* str, const uint32_t n);
 
 void gdscript_allman(const token_t* tokens, const gdscript_id_t* ids, const uint32_t n);
+void gdscript_clarity(const token_t* tokens, const gdscript_id_t* ids, const uint32_t n);
 
 
 #endif /* End GDSCRIPT_TOKENIZER_H */
