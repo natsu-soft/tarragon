@@ -32,7 +32,7 @@ typedef struct context_t
 
 #define UNPACK_CONTEXT(CTX) \
 	const gdscript_id_t* ids = CTX->ids; \
-	const uint32_t num_tokens = CTX->num_tokens;
+	const uint32_t num_tokens = CTX->num_tokens
 
 #define KEYVALUES								\
 	X(EXPORT_CATEGORY,				todo)		\
@@ -290,17 +290,23 @@ static const size_t num_children_of_type(const ast_node_t* parent, const ast_id_
 static bool parse_error(ast_node_t** parent, context_t* ctx, const uint32_t index)
 {
 	ast_node_t* n = add_error(parent, ctx->fl);
-	n->id = AST_ERROR;
 	n->err_token = ctx->tokens + index;
 	n->err_len = 1;
-	return 1;
+	return true;
 }
 
-static bool parse_identifier(ast_node_t** parent, context_t* ctx, const uint32_t* index)
+static bool parse_identifier(ast_node_t** parent, context_t* ctx, uint32_t* index)
 {
-	ast_node_t* n = add_child(parent, ctx->fl, AST_IDENTIFIER);
-	n->symbol = ctx->tokens + *index;
-	return 1;
+	const gdscript_id_t* ids = ctx->ids;
+	const uint32_t i = *index;
+	if (ids[i] == GDSCRIPT_IDENTIFIER)
+	{
+		ast_node_t* node = add_child(parent, AST_IDENTIFIER);
+		node->symbol = ctx->tokens + i;
+		return true;
+	}
+	*index = i + 1;
+	return false;
 }
 
 
@@ -325,7 +331,7 @@ static bool parse_expr_identifier(ast_node_t** parent, context_t* ctx, uint32_t*
 	ast_node_t* n = add_child(parent, ctx->fl, AST_EXPR_SYMBOLIC);
 	n->symbolic_id = SYMBOL_IDENTIFIER;
 	n->symbol = ctx->tokens + *index;
-	return 1;
+	return true;
 }
 
 static bool parse_expr_string(ast_node_t** parent, context_t* ctx, uint32_t* index)
@@ -333,7 +339,7 @@ static bool parse_expr_string(ast_node_t** parent, context_t* ctx, uint32_t* ind
 	ast_node_t* n = add_child(parent, ctx->fl, AST_EXPR_SYMBOLIC);
 	n->symbolic_id = SYMBOL_STRING;
 	n->symbol = ctx->tokens + *index;
-	return 1;
+	return true;
 }
 
 static bool parse_expr_number(ast_node_t** parent, context_t* ctx, uint32_t* index)
@@ -341,7 +347,7 @@ static bool parse_expr_number(ast_node_t** parent, context_t* ctx, uint32_t* ind
 	ast_node_t* n = add_child(parent, ctx->fl, AST_EXPR_SYMBOLIC);
 	n->symbolic_id = SYMBOL_NUMBER;
 	n->symbol = ctx->tokens + *index;
-	return 1;
+	return true;
 }
 
 static bool parse_expr_literal(ast_node_t** parent, context_t* ctx, uint32_t* index)
@@ -349,12 +355,12 @@ static bool parse_expr_literal(ast_node_t** parent, context_t* ctx, uint32_t* in
 	ast_node_t* n = add_child(parent, ctx->fl, AST_EXPR_SYMBOLIC);
 	n->symbolic_id = SYMBOL_LITERAL;
 	n->symbol = ctx->tokens + *index;
-	return 1;
+	return true;
 }
 
 static bool parse_expr_symbolic(ast_node_t** parent, context_t* ctx, uint32_t* index, const bool errs)
 {
-	UNPACK_CONTEXT(ctx)
+	UNPACK_CONTEXT(ctx);
 	const uint32_t i = *index;
 	switch(ids[i])
 	{
@@ -366,12 +372,12 @@ static bool parse_expr_symbolic(ast_node_t** parent, context_t* ctx, uint32_t* i
 	{
 		parse_error(parent, ctx, i);
 	}
-	return 0;
+	return false;
 }
 
 static bool parse_expression(ast_node_t** parent, context_t* ctx, uint32_t* index, const bool errs)
 {
-	UNPACK_CONTEXT(ctx)
+	UNPACK_CONTEXT(ctx);
 	for (uint32_t i = *index; i < num_tokens; ++i)
 	{
 		switch (ids[i])
@@ -398,7 +404,7 @@ static bool parse_expression(ast_node_t** parent, context_t* ctx, uint32_t* inde
 			parse_expr_array(parent, ctx, index, errs);
 			break;
 		#define X(_, VALUE) case GDSCRIPT_##VALUE: parse_expr_operation(parent, ctx, index, errs); break;
-			GDSCRIPT_OPERATORS
+			 GDSCRIPT_OPERATORS
 		#undef X
 		default:
 			parse_error(parent, ctx, *index);
@@ -411,7 +417,7 @@ static bool parse_expression(ast_node_t** parent, context_t* ctx, uint32_t* inde
 
 static bool parse_rexpression(ast_node_t** parent, context_t* ctx, uint32_t* index, const bool errs)
 {
-	UNPACK_CONTEXT(ctx)
+	UNPACK_CONTEXT(ctx);
 	for (uint32_t i = *index; i < num_tokens; ++i)
 	{
 		switch (ids[i])
@@ -450,7 +456,7 @@ static bool parse_rexpression(ast_node_t** parent, context_t* ctx, uint32_t* ind
 
 static bool parse_rexpression_to_colon(ast_node_t** parent, context_t* ctx, uint32_t* index, const bool errs)
 {
-	UNPACK_CONTEXT(ctx)
+	UNPACK_CONTEXT(ctx);
 	const uint32_t i0 = *index;
 	bool res = false;
 	for (uint32_t i = i0; i < num_tokens; ++i)
@@ -467,7 +473,7 @@ static bool parse_rexpression_to_colon(ast_node_t** parent, context_t* ctx, uint
 				err_node->err_token = ctx->tokens + i0;
 				err_node->err_len = i - i0 + 1;
 			}
-			return 0;
+			return false;
 		case GDSCRIPT_IF:
 			res |= parse_expr_ternary(parent, ctx, index, errs);
 			break;
@@ -495,7 +501,6 @@ static bool parse_rexpression_to_colon(ast_node_t** parent, context_t* ctx, uint
 	*index = num_tokens - 1;
 	return res;
 }
-
 
 static bool parse_expr_func(ast_node_t** parent, context_t* ctx, uint32_t* index, const bool errs)
 {
@@ -533,7 +538,7 @@ static bool parse_expr_func(ast_node_t** parent, context_t* ctx, uint32_t* index
 
 static bool parse_expr_group(ast_node_t** parent, context_t* ctx, uint32_t* index, const bool errs)
 {
-	UNPACK_CONTEXT(ctx)
+	UNPACK_CONTEXT(ctx);
 	const uint32_t i = *index;
 	uint32_t pos;
 	bool valid_group = ids[i] == GDSCRIPT_PAREN_OPEN;
@@ -555,12 +560,58 @@ static bool parse_expr_group(ast_node_t** parent, context_t* ctx, uint32_t* inde
 	return false;
 }
 
+static bool parse_expr_operation(ast_node_t** parent, context_t* ctx, uint32_t*index, const bool errs)
+{
+#define AMBIGUOUS_OPS \
+	X(OP_IDENTITY, OP_SUM) \
+	X(OP_NEGATION, OP_DIFFERENCE)
+	UNPACK_CONTEXT(ctx);
+	ast_node_t* p = *parent;
+	const uint32_t i = *index;
+	const gdscript_id_t operation = ids[i];
+	switch (operation)
+	{
+	case GDSCRIPT_OP_BITWISE_NOT: __attribute__((fallthrough));
+	case GDSCRIPT_OP_BOOL_NOT:
+		return parse_expr_unary(parent, ctx, index, errs);
+	case GDSCRIPT_OP_IDENTITY: __attribute__((fallthrough));
+	case GDSCRIPT_OP_SUM: __attribute__((fallthrough));
+	case GDSCRIPT_OP_NEGATION: __attribute__((fallthrough));
+	case GDSCRIPT_OP_DIFFERENCE:
+		{
+			ast_node_t* p = *parent;
+			if ((p->id & AST_EXPRESSION) != AST_EXPRESSION)
+			{
+				// unary
+			}
+			else if (p->id == AST_EXPR_BINARY && p->rhs == NULL)
+			{
+				// unary
+			}
+			else if (p->id == AST_EXPR_TERNARY && p->num_children
+			else if (p->id == AST_EXPR_UNARY)
+			{
+				// unary
+			}
+			else
+			{
+				// binary
+			}
+		}
+		break;
+	default:
+		return parse_expr_binary(parent, ctx, index, errs);
+	}
+	return false;
+	#undef AMBIGUOUS_OPS
+}
+
 // Do I actually care about operator precedence aside from assignment? NO!
 // It's not like I'm compiling. I only really care about assignments.
-static bool parse_expr_operation(ast_node_t** parent, context_t* ctx, uint32_t* index, const bool errs)
+/* NOTE: use the GODDAMN TREE */
+static bool old_parse_expr_operation(ast_node_t** parent, context_t* ctx, uint32_t* index, const bool errs)
 {
-	gdscript_id_t* ids = ctx->ids;
-	const uint32_t num_tokens = ctx->num_tokens;
+	UNPACK_CONTEXT(ctx);
 	const uint32_t i = *index;
 #define AMBIGUOUS_OPS \
 	X(OP_IDENTITY, OP_SUM) \
@@ -603,11 +654,12 @@ static bool parse_expr_operation(ast_node_t** parent, context_t* ctx, uint32_t* 
 		}
 	}
 	return parse_expr_binary(parent, ctx, index, errs);
+	#undef AMBIGUOUS_OPS
 }
 
 static bool parse_expr_unary(ast_node_t** parent, context_t* ctx, uint32_t* index, const bool errs)
 {
-	UNPACK_CONTEXT(ctx)
+	UNPACK_CONTEXT(ctx);
 	const uint32_t i = *index;
 	ast_op_t op;
 	switch(ids[i])
@@ -686,7 +738,7 @@ static bool parse_expr_strict_unary(ast_node_t** parent, context_t* ctx, uint32_
 
 static bool parse_expr_binary(ast_node_t** parent, context_t* ctx, uint32_t* index, const bool errs)
 {
-	UNPACK_CONTEXT(ctx)
+	UNPACK_CONTEXT(ctx);
 	const uint32_t i = *index;
 #define BINARY_ASSIGNMENTS				\
 		X(OP_ASSIGNMENT_POWER,			OP_POWER)			\
@@ -772,7 +824,7 @@ static bool parse_expr_binary(ast_node_t** parent, context_t* ctx, uint32_t* ind
 
 static bool parse_arguments(ast_node_t** parent, context_t* ctx, uint32_t* index)
 {
-	UNPACK_CONTEXT(ctx);
+	UNPACK_CONTEXT(ctx);;
 	const uint32_t i0 = *index;
 	bool res = true;
 	for(uint32_t i = i0; i < num_tokens; ++i)
@@ -783,6 +835,8 @@ static bool parse_arguments(ast_node_t** parent, context_t* ctx, uint32_t* index
 		if (!temp)
 		{
 			ast_node_t* node = add_error(parent, ctx->fl);
+			node->err_token = ctx->tokens + i;
+			node->err_len = num_tokens - i;
 			res = false;
 			break;
 		}
@@ -803,42 +857,39 @@ static bool parse_parameters(ast_node_t** parent, context_t* ctx, uint32_t* inde
 
 static bool parse_stmt_if(ast_node_t** parent, context_t* ctx, uint32_t* index)
 {
-	UNPACK_CONTEXT(ctx)
+	UNPACK_CONTEXT(ctx);
 	const uint32_t i0 = *index;
-	uint32_t i = *index;
+	uint32_t i = i0 + 1;
 	ast_node_t* node = add_child(parent, ctx->fl, AST_STMT_IF);
-	*index = i + 1;
-	if (parse_rexpression_to_colon(&node, ctx, index, 1))
+	if (parse_rexpression_to_colon(&node, ctx, &i, true))
 	{
-		context_t subctx = *ctx;
-		*index += 1;
-		i = *index;
-		if (i + 1 < num_tokens)
+		++i; // go past the colon
+		switch(i + 1 < num_tokens ? ids[i + 1] : 0)
 		{
-			switch(ids[i + 1])
+		case 0: __attribute__((fallthrough));
+		case GDSCRIPT_SEMICOLON:
+			// is this allowed? I feel like it should NOT be.
+			// TODO: test this.
+			// I am ethicist & aesthete.
+			goto err_line;
+			break;
+		case GDSCRIPT_LINE_END:
+			if (i + 2 < num_tokens && ids[i + 2] == GDSCRIPT_SCOPE_START)
 			{
-			case GDSCRIPT_SEMICOLON:
-				// is this allowed? I feel like it should NOT be.
-				// TODO: test this.
-				// I am ethicist & aesthete.
-				goto err_line;
-				break;
-			case GDSCRIPT_LINE_END:
-				if (i + 2 < num_tokens && ids[i + 2] == GDSCRIPT_SCOPE_START && (subctx.num_tokens = pos_scope_end(i + 3, ids, num_tokens)) > 0)
-				{
-					*index = i + 3;
-					process_tokens(&node, &subctx, index);
-					return 1;
-				}
-				else
-				{
-					goto err_line;
-				}
-				break;
-			default:
-				*index = i + 1;
-				return parse_expression(&node, ctx, index, 0);
+				context_t subctx = *ctx;
+				subctx.num_tokens = pos_scope_end(i + 3, ids, num_tokens);
+				*index = i + 3;
+				process_tokens(&node, &subctx, index);
+				return true;
 			}
+			else
+			{
+				goto err_line;
+			}
+			break;
+		default:
+			*index = i + 1;
+			return parse_expression(&node, ctx, index, false);
 		}
 	}
 err_line:
@@ -852,39 +903,40 @@ err_line:
 
 static bool parse_stmt_elif(ast_node_t** parent, context_t* ctx, uint32_t* index)
 {
-	UNPACK_CONTEXT(ctx)
+	UNPACK_CONTEXT(ctx);
 	const uint32_t i0 = *index;
 	uint32_t i = *index;
 	ast_node_t* node = add_child(parent, ctx->fl, AST_STMT_ELIF);
 	*index = i + 1;
 	if (parse_rexpression_to_colon(&node, ctx, index, 1))
 	{
-		context_t subctx = *ctx;
-		*index += 1;
-		i = *index;
-		if (i + 1 < num_tokens)
+		++i; // go past the colon
+		switch(i + 1 < num_tokens ? ids[i + 1] : 0)
 		{
-			switch(ids[i + 1])
+		case 0: __attribute__((fallthrough));
+		case GDSCRIPT_SEMICOLON:
+			// is this allowed? I feel like it should NOT be.
+			// TODO: test this.
+			// I am ethicist & aesthete.
+			goto err_line;
+			break;
+		case GDSCRIPT_LINE_END:
+			if (i + 2 < num_tokens && ids[i + 2] == GDSCRIPT_SCOPE_START)
 			{
-			case GDSCRIPT_SEMICOLON:
-				goto err_line;
-				break;
-			case GDSCRIPT_LINE_END:
-				if (i + 2 < num_tokens && ids[i + 2] == GDSCRIPT_SCOPE_START && (subctx.num_tokens = pos_scope_end(i + 3, ids, num_tokens)) > 0)
-				{
-					*index = i + 3;
-					process_tokens(&node, &subctx, index);
-					return true;
-				}
-				else
-				{
-					goto err_line;
-				}
-				break;
-			default:
-				*index = i + 1;
-				return parse_expression(&node, ctx, index, 0);
+				context_t subctx = *ctx;
+				subctx.num_tokens = pos_scope_end(i + 3, ids, num_tokens);
+				*index = i + 3;
+				process_tokens(&node, &subctx, index);
+				return true;
 			}
+			else
+			{
+				goto err_line;
+			}
+			break;
+		default:
+			*index = i + 1;
+			return parse_expression(&node, ctx, index, false);
 		}
 	}
 err_line:
@@ -899,62 +951,96 @@ err_line:
 static bool parse_stmt_else(ast_node_t** parent, context_t* ctx, uint32_t* index)
 {
 
-	UNPACK_CONTEXT(ctx)
+	UNPACK_CONTEXT(ctx);
 	const uint32_t i = *index;
 	ast_node_t* node = add_child(parent, ctx->fl, AST_STMT_ELSE);
 	if (i + 1 < num_tokens && ids[i + 1] == GDSCRIPT_COLON)
 	{
-		context_t subctx = *ctx;
-		if (i + 2 < num_tokens)
+		switch(i + 2 < num_tokens ? ids[i + 2] : 0)
 		{
-			switch(ids[i + 2])
+		case 0: __attribute__((fallthrough));
+		case GDSCRIPT_SEMICOLON:
+			// is this allowed? I feel like it should NOT be.
+			// TODO: test this.
+			// I am ethicist & aesthete.
+			goto err_line;
+			break;
+		case GDSCRIPT_LINE_END:
+			if (i + 3 < num_tokens && ids[i + 3] == GDSCRIPT_SCOPE_START)
 			{
-			case GDSCRIPT_SEMICOLON:
-				// is this allowed? I feel like it should NOT be.
-				// TODO: test this.
-				// I am ethicist & aesthete.
-				goto err_line;
-				break;
-			case GDSCRIPT_LINE_END:
-				if (i + 3 < num_tokens && ids[i + 3] == GDSCRIPT_SCOPE_START && (subctx.num_tokens = pos_scope_end(i + 4, ids, num_tokens)) > 0)
-				{
-					*index = i + 3;
-					process_tokens(&node, &subctx, index);
-					return true;
-				}
-				else
-				{
-					goto err_line;
-				}
-				break;
-			default:
-				*index = i + 2;
-				return parse_expression(&node, ctx, index, 0);
+				context_t subctx = *ctx;
+				subctx.num_tokens = pos_scope_end(i + 4, ids, num_tokens);
+				*index = i + 3;
+				process_tokens(&node, &subctx, index);
+				return true;
 			}
+			else
+			{
+				goto err_line;
+			}
+			break;
+		default:
+			*index = i + 2;
+			return parse_expression(&node, ctx, index, 0);
 		}
 	}
 err_line:
 	node->id  = AST_ERROR;
 	node->err_token = ctx->tokens + i;
 	node->err_len = pos_eol(i, ids, num_tokens) - i;
-	// mark entire line as an error pls tytyty
-	// turn if node into an error--how long? TODO: FIGURE IT OUT!
-	return false;
-}
-
-static bool parse_stmt_for(ast_node_t** parent, context_t* ctx, uint32_t* index)
-{
 	return false;
 }
 
 static bool parse_stmt_while(ast_node_t** parent, context_t* ctx, uint32_t* index)
 {
+	UNPACK_CONTEXT(ctx);
+	const uint32_t i0 = *index;
+	uint32_t i = i0;
+	ast_node_t* node = add_child(parent, ctx->fl, AST_STMT_WHILE);
+	if (parse_rexpression_to_colon(&node, ctx, &i, true))
+	{
+		++i;
+		switch(i + 1 < num_tokens ? ids[i + 1] : 0)
+		{
+		case 0: __attribute__((fallthrough));
+		case GDSCRIPT_SEMICOLON:
+			goto err_line;
+		case GDSCRIPT_LINE_END:
+			if (i + 2 < num_tokens && ids[i + 2] == GDSCRIPT_SCOPE_START)
+			{
+				context_t subctx = *ctx;
+				subctx.num_tokens = pos_scope_end(i + 3, ids, num_tokens);
+				*index = i + 3;
+				process_tokens(&node, &subctx, index);
+				return true;
+			}
+			else
+			{
+				goto err_line;
+			}
+			break;
+		default: // TODO: compare to godot
+			*index = i + 1;
+			return parse_expression(&node, ctx, index, false);
+		}
+	}
+err_line:
+	node->id = AST_ERROR;
+	node->err_token = ctx->tokens + i0;
+	node->err_len = pos_eol(i0, ids, num_tokens) - i0;
 	return false;
 }
 
+static bool parse_stmt_for(ast_node_t** parent, context_t* ctx, uint32_t* index)
+{
+	UNPACK_CONTEXT(ctx);
+	return false;
+}
+
+
 static bool parse_stmt_return(ast_node_t** parent, context_t* ctx, uint32_t* index)
 {
-	UNPACK_CONTEXT(ctx)
+	UNPACK_CONTEXT(ctx);
 	const uint32_t i = *index;
 	ast_node_t* node = add_child(parent, ctx->fl, AST_STMT_RETURN);
 	if (i + 1 < num_tokens && (ids[i + 1] != GDSCRIPT_LINE_END || ids[i + 1] != GDSCRIPT_SEMICOLON))
@@ -967,7 +1053,7 @@ static bool parse_stmt_return(ast_node_t** parent, context_t* ctx, uint32_t* ind
 
 static void error_til_line_end(ast_node_t** parent, context_t* ctx, uint32_t* index)
 {
-	UNPACK_CONTEXT(ctx)
+	UNPACK_CONTEXT(ctx);
 	const uint32_t i0 = *index;
 	const uint32_t i = pos_eol(i0, ids, num_tokens);
 	if (i > i0)
@@ -1008,6 +1094,62 @@ static bool parse_stmt_pass(ast_node_t** parent, context_t* ctx, uint32_t* index
 /* PARSING -- DECLARATIONS */
 /***************************/
 
+static bool parse_decl_var(ast_node_t** parent, context_t* ctx, uint32_t* index)
+{
+	UNPACK_CONTEXT(ctx);
+	const uint32_t i = *index;
+	ast_node_t* node = add_child(parent, ctx->fl, AST_DECL_VAR);
+	bool flag = i + 1 < num_tokens;
+	flag &= ids[i + 1] == GDSCRIPT_IDENTIFIER;
+	flag &= parse_expression(&node, ctx, index, true);
+	if (flag)
+	{
+		return true;
+	}
+	else
+	{
+		node->id = AST_ERROR;
+		node->err_token = ctx->tokens + i;
+		node->err_len = pos_eol(i, ids, num_tokens);
+		return false;
+	}
+}
+
+static bool parse_decl_const(ast_node_t** parent, context_t* ctx, uint32_t* index)
+{
+	UNPACK_CONTEXT(ctx);
+	const uint32_t i = *index;
+	ast_node_t* node = add_child(parent, ctx->fl, AST_DECL_CONST);
+	bool flag = i + 1 < num_tokens;
+	flag &= ids[i + 1] == GDSCRIPT_IDENTIFIER;
+	flag &= parse_expression(&node, ctx, index, true);
+	if (flag)
+	{
+		return true;
+	}
+	else
+	{
+		node->id = AST_ERROR;
+		node->err_token = ctx->tokens + i;
+		node->err_len = pos_eol(i, ids, num_tokens);
+		return false;
+	}
+}
+
+static bool parse_decl_class(ast_node_t** parent, context_t* ctx, uint32_t* index)
+{
+	UNPACK_CONTEXT(ctx);
+	const uint32_t i = *index;
+	ast_node_t* node = add_child(parent, ctx->fl, AST_DECL_CLASS);
+	*index = i + 1;
+	if (parse_identifier(&node, ctx, index)) return true;
+	node->id = AST_ERROR;
+	node->err_token = ctx->tokens + i;
+	*index = pos_eol(i, ids, num_tokens);
+	node->err_len = *index - i;
+	return false;
+}
+
 
 /**************************/
 /* PARSING -- ANNOTATIONS */
@@ -1021,7 +1163,7 @@ static bool parse_stmt_pass(ast_node_t** parent, context_t* ctx, uint32_t* index
 
 static void process_tokens(ast_node_t** parent, context_t* ctx, uint32_t* index)
 {
-	UNPACK_CONTEXT(ctx)
+	UNPACK_CONTEXT(ctx);
 	for (uint32_t i = *index; i < num_tokens; ++i)
 	{
 		const gdscript_id_t id = ids[i];
