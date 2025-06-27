@@ -29,6 +29,45 @@
 	STR_X("^\"",     0x82, NODE_PATH)				    \
 	STRING_ENDERS										\
 
+static struct
+{
+	char** tokens;
+	uint32_t* lens;
+	gdscript_id_t* ids;
+} builtin = {0};
+
+__attribute__((constructor)) static void populate_builtin(void)
+{
+	uint32_t l = 0;
+
+#define X(STR, _) l += strlen(STR);
+	GDSCRIPT_BUILTIN_TOKENS
+#undef X
+	const size_t size0 = sizeof *builtin.tokens + sizeof *builtin.lens + sizeof *builtin.ids;
+	uint8_t* allocation = malloc(GDSCRIPT_NUM_BUILTIN * size0 + l);
+	builtin.tokens = allocation;
+	builtin.lens = builtin.tokens + GDSCRIPT_NUM_BUILTIN;
+	builtin.ids = builtin.lens + GDSCRIPT_NUM_BUILTIN;
+	arena_t char_arena =
+	{
+		.allocation = builtin.ids + GDSCRIPT_NUM_BUILTIN,
+		.cap = l
+	};
+	uint32_t i = 0;
+	char* str;
+#define X(STR, ENUM)												\
+	builtin.tokens[i] = char_arena.allocation + char_arena.size;	\
+	str = STR; \
+	l = strlen(str);												\
+	arena_push(&char_arena, str, l);								\
+	builtin.lens[i] = l;											\
+	builtin.ids[i] = GDSCRIPT_##ENUM;								\
+	++i;
+	GDSCRIPT_BUILTIN_TOKENS
+#undef X
+}
+
+
 static void preprocess_tokens(token_t* tokens, gdscript_id_t* ids, uint32_t* num_tokens);
 static uint32_t delimiting_token(const char* str, const unsigned int n);
 static uint32_t string_starter(const char* str, const unsigned int n, uint8_t* str_bitmask);
@@ -140,26 +179,50 @@ static uint32_t string_ender(const char* str, const unsigned int n, const uint8_
 	#undef STR_X
 }
 
+/* static const gdscript_id_t id_token(const token_t* token) */
+/* { */
+/* 	const char* str = token->string; */
+/* 	char* temp; */
+/* 	const uint32_t token_len = token->len; */
+/* 	unsigned int len; */
+/* #define X(STR, ID)								\ */
+/* 	temp = STR;									\ */
+/* 	len = strlen(temp);							\ */
+/* 	len = len > token_len ? token->len : len;	\ */
+/* 	for (unsigned int i = 0; i < len; ++i)		\ */
+/* 	{											\ */
+/* 		if (str[i] != temp[i])					\ */
+/* 		{										\ */
+/* 			goto STOP_##ID;						\ */
+/* 		}										\ */
+/* 	}											\ */
+/* 	return GDSCRIPT_##ID;						\ */
+/* 	STOP_##ID: */
+/* 	GDSCRIPT_BUILTIN_TOKENS */
+/* 	if (('0' <= str[0] && str[0] < '9') || (str[0] == '.' && token_len > 1)) */
+/* 	{ */
+/* 		return GDSCRIPT_NUMBER_CANDIDATE; */
+/* 	} */
+/* 	else */
+/* 	{ */
+/* 		return GDSCRIPT_NONE; */
+/* 	} */
+/* #undef X */
+/* } */
+
 static const gdscript_id_t id_token(const token_t* token)
 {
 	const char* str = token->string;
-	char* temp;
 	const uint32_t token_len = token->len;
-	unsigned int len;
-#define X(STR, ID)								\
-	temp = STR;									\
-	len = strlen(temp);							\
-	len = len > token_len ? token->len : len;	\
-	for (unsigned int i = 0; i < len; ++i)		\
-	{											\
-		if (str[i] != temp[i])					\
-		{										\
-			goto STOP_##ID;						\
-		}										\
-	}											\
-	return GDSCRIPT_##ID;						\
-	STOP_##ID:
-	GDSCRIPT_BUILTIN_TOKENS
+	char** tokens = builtin.tokens;
+	uint32_t* lens = builtin.lens;
+	for (uint8_t i = 0; i < GDSCRIPT_NUM_BUILTIN; ++i)
+	{
+		if (lens[i] == token_len && strncmp(tokens[i], str, token_len) == 0)
+		{
+			return builtin.ids[i];
+		}
+	}
 	if (('0' <= str[0] && str[0] < '9') || (str[0] == '.' && token_len > 1))
 	{
 		return GDSCRIPT_NUMBER_CANDIDATE;
@@ -168,10 +231,7 @@ static const gdscript_id_t id_token(const token_t* token)
 	{
 		return GDSCRIPT_NONE;
 	}
-#undef X
 }
-
-
 
 static void new_token(arena_t* token_arena, const char* src, const int pos, const int len)
 {
@@ -350,11 +410,13 @@ static const gdscript_id_t verify_number(const char* src, const uint32_t n)
 	return GDSCRIPT_NUMBER;
 }
 
+// TODO: this is NOT working
 static void cull_line_continuations(token_t* tokens, gdscript_id_t* ids, uint32_t* num_tokens)
 {
 	/* error_token_func(tokens + i); */
 	uint32_t n = *num_tokens;
-	for (int i = 0; i < n; ++i) {
+	for (int i = 0; i < n; ++i)
+	{
 		if (ids[i] == GDSCRIPT_LINE_CONTINUE && ids[i + 1] == GDSCRIPT_LINE_END)
 		{
 			size_t k = n - (i + 2);
@@ -617,13 +679,15 @@ static void lws_to_scopes(arena_t* token_arena, arena_t* id_arena, uint32_t* num
 	const size_t id_size = sizeof *ids;
 	const gdscript_id_t scope_start = GDSCRIPT_SCOPE_START;
 	const gdscript_id_t scope_end = GDSCRIPT_SCOPE_END;
+	uint32_t* d;
+	const size_t d_size = sizeof *d;
 	for (uint32_t i = 0; i < n; ++i)
 	{
 		const uint32_t i0 = i;
-		const token_t token = { .pos = tokens[i0].pos };
+		const token_t token = tokens[i0];
 		for (; ids[i] == GDSCRIPT_LEADING_WHITESPACE && i < n; ++i); // find the first non lws token
 		uint32_t lws1 = i - i0;
-		/* printf("i0: %d, i: %d, lws0: %d, lws1: %d,\n", i0, i, lws0, lws1); */
+		printf("i0: %d, i: %d, lws0: %d, lws1: %d,\n", i0, i, lws0, lws1);
 		if (lws1 > lws0)
 		{
 			/* printf("INSERT SCOPE START!\n"); */
@@ -641,9 +705,7 @@ static void lws_to_scopes(arena_t* token_arena, arena_t* id_arena, uint32_t* num
 		{
 			/* printf("INSERT SCOPE END!\n"); */
 			lws0 = lws1;
-			uint32_t* d;
-			const size_t d_size = sizeof *d;
-			while(depth_arena->size > d_size && *(d = arena_peek(depth_arena, d_size)) > lws0)
+			while(depth_arena->size > 0 && *(d = arena_peek(depth_arena, d_size)) > lws0)
 			{
 				depth_arena->size -= d_size;
 				arena_insert(token_arena, i0 * token_size, &token, token_size);
@@ -655,10 +717,10 @@ static void lws_to_scopes(arena_t* token_arena, arena_t* id_arena, uint32_t* num
 		}
 		for (; ids[i] != GDSCRIPT_LINE_END && i < n; ++i); // find the first non lws token
 	}
-	const token_t token = { .pos = tokens[n - 1].pos };
+	const token_t token = tokens[n - 1];
 	while (depth_arena->size > 0)
 	{
-		depth_arena->size -= sizeof lws0;
+		depth_arena->size -= d_size;
 		arena_insert(token_arena, (n - 1) * token_size, &token, token_size);
 		arena_insert(id_arena, (n - 1) * id_size, &scope_end, id_size);
 		++n;
@@ -778,12 +840,12 @@ static void preprocess_tokens(token_t* tokens, gdscript_id_t* ids, uint32_t* num
 		ids[i] += (id == GDSCRIPT_PERIOD) * period_delta;
 	}
 	// convert semicolons to line ends
-	const int semicolon_delta = GDSCRIPT_LINE_END - GDSCRIPT_SEMICOLON;
-	for (int i = 0; i < n; ++i)
-	{
-		const gdscript_id_t id = ids[i];
-		ids[i] += (id == GDSCRIPT_SEMICOLON) * semicolon_delta;
-	}
+	/* const int semicolon_delta = GDSCRIPT_LINE_END - GDSCRIPT_SEMICOLON; */
+	/* for (int i = 0; i < n; ++i) */
+	/* { */
+	/* 	const gdscript_id_t id = ids[i]; */
+	/* 	ids[i] += (id == GDSCRIPT_SEMICOLON) * semicolon_delta; */
+	/* } */
 	// convert remaining to identifiers
 	for (int i = 0; i < n; ++i)
 	{
