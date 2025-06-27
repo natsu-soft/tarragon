@@ -29,13 +29,13 @@
     - [X] break
     - [X] continue
     - [X] pass
-  - [ ] Declarations
+  - [-] Declarations
     - this one is leaning HEAVILY on post-gen check
-    - CZEK UR RANGES
-    - [ ] class
+    - CZEK UR RANGES -- OR JUST BALL
+    - [X] class
     - [ ] extends
-    - [ ] var
-    - [ ] const
+    - [X] var
+    - [X] const
     - [ ] func
     - [ ] enum
     - [ ] signal
