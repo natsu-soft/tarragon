@@ -8,7 +8,6 @@
 #include <assert.h>
 #include "arena.h"
 #include "scratch.h"
-#include "mem_sys.h"
 
 #define STRING_ENDERS							\
 	STR_X("'''",    0x01, TRIPLE_SINGLE_QOUTE)	\
@@ -25,13 +24,22 @@
 	STR_X("^\"",     0x82, NODE_PATH)				    \
 	STRING_ENDERS										\
 
-static struct
-{
+
+// NOTE: THE FUNNY METHOD IS FASTER!
+/* static struct */
+/* { */
+/* 	char** tokens; */
+/* 	uint8_t* lens; */
+/* 	uint8_t size; */
+/* } delimiters = {0}; */
+
+static struct {
 	char** tokens;
-	uint32_t* lens;
 	gdscript_id_t* ids;
+	uint8_t* lens;
 } builtin = {0};
 
+ // NOTE: THIS IS BAD STOP USING IT
 #define NUM_UNARY_PRECEDERS 47
 static gdscript_id_t* unary_preceders = NULL;
 
@@ -68,8 +76,8 @@ __attribute__((constructor)) static void init_lexer(void)
 #define X(_, ENUM) unary_preceders[i++] = GDSCRIPT_##ENUM;
 	GDSCRIPT_OPERATORS
 #undef X
-#define UNARY_STRUCT							\
-		X(NONE)									\
+#define UNARY_STRUCT						\
+		X(NONE)								\
 		X(SEMICOLON)						\
 		X(LINE_END)							\
 		X(LEADING_WHITESPACE)				\
@@ -106,6 +114,7 @@ static void trim_token (char** tokens, uint16_t* lens, gdscript_id_t* ids, uint3
 /* static void (*warn_token_func)(const char**, const char* message) = do_nothing_with_token; */
 /* static void (*error_token_func)(const char**, const char* message) = do_nothing_with_token; */
 
+// MR. GOD IS ENTERTAINED BY HUMOR
 static uint32_t delimiting_token(const char* str, const unsigned int n)
 {
 	char* temp;
@@ -230,7 +239,7 @@ static uint32_t string_ender(const char* str, const unsigned int n, const uint8_
 static const gdscript_id_t id_token(const char* token, const uint16_t len)
 {
 	char** tokens = builtin.tokens;
-	uint32_t* lens = builtin.lens;
+	uint8_t* lens = builtin.lens;
 	for (uint8_t i = 0; i < GDSCRIPT_NUM_BUILTIN; ++i)
 	{
 		if (lens[i] == len && strncmp(tokens[i], token, len) == 0)
