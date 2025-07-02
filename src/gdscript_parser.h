@@ -59,7 +59,6 @@
 // but they're used during ast generation
 // after tokenizatin remaining periods get converted to the dot operator
 
-/* #define GDSCRIPT_ASSIGNMENT_OPERATORS \ */
 
 #define GDSCRIPT_BINARY_OPERATORS \
 	X("**=", OP_ASSIGNMENT_POWER) \
@@ -72,8 +71,8 @@
 	X("-",   OP_DIFFERENCE) \
 	X("/=",  OP_ASSIGNMENT_DIVISION) \
 	X("/",   OP_DIVISION) \
-	X("%",   OP_MODULO) \
 	X("%=",  OP_ASSIGNMENT_MODULO) \
+	X("%",   OP_MODULO) \
 	X("&&",  OP_BOOL_AND) \
 	X("&=",  OP_ASSIGNMENT_BITWISE_AND) \
 	X("&",   OP_BITWISE_AND) \
@@ -92,17 +91,33 @@
 	X("<",   OP_LESS_THAN) \
 	X(">=",  OP_GREATER_THAN_EQUALS) \
 	X(">",   OP_GREATER_THAN) \
-	X(":=",  OP_ASSIGNMENT_TYPED) \
-	X(":",   OP_PAIR) \
-	X(":",   OP_TYPE) \
+	X(":=",  OP_ASSIGNMENT_INFERRED) \
 	X("=",   OP_ASSIGNMENT) \
-	X(".",   OP_DOT) \
+	X(":",   OP_TYPE) \
+	X(".",   OP_DOT)
+	/* X(":",   OP_PAIR) \ */
 
 #define GDSCRIPT_UNARY_OPERATORS \
 	X("~", OP_BITWISE_NOT) \
 	X("+", OP_IDENTITY) \
 	X("-", OP_NEGATION) \
 	X("!", OP_BOOL_NOT)
+
+#define NUM_ASSIGNMENT_OPERATORS 12
+#define GDSCRIPT_ASSIGNMENT_OPERATORS \
+	X(OP_ASSIGNMENT_POWER) \
+	X(OP_ASSIGNMENT_PRODUCT) \
+	X(OP_ASSIGNMENT_SUM) \
+	X(OP_ASSIGNMENT_DIFFERENCE) \
+	X(OP_ASSIGNMENT_DIVISION) \
+	X(OP_ASSIGNMENT_MODULO) \
+	X(OP_ASSIGNMENT_BITWISE_AND) \
+	X(OP_ASSIGNMENT_BITWISE_OR) \
+	X(OP_ASSIGNMENT_BITSHIFT_LEFT) \
+	X(OP_ASSIGNMENT_BITSHIFT_RIGH) \
+	X(OP_ASSIGNMENT_XOR) \
+	X(OP_ASSIGNMENT)
+	/* X(OP_ASSIGNMENT_TYPED) \ */
 
 #define GDSCRIPT_ANNOTATIONS \
 	X("@export_category",            EXPORT_CATEGORY) \
@@ -232,5 +247,20 @@ typedef enum __attribute__((packed)) gdscript_id_t
 	GDSCRIPT_SCOPE_START,
 	GDSCRIPT_SCOPE_END,
 } gdscript_id_t;
+
+typedef struct token_table_t
+{
+	char** tokens;
+	gdscript_id_t* ids;
+	uint16_t* lens;
+	uint32_t num_tokens;
+} token_table_t;
+
+void print_tokens(const char** tokens, const uint16_t* lens, const uint32_t n);
+
+void print_allman(const char** tokens, const uint16_t* lens, const gdscript_id_t* ids, const uint32_t num_tokens);
+
+void print_clarity(const char** tokens, const uint16_t* lens, const gdscript_id_t* ids, const uint32_t num_tokens);
+
 
 #endif /* End GDSCRIPT_PARSER_H */
