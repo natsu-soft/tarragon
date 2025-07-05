@@ -22,6 +22,7 @@ _BUT_ you really should bake the API trie--then you could get rid of all zip non
 - [[https://floooh.github.io/2019/09/27/modern-c-for-cpp-peeps.html][C for C++ catechites]]
 
 ## NOTES
+- [[https://youtu.be/yG1OZ69H_-o?si=2aKj-CTERS6eii0Y&t=2970][use SIGNED integers unless you ABSOLUTELY WANT that modulo behavior--if you need more bits get more bits!!]]  _Signed_ integers are always faster (read: better) for arithmetic.
 use the following to get the string of `default_config.json` inside of source files
 
 ``` c
