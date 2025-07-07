@@ -445,63 +445,8 @@ static void cull_line_continuations(int16_t* offsets, int16_t* lens, gdscript_id
 	*num_tokens = swap;
 }
 
-static void cull_pointless_lines(char** tokens, uint16_t* lens, gdscript_id_t* ids, uint32_t* num_tokens)
-{
-	uint32_t n = *num_tokens;
-	int line_start = 0;
-	uint8_t cull_flag = 1;
-	for (int i = 0; i < n - 1; ++i)
-	{
-		switch(ids[i])
-		{
-		case GDSCRIPT_LINE_END:
-			if (cull_flag && i > line_start)
-			{
-				/* printf("culling %d\n", tokens[i].line); */
-				int k = n - i;
-				memmove(tokens + line_start, tokens + i, k * sizeof *tokens);
-				memmove(lens + line_start, lens + i, k * sizeof *lens);
-				memmove(ids + line_start, ids + i, k * sizeof *ids);
-				n -= i - line_start;
-			}
-			else
-			{
-				line_start = i + 1;
-				cull_flag = 1;
-			}
-			break;
-		case GDSCRIPT_WHITESPACE:
-		case GDSCRIPT_LEADING_WHITESPACE:
-			break;
-		default:
-			cull_flag = 0;
-		}
-	}
-	if (n > 0)
-	{
-		uint32_t swap = 0;
-		gdscript_id_t swap_id;
-		uint16_t swap_len;
-		char* swap_token;
-		for (int i = swap + 1; i < n; ++i)
-		{
-			if (ids[swap] != GDSCRIPT_LINE_END || ids[i] != GDSCRIPT_LINE_END)
-			{
-				swap++;
-				tokens[swap] = tokens[i];
-				lens[swap] = lens[i];
-				ids[swap] = ids[i];
-			}
-		}
-		*num_tokens = swap + 1;
-	}
-	else
-	{
-		*num_tokens = 0;
-	}
-}
 
-static void cull_pointless_lines2(char** tokens, uint16_t* lens, gdscript_id_t* ids, uint32_t* num_tokens)
+static void cull_pointless_lines(int16_t* offsets, int16_t* lens, gdscript_id_t* ids, int32_t* num_tokens)
 {
 	uint32_t swap = 0;
 	uint32_t endl = 0;
@@ -525,7 +470,7 @@ static void cull_pointless_lines2(char** tokens, uint16_t* lens, gdscript_id_t* 
 			}
 			i = endl;
 		}
-		tokens[swap] = tokens[i];
+		offsets[swap] = offsets[i];
 		lens[swap] = lens[i];
 		ids[swap] = id;
 		++swap;
@@ -712,6 +657,7 @@ int32_t gdscript_lex(arena_t* arena, token_table_t* table, const char* src, cons
 	{
 		arena_grow(arena, req_size);
 	}
+	table->src = src;
 	table->offsets = arena->allocation;
 	table->ids = memcpy(table->offsets + num_tokens, id_arena->allocation, num_tokens * sizeof *table->ids);
 	table->lens = memcpy(table->ids + num_tokens, len_arena->allocation, num_tokens * sizeof *table->lens);
@@ -898,31 +844,12 @@ static void trim_token(int16_t* offsets, int16_t* lens, gdscript_id_t* ids, int3
 static void preprocess_tokens(const char* src, int16_t* offsets, int16_t* lens, gdscript_id_t* ids, int32_t* num_tokens)
 {
 	classify_gdscript_tokens(src, ids, offsets, lens, *num_tokens - 1); // don't gotta classify the last token -- it's EOF
-	/* classify_gdscript_offsets(tokens, ids, *num_tokens); */
 	coalesce_numbers(src, offsets, lens, ids, num_tokens);
-	/* printf("coalesce_numbers: %d\n", *num_offsets); */
 	trim_token(offsets, lens, ids, num_tokens, GDSCRIPT_WHITESPACE);
-	/* printf("trim_whitespace: %d\n", *num_offsets); */
-	/* printf("cull_line_continuations: %d\n", *num_offsets); */
 	trim_token(offsets, lens, ids, num_tokens, GDSCRIPT_COMMENT);
-	/* printf("trim_comments: %d\n", *num_offsets); */
 	cull_line_continuations(offsets, lens, ids, num_tokens);
-	cull_pointless_lines2(offsets, lens, ids, num_tokens);
+	cull_pointless_lines(offsets, lens, ids, num_tokens);
 	const uint32_t n = *num_tokens;
-	// convert remaining periods to dot operators
-	/* const int period_delta = GDSCRIPT_OP_DOT - GDSCRIPT_PERIOD; */
-	/* for (int i = 0; i < n; ++i) */
-	/* { */
-	/* 	const gdscript_id_t id = ids[i]; */
-	/* 	ids[i] += (id == GDSCRIPT_PERIOD) * period_delta; */
-	/* } */
-	// convert semicolons to line ends
-	/* const int semicolon_delta = GDSCRIPT_LINE_END - GDSCRIPT_SEMICOLON; */
-	/* for (int i = 0; i < n; ++i) */
-	/* { */
-	/* 	const gdscript_id_t id = ids[i]; */
-	/* 	ids[i] += (id == GDSCRIPT_SEMICOLON) * semicolon_delta; */
-	/* } */
 	// convert remaining to identifiers
 	for (int i = 0; i < n; ++i)
 	{
