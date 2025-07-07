@@ -93,7 +93,7 @@ clean-all: clean clean-dep clean-ts clean-emacs clean-api
 #     print("[\n{}\n]".format(f.read()[:-2]))' > compile_commands.json
 # 	rm temp *.o
 
-compile_commands.json:
+compile_commands.json: $(ALL_SRC)
 	make $(ALL_OBJ) --always-make --dry-run \
 	| $(RE) -w '$(CC)' \
 	| $(RE) -w '\-[co]' \
