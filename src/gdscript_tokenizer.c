@@ -36,7 +36,8 @@ static struct
 	gdscript_id_t* ids;
 } builtin = {0};
 
-__attribute__((constructor)) static void populate_builtin(void)
+/* __attribute__((constructor)) */
+static void populate_builtin(void)
 {
 	uint32_t l = 0;
 
@@ -750,7 +751,7 @@ static void coalesce_numbers(token_t* tokens, gdscript_id_t* ids, uint32_t* num_
 	for (uint32_t i = 0; i < n; ++i)
 	{
 		gdscript_id_t id = ids[i];
-		if (id == GDSCRIPT_NUMBER_CANDIDATE || id == GDSCRIPT_OP_DOT || id == GDSCRIPT_PERIOD)
+		if (id == GDSCRIPT_NUMBER_CANDIDATE || id == GDSCRIPT_PERIOD)
 		{
 			int index = -1;
 			int len = 0;
@@ -769,7 +770,7 @@ static void coalesce_numbers(token_t* tokens, gdscript_id_t* ids, uint32_t* num_
 			}
 			if (index >= i)
 			{
-				if (index == i && ids[i] == GDSCRIPT_PERIOD || ids[i] == GDSCRIPT_OP_DOT)
+				if (index == i && ids[i] == GDSCRIPT_PERIOD)
 				{
 					continue;
 				}
@@ -833,12 +834,12 @@ static void preprocess_tokens(token_t* tokens, gdscript_id_t* ids, uint32_t* num
 	/* printf("cull_pointless_lines: %d\n", *num_tokens); */
 	const uint32_t n = *num_tokens;
 	// convert remaining periods to dot operators
-	const int period_delta = GDSCRIPT_OP_DOT - GDSCRIPT_PERIOD;
-	for (int i = 0; i < n; ++i)
-	{
-		const gdscript_id_t id = ids[i];
-		ids[i] += (id == GDSCRIPT_PERIOD) * period_delta;
-	}
+	/* const int period_delta = GDSCRIPT_OP_DOT - GDSCRIPT_PERIOD; */
+	/* for (int i = 0; i < n; ++i) */
+	/* { */
+	/* 	const gdscript_id_t id = ids[i]; */
+	/* 	ids[i] += (id == GDSCRIPT_PERIOD) * period_delta; */
+	/* } */
 	// convert semicolons to line ends
 	/* const int semicolon_delta = GDSCRIPT_LINE_END - GDSCRIPT_SEMICOLON; */
 	/* for (int i = 0; i < n; ++i) */

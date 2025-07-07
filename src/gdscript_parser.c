@@ -10,12 +10,12 @@
 #include "arena.h"
 
 
-void print_tokens(const char** tokens, const uint16_t* lens, const uint32_t n)
+void print_tokens(const char* src, const int16_t* offsets, const int16_t* lens, const int32_t n)
 {
-	for (uint32_t i = 0; i < n; ++i)
+	for (int32_t i = 0; i < n; ++i)
 	{
-		const char* token = tokens[i];
-		for (uint16_t j = 0; j < lens[i]; ++j)
+		const char* token = src + offsets[i];
+		for (int16_t j = 0; j < lens[i]; ++j)
 		{
 			printf("%c", token[j]);
 		}
@@ -23,16 +23,16 @@ void print_tokens(const char** tokens, const uint16_t* lens, const uint32_t n)
 	}
 }
 
-void print_allman(const char** tokens, const uint16_t* lens, const gdscript_id_t* ids, const uint32_t num_tokens)
+void print_allman(const char* src, const int16_t* offsets, const int16_t* lens, const gdscript_id_t* ids, const int32_t num_tokens)
 {
-	uint8_t newline = 1;
-	uint32_t depth = 0;
-	for (uint32_t i = 0; i < num_tokens; ++i)
+	int8_t newline = 1;
+	int32_t depth = 0;
+	for (int32_t i = 0; i < num_tokens; ++i)
 	{
-		const char* token = tokens[i];
+		const char* token = src + offsets[i];
 		if (newline)
 		{
-			for (uint32_t j = 0; j < depth; ++j) printf("  ");
+			for (int32_t j = 0; j < depth; ++j) printf("  ");
 			newline = 0;
 		}
 		switch(ids[i])
@@ -61,7 +61,7 @@ void print_allman(const char** tokens, const uint16_t* lens, const gdscript_id_t
 				newline = 1;
 				break;
 			default:
-				for (uint32_t j = 0; j < lens[i]; ++j)
+				for (int32_t j = 0; j < lens[i]; ++j)
 				{
 					printf("%c", token[j]);
 				}
@@ -70,13 +70,13 @@ void print_allman(const char** tokens, const uint16_t* lens, const gdscript_id_t
 	}
 }
 
-void print_clarity(const char** tokens, const uint16_t* lens, const gdscript_id_t* ids, const uint32_t num_tokens)
+void print_clarity(const char* src, const int16_t* offsets, const int16_t* lens, const gdscript_id_t* ids, const int32_t num_tokens)
 {
 	/* uint8_t newline = 1; */
 	/* uint32_t depth = 0; */
 	for (uint32_t i = 0; i < num_tokens; ++i)
 	{
-		const char* token = tokens[i];
+		const char* token = src + offsets[i];
 		/* if (newline) */
 		/* { */
 		/* 	for (uint32_t j = 0; j < depth; ++j) printf("  "); */
@@ -99,7 +99,7 @@ void print_clarity(const char** tokens, const uint16_t* lens, const gdscript_id_
 			/* 	newline = 1; */
 			/* 	break; */
 			default:
-				for (uint32_t j = 0; j < lens[i]; ++j)
+				for (int32_t j = 0; j < lens[i]; ++j)
 				{
 					printf("%c", token[j]);
 				}
@@ -115,8 +115,8 @@ int gdscript_parser_test(int argc, char** argv)
 	token_table_t table = {0};
 	int src_len = 0;
 	char* src = fs_read("RewindAbility.gd", &src_len);
-	uint32_t num_tokens;
-	arena_grow(arena, 4 * src_len);
+	int32_t num_tokens;
+	arena_grow(arena, 5 * src_len);
 	/* uint32_t num_tokens = gdscript_tokenize(&arena, &tokens, &ids, src, src_len); */
 	MICROTIME(num_tokens = gdscript_lex(arena, &table, src, src_len);)
 /* 	const uint32_t n0 = num_tokens; */
@@ -151,6 +151,6 @@ int gdscript_parser_test(int argc, char** argv)
 /* 	PRINT(GDSCRIPT_SCOPE_START); */
 /* 	PRINT(GDSCRIPT_SCOPE_END); */
 /* 	#undef PRINT */
-	print_allman(table.tokens, table.lens, table.ids, table.num_tokens);
+	print_allman(src, table.offsets, table.lens, table.ids, table.num_tokens);
 	return 0;
 }

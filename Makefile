@@ -1,18 +1,20 @@
 CC := clang -std=gnu99
 ifeq ($(OS),Windows_NT)
+	# CC := clang -std=gnu99
 	RE := rg
 else
 	# CC := gcc -std=gnu99
 	RE := grep
 endif
 CFLAGS := -Wall -Wextra -Wno-int-conversion -fpermissive -fdiagnostics-show-option -ggdb -O0
-LIBS :=
 ifeq ($(OS),Windows_NT)
+LIBS :=
 LDFLAGS := -fuse-ld=lld -flto -static
 else
+LIBS := -L /home/jon/Repos/llvm-project/build/libc/lib -lllvmlibc
 LDFLAGS := -fuse-ld=mold -flto -static
 endif
-MAINS := src/tarragon.c src/unit_tests.c
+MAINS := src/tarragon.c src/tests.c
 IGNORE := src/gdscript_ast.c
 ALL_SRC := $(wildcard src/*.c)
 SRC := $(filter-out $(IGNORE), $(filter-out $(MAINS), $(ALL_SRC)))
@@ -37,10 +39,10 @@ tarragon: obj/tarragon.o $(OBJ)
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS) $(LDFLAGS)
 	file $@
 
-unit-tests: obj/unit_tests.o $(OBJ)
+tests: obj/tests.o $(OBJ)
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS) $(LDFLAGS)
 
-test: unit-tests
+test: tests
 	${CURDIR}/$<
 
 obj/%.o: src/%.c dep/%.d | obj_dirs

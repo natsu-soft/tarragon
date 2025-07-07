@@ -1,8 +1,7 @@
 #ifndef GDSCRIPT_AST_H
 #define GDSCRIPT_AST_H
 
-#include <stddef.h>
-#include <stdint.h>
+#include <stddef.h> #include <stdint.h>
 #include "gdscript_parser.h"
 
 
@@ -19,9 +18,10 @@
 
 /* NOTE: NO SYMBOLS IN AST--JUST IDENTIFIERS */
 #define NODES \
-	X(ERROR,		0x0100) \
-	X(ROOT,  		0x0200) \
-	X(IDENTIFIER,	0x0400) \
+	X(ROOT,  		0x0100) \
+	X(ERROR,		0x0200) \
+	X(WARN,		    0x0400) \
+	X(IDENTIFIER,	0x0800) \
 
 // NOTE: symbolic expressions are expressions that are a SINGLE SYMBOL(token).
 // can be variables, strings, numbers, or literals.
@@ -51,6 +51,7 @@
 	X(BREAK) \
 	X(CONTINUE) \
 	X(PASS) \
+	X(TYPE) \
 	X(SCOPE) // the secrete statement
 
 // parameters in signature statement
@@ -82,22 +83,22 @@ typedef enum __attribute__((packed)) ast_id_t
 	#undef X
 	/* EXPRESSIONS */
 	#define X(ID, _) AST_EXPR_##ID,
-	AST_EXPRESSION = 0x0800,
+	AST_EXPRESSION = 0x1000,
 	EXPRESSIONS
 	AST_EXPRESSION_END,
 	#undef X
 	#define X(ID) AST_STMT_##ID,
-	AST_STATEMENT = 0x1000,
+	AST_STATEMENT = 0x2000,
 	STATEMENTS
 	AST_STATEMENT_END,
 	#undef X
 	#define X(ID) AST_DECL_##ID,
-	AST_DECLARATION = 0x2000,
+	AST_DECLARATION = 0x4000,
 	DECLARATIONS
 	AST_DECLARTION_END,
 	#undef X
 	#define X(ID) AST_ANNO_##ID,
-	AST_ANNOTATION = 0x4000,
+	AST_ANNOTATION = 0x8000,
 	ANNOTATIONS
 	AST_ANNOTATION_END,
 	#undef X
@@ -191,8 +192,7 @@ typedef struct ast_node_t
 	union {
 		// for errors
 		struct
-		{
-			struct token_t* err_token;
+		{struct token_t* err_token;
 			size_t err_len;
 		};
 		// for regular nodes
@@ -208,7 +208,11 @@ typedef struct ast_node_t
 			struct ast_node_t* rhs;
 		};
 		struct ast_node_t* operand[2]; // for unary, can refer to with just operand->
-		struct token_t* symbol;
+		struct
+		{
+			struct token_t* symbol;
+			struct token_t* symbol_expr; // used in var & const declarations
+		};
 		size_t scope_len;
 	};
 	struct ast_node_t* parent; // NOTE: also relative >:^)
@@ -233,6 +237,48 @@ typedef struct ast_node_t
 
 typedef struct arena_t arena_t;
 typedef struct token_t token_t;
+
+struct ast_identifier
+{
+	token_t* symbol;
+};
+
+struct ast_expr_unary
+{
+	struct ast_expr_rvalue rhs;
+	ast_op_t operation;
+};
+
+struct ast_expr_binary
+{
+	struct ast_expr lhs;
+	struct ast_expr_rvalue rhs;
+	ast_op_t operation;
+};
+
+struct ast_expr_ternary
+{
+	struct ast_expr_rhs;
+	struct ast_expr_rvalue;
+	ast_op_t operation;
+};
+
+
+struct ast_decl_var
+{
+	struct ast_annotation*  annotation;
+	struct ast_identifier name;
+	struct ast_type* type;
+	struct ast_expr* value;
+};
+
+struct ast_decl_const
+{
+	struct ast_annotation*  annotation;
+	struct ast_identifier name;
+	struct ast_type* type;
+	struct ast_expr_t* value;
+};
 
 ast_node_t* gdscript_ast_generate(arena_t* arena, const token_t* tokens, gdscript_id_t* ids, const uint32_t num_tokens);
 

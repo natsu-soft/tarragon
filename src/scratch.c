@@ -1,6 +1,6 @@
 #include "scratch.h"
-#include <stdio.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <assert.h>
 #include "logger.h"
@@ -16,9 +16,10 @@ static struct
 } scratch_table = {0};
 
 
-__attribute__((constructor)) static void scratch_init(void)
+__attribute__((constructor))
+void scratch_init(void)
 {
-	scratch_table.arenas = calloc(NUM_SCRATCHPADS, sizeof *scratch_table.arenas);
+	scratch_table.arenas = calloc(NUM_SCRATCHPADS, sizeof(*scratch_table.arenas));
 	assert(scratch_table.arenas && "scratch_init(): failed to allocate scratch arenas! How are you ALREADY out of memory?");
 	arena_init(scratch_table.arenas, SCRATCH_OVERHEAD);
 	scratch_table.availability_mask = ~0;
@@ -26,7 +27,7 @@ __attribute__((constructor)) static void scratch_init(void)
 
 arena_t* scratch_checkout(void)
 {
-	for (uint8_t i = 0; i < NUM_SCRATCHPADS; ++i)
+	for (int8_t i = 0; i < NUM_SCRATCHPADS; ++i)
 	{
 		if (scratch_table.availability_mask & (1 << i))
 		{
@@ -43,8 +44,8 @@ arena_t* scratch_checkout(void)
 
 struct arena_t* scratch_checkout_size(const uint32_t size)
 {
-	uint8_t available = NUM_SCRATCHPADS;
-	for (uint8_t i = 0; i < NUM_SCRATCHPADS; ++i)
+	int8_t available = NUM_SCRATCHPADS;
+	for (int8_t i = 0; i < NUM_SCRATCHPADS; ++i)
 	{
 		if (scratch_table.availability_mask & (1 << i))
 		{
@@ -78,7 +79,7 @@ struct arena_t* scratch_checkout_size(const uint32_t size)
 
 static void* table_peek(void)
 {
-	for (uint8_t i = 0; i < NUM_SCRATCHPADS; ++i)
+	for (int8_t i = 0; i < NUM_SCRATCHPADS; ++i)
 	{
 		if (scratch_table.availability_mask & (1 << i))
 		{
@@ -94,7 +95,7 @@ static void* table_peek(void)
 
 void scratch_checkin(const arena_t* arena)
 {
-	for (uint8_t i = 0; i < NUM_SCRATCHPADS; ++i)
+	for (int8_t i = 0; i < NUM_SCRATCHPADS; ++i)
 	{
 		if (scratch_table.arenas + i == arena)
 		{
@@ -132,24 +133,24 @@ void* scratch_calloc(const uint32_t size)
 
 int scratch_test (int argc, char** argv)
 {
-	for (uint8_t i = 0; i < 64; ++i)
+	for (int8_t i = 0; i < 64; ++i)
 	{
 		SCRATCH* scratch = scratch_checkout();
 		/* assert(scratch->cap == 0); */
 		assert(scratch->size == 0);
 	}
-	for (uint8_t i = 0; i < NUM_SCRATCHPADS; ++i)
+	for (int8_t i = 0; i < NUM_SCRATCHPADS; ++i)
 	{
 		arena_t* scratch = scratch_checkout();
 		arena_dynamic_push(scratch, "foo bar baz bru\0", 16);
 		/* printf("%d: %s\n", i, scratch->allocation); */
 	}
 	scratch_checkin_all();
-	for (uint8_t i = 0; i < NUM_SCRATCHPADS; ++i)
+	for (int8_t i = 0; i < NUM_SCRATCHPADS; ++i)
 	{
 		arena_t* scratch = scratch_checkout();
 		/* printf("%d: %s\n", i, scratch->allocation); */
-		const uint32_t cap = scratch->cap;
+		/* const uint32_t cap = scratch->cap; */
 		const void* addr0 = scratch->allocation;
 	}
 	scratch_checkin_all();

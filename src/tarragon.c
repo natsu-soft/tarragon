@@ -104,7 +104,8 @@ int main(int argc, char** argv) {
 	LOG("starting tarragon");
 	/* setbuf(stdin, NULL); */
 	/* setbuf(stdout, NULL); */
-	int res = ls_listen(stdin, stdout);
+	/* int res = ls_listen(stdin, stdout); */
+	int res = 0;
 	ENDLOG;
 	return res;
 	/* echo(100, stdin, log_fp); */
