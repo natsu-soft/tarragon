@@ -9,15 +9,14 @@
 FILE* log_fp;
 
 
-/* #define TESTS								\ */
-	/* X(scratch) \ */
-	/* X(base_protocol) \ */
-	/* X(json) \ */
-	/* X(gdscript_parser) */
+#define TESTS								\
+	X(scratch) \
+	X(base_protocol) \
+	X(json) \
+	X(gdscript_parser)
 	/* X(json)									\ */
 	/* X(gdscript_parser) */
 
-#define TESTS
 
 #define X(A) extern int A##_test(int argc, char** argv);
 TESTS
