@@ -259,6 +259,10 @@ typedef struct token_table_t
 	int32_t num_tokens;
 } token_table_t;
 
+int16_t token_line(const token_table_t* table, const int32_t index);
+
+int16_t token_column(const token_table_t* table, const int32_t index);
+
 void print_tokens(const char* src, const int16_t* offsets, const int16_t* lens, const int32_t n);
 
 void print_allman(const char* src, const int16_t* offsets, const int16_t* lens, const gdscript_id_t* ids, const int32_t num_tokens);

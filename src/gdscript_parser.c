@@ -9,6 +9,31 @@
 /* #include "token.h" */
 #include "arena.h"
 
+int16_t token_line(const token_table_t* table, const int32_t index)
+{
+	int16_t line = 1;
+	const int32_t offset = table->offsets[index];
+	const char* src = table->src;
+	for (int32_t i = 0; i < offset; ++i)
+	{
+		line += src[i] == '\n';
+	}
+	return line;
+}
+
+int16_t token_column(const token_table_t* table, const int32_t index)
+{
+	int col = 1;
+	const int32_t offset = table->offsets[index];
+	const char* src = table->src;
+	for (int32_t i = 0; i < offset; ++i)
+	{
+		const int8_t k = src[i] != '\n';
+		col = k * (col + 1) + (1 - k);
+	}
+	return col;
+}
+
 
 void print_tokens(const char* src, const int16_t* offsets, const int16_t* lens, const int32_t n)
 {
@@ -120,23 +145,29 @@ int gdscript_parser_test(int argc, char** argv)
 	/* uint32_t num_tokens = gdscript_tokenize(&arena, &tokens, &ids, src, src_len); */
 	MICROTIME(num_tokens = gdscript_lex(arena, &table, src, src_len);)
 /* 	const uint32_t n0 = num_tokens; */
-/* 	for (uint32_t i = 0; i < num_tokens; ++i) */
-/* 	{ */
-/* 		token_t t = tokens[i]; */
-/* 		gdscript_id_t id = ids[i]; */
-/* 		char* str = alloca(t.len + 1); */
-/* 		memcpy(str, t.string, t.len); */
-/* 		str[t.len] = '\0'; */
-/* 		uint32_t line = 1; */
-/* 		uint32_t col = 1; */
-/* 		for (int j = 0; j < t.pos; ++j) */
-/* 		{ */
-/* 			const uint8_t newline_flag = src[j] == '\n'; */
-/* 			line += newline_flag; */
-/* 			col = col * (1 - newline_flag) + 1; */
-/* 		} */
-/* 		printf("%d:%d:(%#06x) %s\n", line, col, id, str); */
-/* 	} */
+	/* for (uint32_t i = 0; i < num_tokens; ++i) */
+	/* { */
+	/* 	const char* token = src + table.offsets[i]; */
+	/* 	gdscript_id_t id = table.ids[i]; */
+	/* 	/\* char* str = alloca(t.len + 1); *\/ */
+	/* 	/\* memcpy(str, t.string, t.len); *\/ */
+	/* 	/\* str[t.len] = '\0'; *\/ */
+	/* 	/\* uint32_t line = 1; *\/ */
+	/* 	/\* uint32_t col = 1; *\/ */
+	/* 	/\* for (int j = 0; j < t.pos; ++j) *\/ */
+	/* 	/\* { *\/ */
+	/* 	/\* 	const uint8_t newline_flag = src[j] == '\n'; *\/ */
+	/* 	/\* 	line += newline_flag; *\/ */
+	/* 	/\* 	col = col * (1 - newline_flag) + 1; *\/ */
+	/* 	/\* } *\/ */
+	/* 	/\* printf("%d:%d:(%#06x) \n", line, col, id); *\/ */
+	/* 	printf("%d:%d:(%#06x) ", token_line(&table, i), token_column(&table, i), id); */
+	/* 	for (int j = 0; j < table.lens[i]; ++j) */
+	/* 	{ */
+	/* 		printf("%c", token[j]); */
+	/* 	} */
+	/* 	printf("\n"); */
+	/* } */
 /* 	printf("SIZE: %zu, CAP: %zu\n", arena->size, arena->cap); */
 /* #define PRINT(A) printf("%#04x: " #A "\n", A) */
 /* 	PRINT(GDSCRIPT_COMMENT); */
@@ -151,6 +182,7 @@ int gdscript_parser_test(int argc, char** argv)
 /* 	PRINT(GDSCRIPT_SCOPE_START); */
 /* 	PRINT(GDSCRIPT_SCOPE_END); */
 /* 	#undef PRINT */
-	print_allman(src, table.offsets, table.lens, table.ids, table.num_tokens);
+	/* print_allman(src, table.offsets, table.lens, table.ids, table.num_tokens); */
+	/* print_tokens(src, table.offsets, table.lens, table.num_tokens); */
 	return 0;
 }
