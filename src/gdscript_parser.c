@@ -182,7 +182,7 @@ int gdscript_parser_test(int argc, char** argv)
 /* 	PRINT(GDSCRIPT_SCOPE_START); */
 /* 	PRINT(GDSCRIPT_SCOPE_END); */
 /* 	#undef PRINT */
-	/* print_allman(src, table.offsets, table.lens, table.ids, table.num_tokens); */
+	print_allman(src, table.offsets, table.lens, table.ids, table.num_tokens);
 	/* print_tokens(src, table.offsets, table.lens, table.num_tokens); */
 	return 0;
 }
