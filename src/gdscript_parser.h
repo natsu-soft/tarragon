@@ -24,9 +24,9 @@
 	X(OP_POWER,						"**",			2) \
 	X(OP_ASSIGNMENT_PRODUCT,		"*=",			2) \
 	X(OP_PRODUCT,					"*",			1) \
-	X(OP_ASSIGNMENT_SUM,		   "+=",			2) \
-	X(OP_SUM,							"+",			1)	\
+	X(OP_ASSIGNMENT_SUM,		    "+=",			2) \
 	X(OP_ASSIGNMENT_DIFFERENCE,	"-=",			2)	\
+	X(OP_SUM,						 "+",			1)	\
 	X(OP_DIFFERENCE,					"-",			1)	\
 	X(OP_ASSIGNMENT_DIVISION,		"/=",			2)	\
 	X(OP_DIVISION,					"/",			1)	\
