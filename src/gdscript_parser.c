@@ -144,7 +144,6 @@ int gdscript_parser_test(int argc, char** argv)
 	arena_grow(arena, 8 * src_len);
 	/* uint32_t num_tokens = gdscript_tokenize(&arena, &tokens, &ids, src, src_len); */
 	MICROTIME(num_tokens = gdscript_lex(arena, &table, src, src_len);)
-/* 	const uint32_t n0 = num_tokens; */
 	/* for (uint32_t i = 0; i < num_tokens; ++i) */
 	/* { */
 	/* 	const char* token = src + table.offsets[i]; */
@@ -182,7 +181,7 @@ int gdscript_parser_test(int argc, char** argv)
 /* 	PRINT(GDSCRIPT_SCOPE_START); */
 /* 	PRINT(GDSCRIPT_SCOPE_END); */
 /* 	#undef PRINT */
-	print_allman(src, table.offsets, table.lens, table.ids, table.num_tokens);
+	/* print_allman(src, table.offsets, table.lens, table.ids, table.num_tokens); */
 	/* print_tokens(src, table.offsets, table.lens, table.num_tokens); */
 	return 0;
 }
