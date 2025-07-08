@@ -141,16 +141,16 @@ static int32_t delimiting_token(const char* str, const unsigned int n)
 		{										\
 			if (str[i] != temp[i])				\
 			{									\
-				goto stop_##ID;					\
+				goto STOP_##ID;					\
 			}									\
 		}										\
 		else									\
 		{										\
-			goto stop_##ID;						\
+			goto STOP_##ID;						\
 		}										\
 	}											\
 	return LEN;									\
-	stop_##ID:
+	STOP_##ID:
 	GDSCRIPT_DELIMITING_TOKENS
 	return 0;
 	#undef X

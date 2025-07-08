@@ -11,7 +11,8 @@ ifeq ($(OS),Windows_NT)
 LIBS :=
 LDFLAGS := -fuse-ld=lld -flto -static
 else
-LIBS := -L /home/jon/Repos/llvm-project/build/libc/lib -lllvmlibc
+# LIBS := -L /home/jon/Repos/llvm-project/build/libc/lib -lllvmlibc
+LIBS :=
 LDFLAGS := -fuse-ld=mold -flto -static
 endif
 MAINS := src/tarragon.c src/tests.c
