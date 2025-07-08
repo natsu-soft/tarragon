@@ -141,7 +141,7 @@ int gdscript_parser_test(int argc, char** argv)
 	int src_len = 0;
 	char* src = fs_read("RewindAbility.gd", &src_len);
 	int32_t num_tokens;
-	arena_grow(arena, 5 * src_len);
+	arena_grow(arena, 8 * src_len);
 	/* uint32_t num_tokens = gdscript_tokenize(&arena, &tokens, &ids, src, src_len); */
 	MICROTIME(num_tokens = gdscript_lex(arena, &table, src, src_len);)
 /* 	const uint32_t n0 = num_tokens; */

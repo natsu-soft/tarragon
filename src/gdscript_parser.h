@@ -3,200 +3,183 @@
 
 #include <stdint.h>
 
-/* #define GDSCRIPT_TRIPLE_STRING_DELIMITERS \ */
-/* 	GDSCRIPT_X("'''",    GDSCRIPT_TRIPLE_QUOTE) \ */
-/* 	GDSCRIPT_X("\"\"\"", GDSCRIPT_TRIPLE_DOUBLE_QUOTE) */
+#define GDSCRIPT_STRUCTURE		\
+	X(SEMICOLON,		";",	1)	\
+	X(LINE_END,		"\n",	1)	\
+	X(LINE_CONTINUE,	"\\",	1)	\
+	X(COMMENT,		"#",	1)	\
+	X(COLON,			":",	1)	\
+	X(PERIOD,			".",	1)	\
+	X(COMMA,			",",	1)	\
+	X(ARROW,			"->",	2)	\
+	X(PAREN_OPEN,	"(",	1)	\
+	X(PAREN_CLOSE,	")",	1)	\
+	X(BRACE_OPEN,	"{",	1)	\
+	X(BRACE_CLOSE,	"}",	1)	\
+	X(BRACKET_OPEN,	"[",	1)	\
+	X(BRACKET_CLOSE,	"]",	1)
 
-/* #define GDSCRIPT_STRING_DELIMITERS \ */
-/* 	GDSCRIPT_X("'",      GDSCRIPT_QUOTE) \ */
-/* 	GDSCRIPT_X("\"",     GDSCRIPT_DOUBLE_QUOTE) */
+#define GDSCRIPT_BINARY_OPERATORS		\
+	X(OP_ASSIGNMENT_POWER,			"**=",			3) \
+	X(OP_POWER,						"**",			2) \
+	X(OP_ASSIGNMENT_PRODUCT,		"*=",			2) \
+	X(OP_PRODUCT,					"*",			1) \
+	X(OP_ASSIGNMENT_SUM,		   "+=",			2) \
+	X(OP_SUM,							"+",			1)	\
+	X(OP_ASSIGNMENT_DIFFERENCE,	"-=",			2)	\
+	X(OP_DIFFERENCE,					"-",			1)	\
+	X(OP_ASSIGNMENT_DIVISION,		"/=",			2)	\
+	X(OP_DIVISION,					"/",			1)	\
+	X(OP_ASSIGNMENT_MODULO,			"%=",			2)	\
+	X(OP_MODULO,						"%",			1)	\
+	X(OP_BOOL_AND,					"&&",			2)	\
+	X(OP_ASSIGNMENT_BITWISE_AND,	"&=",			2)	\
+	X(OP_BITWISE_AND,				"&",			1)	\
+	X(OP_BOOL_OR,					"||",			2)	\
+	X(OP_ASSIGNMENT_BITWISE_OR,	"|=",			1)	\
+	X(OP_BITWISE_OR,					"|",			1) \
+	X(OP_ASSIGNMENT_BITSHIFT_LEFT,	"<<=",			3) \
+	X(OP_BITSHIFT_LEFT,				"<<",			2) \
+	X(OP_ASSIGNMENT_BITSHIFT_RIGH,	">>=",			3) \
+	X(OP_BITSHIFT_RIGHT,			">>",			2) \
+	X(OP_ASSIGNMENT_XOR,			"^=",			2) \
+	X(OP_BITWISE_XOR,				"^",			1) \
+	X(OP_EQUALS,						"==",			2) \
+	X(OP_INEQUALS,					"!=",			2) \
+	X(OP_LESS_THAN_EQUALS,			"<=",			2) \
+	X(OP_LESS_THAN,					"<",			1) \
+	X(OP_GREATER_THAN_EQUALS,		">=",			2) \
+	X(OP_GREATER_THAN,				">",			1) \
+	X(OP_ASSIGNMENT_INFERRED,		":=",			2) \
+	X(OP_ASSIGNMENT,					"=",			1)
 
-/* #define GDSCRIPT_RAW_TRIPLE_STRING_STARTERS \ */
-/* 	GDSCRIPT_X("r'''",    GDSCRIPT_RAW_TRIPLE_QUOTE) \ */
-/* 	GDSCRIPT_X("r\"\"\"", GDSCRIPT_RAW_TRIPLE_DOUBLE_QUOTE) */
-
-/* #define GDSCRIPT_RAW_STRING_STARTERS \ */
-/* 	GDSCRIPT_X("r'",      GDSCRIPT_RAW_QUOTE) \ */
-/* 	GDSCRIPT_X("r\"",     GDSCRIPT_RAW_DOUBLE_QUOTE) */
-
-/* #define GDSCRIPT_TRIPLE_STRING_STARTERS \ */
-/* 	GDSCRIPT_RAW_STRING_STARTERS \ */
-/* 	GDSCRIPT_TRIPLE_STRING_DELIMIERS */
-
-/* #define GDSCRIPT_STRING_STARTERS \ */
-/* 	GDSCRIPT_RAW_STRING_STARTERS \ */
-/* 	GDSCRIPT_STRING_DELIMITERS */
-
-/* #define GDSCRIPT_DELETE_THIS \ */
-/* 	GDSCRIPT_X("@",       GDSCRIPT_ANNOTATION) \ */
-
-#define GDSCRIPT_STRUCTURE \
-	X(";",       SEMICOLON) \
-	X("\n",      LINE_END) \
-	X("\\",      LINE_CONTINUE) \
-	X("#",       COMMENT) \
-	X(":",       COLON) \
-	X(".",       PERIOD) \
-	X(",",       COMMA) \
-	X("->",      ARROW) \
-	X("(",       PAREN_OPEN) \
-	X(")",       PAREN_CLOSE) \
-	X("{",       BRACE_OPEN) \
-	X("}",       BRACE_CLOSE) \
-	X("[",       BRACKET_OPEN) \
-	X("]",       BRACKET_CLOSE)
-
-	/* GDSCRIPT_X("r'''",    GDSCRIPT_RAW_STRING_TRIPLE_QUOTE) \ */
-	/* GDSCRIPT_X("r\"\"\"", GDSCRIPT_RAW_STRING_TRIPLE_DOUBLE_QUOTE) \ */
-	/* GDSCRIPT_X("'''",     GDSCRIPT_STRING_TRIPLE_QUOTE) \ */
-	/* GDSCRIPT_X("\"\"\"",  GDSCRIPT_STRING_TRIPLE_DOUBLE_QUOTE)\ */
-	/* GDSCRIPT_X("r'",      GDSCRIPT_RAW_STRING_QUOTE) \ */
-	/* GDSCRIPT_X("r\"",     GDSCRIPT_RAW_STRING_DOUBLE_QUOTE) \ */
-	/* GDSCRIPT_X("'",       GDSCRIPT_STRING_QUOTE) \ */
-	/* GDSCRIPT_X("\"",      GDSCRIPT_STRING_DOUBLE_QUOTE) */
-
-// NOTE: pair, type, dot, identity, and negation operators never match during tokenization,
-// but they're used during ast generation
-// after tokenizatin remaining periods get converted to the dot operator
-
-
-#define GDSCRIPT_BINARY_OPERATORS \
-	X("**=", OP_ASSIGNMENT_POWER) \
-	X("**",  OP_POWER) \
-	X("*=",  OP_ASSIGNMENT_PRODUCT) \
-	X("*",   OP_PRODUCT) \
-	X("+=",  OP_ASSIGNMENT_SUM) \
-	X("+",   OP_SUM) \
-	X("-=",  OP_ASSIGNMENT_DIFFERENCE) \
-	X("-",   OP_DIFFERENCE) \
-	X("/=",  OP_ASSIGNMENT_DIVISION) \
-	X("/",   OP_DIVISION) \
-	X("%=",  OP_ASSIGNMENT_MODULO) \
-	X("%",   OP_MODULO) \
-	X("&&",  OP_BOOL_AND) \
-	X("&=",  OP_ASSIGNMENT_BITWISE_AND) \
-	X("&",   OP_BITWISE_AND) \
-	X("||",  OP_BOOL_OR) \
-	X("|=",  OP_ASSIGNMENT_BITWISE_OR) \
-	X("|",   OP_BITWISE_OR) \
-	X("<<=", OP_ASSIGNMENT_BITSHIFT_LEFT) \
-	X("<<",  OP_BITSHIFT_LEFT) \
-	X(">>=", OP_ASSIGNMENT_BITSHIFT_RIGH) \
-	X(">>",  OP_BITSHIFT_RIGHT) \
-	X("^=",  OP_ASSIGNMENT_XOR) \
-	X("^",   OP_BITWISE_XOR) \
-	X("==",  OP_EQUALS) \
-	X("!=",  OP_INEQUALS) \
-	X("<=",  OP_LESS_THAN_EQUALS) \
-	X("<",   OP_LESS_THAN) \
-	X(">=",  OP_GREATER_THAN_EQUALS) \
-	X(">",   OP_GREATER_THAN) \
-	X(":=",  OP_ASSIGNMENT_INFERRED) \
-	X("=",   OP_ASSIGNMENT)
-	/* X(":",   OP_TYPE) \ */
-	/* X(".",   OP_DOT) */
-	/* X(":",   OP_PAIR) \ */
-
-#define GDSCRIPT_UNARY_OPERATORS \
-	X("~", OP_BITWISE_NOT) \
-	X("+", OP_IDENTITY) \
-	X("-", OP_NEGATION) \
-	X("!", OP_BOOL_NOT)
+#define GDSCRIPT_UNARY_OPERATORS	\
+	X(OP_BITWISE_NOT,	 "~",	1)	\
+	X(OP_IDENTITY,		 "+",	1)	\
+	X(OP_NEGATION,		 "-",	1)	\
+	X(OP_BOOL_NOT,		 "!",	1)
 
 #define NUM_ASSIGNMENT_OPERATORS 13
 #define GDSCRIPT_ASSIGNMENT_OPERATORS \
-	X(OP_ASSIGNMENT_POWER) \
-	X(OP_ASSIGNMENT_PRODUCT) \
-	X(OP_ASSIGNMENT_SUM) \
-	X(OP_ASSIGNMENT_DIFFERENCE) \
-	X(OP_ASSIGNMENT_DIVISION) \
-	X(OP_ASSIGNMENT_MODULO) \
-	X(OP_ASSIGNMENT_BITWISE_AND) \
-	X(OP_ASSIGNMENT_BITWISE_OR) \
-	X(OP_ASSIGNMENT_BITSHIFT_LEFT) \
-	X(OP_ASSIGNMENT_BITSHIFT_RIGH) \
-	X(OP_ASSIGNMENT_XOR) \
-	X(GDSCRIPT_OP_ASSIGNMENT_INFERRED) \
-	X(OP_ASSIGNMENT)
+	X(OP_ASSIGNMENT_POWER,			"**=",			3) \
+	X(OP_ASSIGNMENT_PRODUCT,		"*=",			2) \
+	X(OP_ASSIGNMENT_SUM,		   "+=",			2) \
+	X(OP_ASSIGNMENT_DIFFERENCE,	"-=",			2)	\
+	X(OP_ASSIGNMENT_DIVISION,		"/=",			2)	\
+	X(OP_ASSIGNMENT_MODULO,			"%=",			2)	\
+	X(OP_ASSIGNMENT_BITWISE_AND,	"&=",			2)	\
+	X(OP_ASSIGNMENT_BITWISE_OR,	"|=",			1)	\
+	X(OP_ASSIGNMENT_BITSHIFT_LEFT,	"<<=",			3) \
+	X(OP_ASSIGNMENT_BITSHIFT_RIGH,	">>=",			3) \
+	X(OP_ASSIGNMENT_XOR,			"^=",			2) \
+	X(OP_ASSIGNMENT_INFERRED,		":=",			2) \
+	X(OP_ASSIGNMENT,					"=",			1)
+
+#define NUM_NON_ASSIGNMENT_OPERATORS 24
+#define GDSCRIPT_NON_ASSIGNMENT_OPERATORS \
+	X(OP_POWER,						"**",			2) \
+	X(OP_PRODUCT,					"*",			1) \
+	X(OP_SUM,							"+",			1)	\
+	X(OP_DIFFERENCE,					"-",			1)	\
+	X(OP_DIVISION,					"/",			1)	\
+	X(OP_MODULO,						"%",			1)	\
+	X(OP_BOOL_AND,					"&&",			2)	\
+	X(OP_ASSIGNMENT_BITWISE_AND,	"&=",			2)	\
+	X(OP_BITWISE_AND,				"&",			1)	\
+	X(OP_BOOL_OR,					"||",			2)	\
+	X(OP_BITWISE_OR,					"|",			1) \
+	X(OP_BITSHIFT_LEFT,				"<<",			2) \
+	X(OP_BITSHIFT_RIGHT,			">>",			2) \
+	X(OP_BITWISE_XOR,				"^",			1) \
+	X(OP_EQUALS,						"==",			2) \
+	X(OP_INEQUALS,					"!=",			2) \
+	X(OP_LESS_THAN_EQUALS,			"<=",			2) \
+	X(OP_LESS_THAN,					"<",			1) \
+	X(OP_GREATER_THAN_EQUALS,		">=",			2) \
+	X(OP_GREATER_THAN,				">",			1) \
+	X(OP_BITWISE_NOT,	 "~",	1)	\
+	X(OP_IDENTITY,		 "+",	1)	\
+	X(OP_NEGATION,		 "-",	1)	\
+	X(OP_BOOL_NOT,		 "!",	1)
 
 #define GDSCRIPT_ANNOTATIONS \
-	X("@export_category",            EXPORT_CATEGORY) \
-	X("@export_color_no_alpha",      EXPORT_COLOR_NO_ALPHA) \
-	X("@export_custom",              EXPORT_CUSTOM) \
-	X("@export_dir",                 EXPORT_DIR) \
-	X("@export_enum",                EXPORT_ENUM) \
-	X("@export_exp_easing",          EXPORT_EXP_EASING) \
-	X("@export_file",                EXPORT_FILE) \
-	X("@export_flags_2d_navigation", EXPORT_FLAGS_2D_NAVIGATION) \
-	X("@export_flags_2d_physics",    EXPORT_FLAGS_2D_PHYSICS) \
-	X("@export_flags_2d_render",     EXPORT_FLAGS_2D_RENDER) \
-	X("@export_flags_3d_navigation", EXPORT_FLAGS_3D_NAVIGATION) \
-	X("@export_flags_3d_physics",    EXPORT_FLAGS_3D_PHYSICS) \
-	X("@export_flags_3d_render",     EXPORT_FLAGS_3D_RENDER) \
-	X("@export_flags_avoidance",     EXPORT_FLAGS_AVOIDANCE) \
-	X("@export_flags",               EXPORT_FLAGS) \
-	X("@export_global_dir",          EXPORT_GLOBAL_DIR) \
-	X("@export_global_file",         EXPORT_GLOBAL_FILE) \
-	X("@export_group",               EXPORT_GROUP) \
-	X("@export_multiline",           EXPORT_MULTILINE) \
-	X("@export_node_path",           EXPORT_NODE_PATH) \
-	X("@export_placeholder",         EXPORT_PLACEHOLDER) \
-	X("@export_range",               EXPORT_RANGE) \
-	X("@export_storage",             EXPORT_STORAGE) \
-	X("@export_subgroup",            EXPORT_SUBGROUP) \
-	X("@export_tool_button",         EXPORT_TOOL_BUTTON) \
-	X("@export",                     EXPORT) \
-	X("@icon",                       ICON) \
-	X("@onready",                    ONREADY) \
-	X("@rpc",                        RPC) \
-	X("@static_unload",              STATIC_UNLOAD) \
-	X("@tool",                       TOOL) \
-	X("@warning_ignore_restore",     WARNING_IGNORE_RESTORE) \
-	X("@warning_ignore_stop",        WARNING_IGNORE_STOP) \
-	X("@warning_ignore",             WARNING_IGNORE)
+	X(EXPORT_CATEGORY,				"@export_category",				16) \
+	X(EXPORT_COLOR_NO_ALPHA,		"@export_color_no_alpha",		22) \
+	X(EXPORT_CUSTOM,					"@export_custom",				14) \
+	X(EXPORT_DIR,					"@export_dir",					11) \
+	X(EXPORT_ENUM,					"@export_enum",					12) \
+	X(EXPORT_EXP_EASING,			"@export_exp_easing",			18) \
+	X(EXPORT_FILE,					"@export_file",					12) \
+	X(EXPORT_FLAGS_2D_NAVIGATION,	"@export_flags_2d_navigation",	27) \
+	X(EXPORT_FLAGS_2D_PHYSICS,		"@export_flags_2d_physics",		24) \
+	X(EXPORT_FLAGS_2D_RENDER,		"@export_flags_2d_render",		23) \
+	X(EXPORT_FLAGS_3D_NAVIGATION,	"@export_flags_3d_navigation",	27) \
+	X(EXPORT_FLAGS_3D_PHYSICS,		"@export_flags_3d_physics",		24) \
+	X(EXPORT_FLAGS_3D_RENDER,		"@export_flags_3d_render",		23) \
+	X(EXPORT_FLAGS_AVOIDANCE,		"@export_flags_avoidance",		23) \
+	X(EXPORT_FLAGS,					"@export_flags",					13) \
+	X(EXPORT_GLOBAL_DIR,			"@export_global_dir",			18) \
+	X(EXPORT_GLOBAL_FILE,			"@export_global_file",			19) \
+	X(EXPORT_GROUP,					"@export_group",					13) \
+	X(EXPORT_MULTILINE,				"@export_multiline",				17) \
+	X(EXPORT_NODE_PATH,				"@export_node_path",				17) \
+	X(EXPORT_PLACEHOLDER,			"@export_placeholder",			19) \
+	X(EXPORT_RANGE,					"@export_range",					13) \
+	X(EXPORT_STORAGE,				"@export_storage",				15) \
+	X(EXPORT_SUBGROUP,				"@export_subgroup",				16) \
+	X(EXPORT_TOOL_BUTTON,			"@export_tool_button",			18) \
+	X(EXPORT,							"@export",						7) \
+	X(ICON,							"@icon",							5) \
+	X(ONREADY,						"@onready",						7) \
+	X(RPC,							"@rpc",							4) \
+	X(STATIC_UNLOAD,					"@static_unload",				14) \
+	X(TOOL,							"@tool",							5) \
+	X(WARNING_IGNORE_RESTORE,		"@warning_ignore_restore",		23) \
+	X(WARNING_IGNORE_STOP,			"@warning_ignore_stop",			20) \
+	X(WARNING_IGNORE,				"@warning_ignore",				15) \
 
 #define GDSCRIPT_KEYWORDS \
-	X("if",         IF)	  \
-	X("elif",       ELIF) \
-	X("else",       ELSE) \
-	X("for",        FOR) \
-	X("while",      WHILE) \
-	X("match",      MATCH) \
-	X("break",      BREAK) \
-	X("continue",   CONTINUE) \
-	X("pass",       PASS) \
-	X("return",     RETURN) \
-	X("class_name", CLASS_NAME) \
-	X("class",      CLASS) \
-	X("extends",    EXTENDS) \
-	X("is",         IS) \
-	X("in",         IN) \
-	X("as",         AS) \
-	X("self",       SELF) \
-	X("super",      SUPER) \
-	X("signal",     SIGNAL) \
-	X("func",       FUNC) \
-	X("static",     STATIC) \
-	X("const",      CONST) \
-	X("enum",       ENUM) \
-	X("var",        VAR) \
-	X("breakpoint", BREAKPOINT) \
-	X("preload",    PRELOAD) \
-	X("await",      AWAIT) \
-	X("yield",      YIELD) \
-	X("assert",     ASSERT) \
-	X("get",        GET) \
-	X("set",        SET) \
-	X("void",       VOID)
+	X(IF,         "if",				6) \
+	X(ELIF,		"elif",			4) \
+	X(ELSE,		"else",			4) \
+	X(FOR,		"for",				3) \
+	X(WHILE,		"while",			5) \
+	X(MATCH,		"match",			5) \
+	X(BREAK,		"break",			5) \
+	X(CONTINUE,	"continue",		8) \
+	X(PASS,		"pass",			4) \
+	X(RETURN,		"return",			6) \
+	X(CLASS_NAME, "class_name",	10) \
+	X(CLASS,		"class",			5) \
+	X(EXTENDS,	"extends",		7) \
+	X(IS,			"is",				2) \
+	X(IN,			"in",				2) \
+	X(AS,			"as",				2) \
+	X(SELF,		"self",			4) \
+	X(SUPER,		"super",			5) \
+	X(SIGNAL,		"signal",			6) \
+	X(FUNC,		"func",		 	4) \
+	X(STATIC,		"static",			6) \
+	X(CONST,		"const",			5) \
+	X(ENUM,		"enum",		 	4) \
+	X(VAR,		"var",			 	3) \
+	X(BREAKPOINT, "breakpoint", 	10) \
+	X(PRELOAD,	"preload",	 	7) \
+	X(AWAIT,		"await",			5) \
+	X(YIELD,		"yield",		 	5) \
+	X(ASSERT,		"assert",		 	6) \
+	X(GET,		"get",			 	3) \
+	X(SET,		"set",			 	3) \
+	X(VOID,		"void",		 	4)
 
-#define GDSCRIPT_LITERALS \
-	X("null",  NULL)  \
-	X("true",  TRUE)  \
-	X("false", FALSE) \
-	X("PI",    PI) \
-	X("TAU",   TAU) \
-	X("INF",   INF) \
-	X("NAN",   NAN)
+#define GDSCRIPT_LITERALS						\
+	X(NULL, "null",   4)							\
+	X(TRUE, "true",   4)							\
+	X(FALSE, "false", 5)							\
+	X(PI,    "PI",    2)							\
+	X(TAU,   "TAU",   3)							\
+	X(INF,   "INF",   3)							\
+	X(NAN,   "NAN",   3)
 
 #define GDSCRIPT_OPERATORS \
 	GDSCRIPT_BINARY_OPERATORS \
@@ -216,46 +199,37 @@
 typedef enum __attribute__((packed)) gdscript_id_t
 /* typedef enum gdscript_id_t */
 {
-	GDSCRIPT_NONE = 0, // really tho?
-	#define X(_, ID) GDSCRIPT_##ID,
+	GDSCRIPT_NONE = 0,
+	#define X(ID, ...) GDSCRIPT_##ID,
 	GDSCRIPT_BUILTIN_TOKENS
-	/* GDSCRIPT_STRUCTURE */
-	/* GDSCRIPT_OPERATORS_START, */
-	/* GDSCRIPT_ASSIGNMENT_OPERATORS */
-	/* GDSCRIPT_UNARY_OPERATORS */
-	/* GDSCRIPT_BINARY_OPERATORS */
-	/* GDSCRIPT_OPERATORS */
-	/* GDSCRIPT_OPERATORS_END, */
-	/* GDSCRIPT_ANNOTATIONS */
-	/* GDSCRIPT_KEYWORDS_START, */
-	/* GDSCRIPT_KEYWORDS */
-	/* GDSCRIPT_KEYWORDS_END, */
-	/* GDSCRIPT_LITERALS_START, */
-	/* GDSCRIPT_LITERALS */
-	/* GDSCRIPT_LITERALS_END, */
 	#undef X
 	GDSCRIPT_NUM_BUILTIN,
 	GDSCRIPT_ERROR,
 	GDSCRIPT_STRING,
 	GDSCRIPT_NUMBER,
 	GDSCRIPT_IDENTIFIER,
-	GDSCRIPT_PARSE_TABLE_SIZE, // NOTE: wtf is this for?
+	/* GDSCRIPT_PARSE_TABLE_SIZE, // NOTE: wtf is this for? */
 	GDSCRIPT_EOF, // NOTE-> USED, BUT DOESN'T HAVE TO BE
 	GDSCRIPT_LEADING_WHITESPACE, // gets trimmed out
 	GDSCRIPT_WHITESPACE, // also gets trimmed out
-	GDSCRIPT_NUMBER_CANDIDATE,
+	GDSCRIPT_NUMBER_CANDIDATE, // partially used
 	GDSCRIPT_SCOPE_START,
 	GDSCRIPT_SCOPE_END,
 	GDSCRIPT_ARGS_START,
 	GDSCRIPT_ARGS_END,
+	GDSCRIPT_MISSING_COLON,
+	GDSCRIPT_MISSING_PAREN,
+	GDSCRIPT_MISSING_BRACE,
+	GDSCRIPT_MISSING_BRACKET,
 } gdscript_id_t;
 
-typedef struct token_table_t
-{
-	char* src;
-	int16_t* offsets;
-	int16_t* lens;
-	gdscript_id_t* ids;
+/* int16 max is 32,767--better be plenty large*/
+
+typedef struct token_table_t {
+	char *src;
+	int16_t *offsets;
+	int16_t *lens;
+	gdscript_id_t *ids;
 	int32_t num_tokens;
 } token_table_t;
 

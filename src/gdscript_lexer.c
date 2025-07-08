@@ -7,7 +7,13 @@
 #include <string.h>
 #include <assert.h>
 #include "arena.h"
+#include "deck.h"
+#include "stack.h"
 #include "scratch.h"
+
+#define true 1
+#define false 0
+typedef int8_t bool_t;
 
 #define STRING_ENDERS							\
 	STR_X("'''",    0x01, TRIPLE_SINGLE_QOUTE)	\
@@ -40,13 +46,14 @@ static struct {
 } builtin = {0};
 
  // NOTE: THIS IS BAD STOP USING IT
-#define NUM_UNARY_PRECEDERS 2
+static int8_t num_unary_preceders = 0;
 static gdscript_id_t* unary_preceders = NULL;
 
-__attribute__((constructor)) static void init_lexer(void)
+__attribute__((constructor))
+static void init_lexer(void)
 {
-	uint32_t l = 0;
-#define X(STR, _) l += strlen(STR);
+	int32_t l = 0;
+#define X(_, __, LEN) l += LEN;
 	GDSCRIPT_BUILTIN_TOKENS
 #undef X
 	const size_t size0 = sizeof *builtin.tokens + sizeof *builtin.lens + sizeof *builtin.ids;
@@ -59,21 +66,19 @@ __attribute__((constructor)) static void init_lexer(void)
 		.allocation = builtin.ids + GDSCRIPT_NUM_BUILTIN,
 		.cap = l
 	};
-	uint32_t i = 0;
+	int32_t i = 0;
 	char* str;
-#define X(STR, ENUM)												\
+#define X(ENUM, STR, LEN)												\
 	builtin.tokens[i] = char_arena.allocation + char_arena.size;	\
 	str = STR; \
-	l = strlen(str);												\
-	arena_push(&char_arena, str, l);								\
-	builtin.lens[i] = l;											\
+	arena_push(&char_arena, str, LEN);								\
+	builtin.lens[i] = LEN;											\
 	builtin.ids[i] = GDSCRIPT_##ENUM;								\
 	++i;
 	GDSCRIPT_BUILTIN_TOKENS
 #undef X
-	i = 0;
-	unary_preceders = malloc(NUM_UNARY_PRECEDERS * sizeof *unary_preceders);
-#define X(_, ENUM) unary_preceders[i++] = GDSCRIPT_##ENUM;
+/* #define X(_, ENUM) unary_preceders[i++] = GDSCRIPT_##ENUM; */
+#define X(...) ++num_unary_preceders;
 	GDSCRIPT_OPERATORS
 #undef X
 #define UNARY_STRUCT						\
@@ -86,6 +91,15 @@ __attribute__((constructor)) static void init_lexer(void)
 		X(BRACKET_OPEN)						\
 		X(SCOPE_START)						\
 		X(SCOPE_END)
+/* #define X(ENUM) unary_preceders[i++] = GDSCRIPT_##ENUM; */
+#define X(...) ++num_unary_preceders;
+		UNARY_STRUCT
+#undef X
+	unary_preceders = calloc(num_unary_preceders, sizeof *unary_preceders);
+	i = 0;
+#define X(ENUM,...) unary_preceders[i++] = GDSCRIPT_##ENUM;
+	GDSCRIPT_OPERATORS
+#undef X
 #define X(ENUM) unary_preceders[i++] = GDSCRIPT_##ENUM;
 		UNARY_STRUCT
 #undef X
@@ -119,11 +133,9 @@ static void trim_token(int16_t* offsets, int16_t* lens, gdscript_id_t* ids, int3
 static int32_t delimiting_token(const char* str, const unsigned int n)
 {
 	char* temp;
-	unsigned int len;
-	#define X(STR, ID)					\
+#define X(ID, STR, LEN)								\
 	temp = STR;									\
-	len = strlen(temp);							\
-	for (uint32_t i = 0; i < len; ++i)			\
+	for (uint32_t i = 0; i < LEN; ++i)			\
 	{											\
 		if (i < n)								\
 		{										\
@@ -137,7 +149,7 @@ static int32_t delimiting_token(const char* str, const unsigned int n)
 			goto stop_##ID;						\
 		}										\
 	}											\
-	return len;									\
+	return LEN;									\
 	stop_##ID:
 	GDSCRIPT_DELIMITING_TOKENS
 	return 0;
@@ -499,8 +511,17 @@ int32_t gdscript_lex(arena_t* arena, token_table_t* table, const char* src, cons
 	int32_t offset = 0;
 	int32_t pos = 0;
 	arena->size = 0;
-	SCRATCH* id_arena = scratch_checkout_size(n);
-	SCRATCH* len_arena = scratch_checkout_size(2 * n);
+	SCRATCH* len_arena = scratch_checkout_size(n * sizeof *table->lens);
+	SCRATCH* id_arena = scratch_checkout_size(n * sizeof *table->ids);
+	SCRATCH* missing_arena = scratch_checkout_size(n * sizeof *table->ids);
+	// TODO: rip-off Carbon.  Just insert missing things appropriately
+	stack_t* missing_stack = alloca(sizeof *missing_stack);
+	*missing_stack = (stack_t)
+	{
+		.allocation = missing_arena->allocation,
+		.item_size = sizeof *table->ids,
+		.cap = n
+	};
 	for (int32_t i = 0; i < n; ++i)
 	{
 		const char c = src[i];
@@ -671,8 +692,8 @@ static void lws_to_scopes(arena_t* offset_arena, arena_t* len_arena, arena_t* id
 	int16_t* offsets = offset_arena->allocation;
 	int16_t* lens = len_arena->allocation;
 	gdscript_id_t* ids = id_arena->allocation;
-	uint32_t lws0 = 0;
-	uint32_t n = *num_tokens;
+	int32_t lws0 = 0;
+	int32_t n = *num_tokens;
 	SCRATCH* depth_arena = scratch_checkout_size(128 * sizeof lws0); // if this isn't enough the user deserves to segfault
 	const size_t offset_size = sizeof *offsets;
 	const size_t id_size = sizeof *ids;
@@ -681,13 +702,13 @@ static void lws_to_scopes(arena_t* offset_arena, arena_t* len_arena, arena_t* id
 	const gdscript_id_t scope_end = GDSCRIPT_SCOPE_END;
 	uint32_t* d;
 	const size_t d_size = sizeof *d;
-	for (uint32_t i = 0; i < n; ++i)
+	for (int32_t i = 0; i < n; ++i)
 	{
 		const int32_t i0 = i;
 		const int16_t offset = offsets[i0];
 		const size_t len = lens[i0];
 		for (; ids[i] == GDSCRIPT_LEADING_WHITESPACE && i < n; ++i); // find the first non lws token
-		uint32_t lws1 = i - i0;
+		int32_t lws1 = i - i0;
 		/* printf("i0: %d, i: %d, lws0: %d, lws1: %d,\n", i0, i, lws0, lws1); */
 		if (lws1 > lws0)
 		{
@@ -754,7 +775,7 @@ static void classify_gdscript_tokens(const char* src, gdscript_id_t* ids, const 
 				const int delta = ids[i] = GDSCRIPT_OP_SUM ?
 					GDSCRIPT_OP_IDENTITY - GDSCRIPT_OP_SUM :
 					GDSCRIPT_OP_NEGATION - GDSCRIPT_OP_DIFFERENCE;
-				for (uint8_t j = 0; j < NUM_UNARY_PRECEDERS; ++j)
+				for (uint8_t j = 0; j < num_unary_preceders; ++j)
 				{
 					if (prev_id == unary_preceders[j])
 					{
@@ -856,4 +877,41 @@ static void preprocess_tokens(const char* src, int16_t* offsets, int16_t* lens, 
 		const gdscript_id_t id = ids[i];
 		ids[i] += (id == GDSCRIPT_NONE) * GDSCRIPT_IDENTIFIER;
 	}
+}
+
+#define PAIRS \
+	X(PAREN) \
+	X(BRACE) \
+	X(BRACKET)
+
+#define X
+bool_t paired_paren(const gdscript_id_t* ids, int32_t* index, const int32_t n)
+{
+	int16_t depth = 0;
+	for (int32_t i = *index; i < n; ++i)
+	{
+		const gdscript_id_t id = ids[i];
+		if (id == GDSCRIPT_PAREN_CLOSE)
+		{
+			if (depth == 0)
+			{
+				*index = i;
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
+void gdscript_pair_linting(token_table_t* table)
+{
+	const int32_t n = table->num_tokens;
+	for (int32_t i = 0; i < n; ++i)
+	{
+	}
+}
+
+void gdscript_polska(token_table_t* dest_table, const token_table_t *src_table)
+{
+	/* TODO */
 }
