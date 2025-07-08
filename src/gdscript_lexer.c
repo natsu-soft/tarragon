@@ -553,9 +553,9 @@ int32_t gdscript_lex(arena_t* arena, token_table_t* table, const char* src, cons
 				}
 				else if ((offset = delimiting_token(src + i, n - i)) > 0)
 				{
-					gdscript_id_t *id = arena_dynamic_alloc(id_arena, sizeof *id);
-					*id = GDSCRIPT_NONE;
 					new_token(arena, len_arena, i, offset);
+					gdscript_id_t *id = arena_dynamic_alloc(id_arena, sizeof *id);
+					*id = id_token(src + i, offset);
 					i += offset - 1;
 					state = WAITING_CHAR;
 					++num_tokens;
@@ -571,8 +571,8 @@ int32_t gdscript_lex(arena_t* arena, token_table_t* table, const char* src, cons
 			if ((offset = delimiting_token(src + i, n - i)) > 0)
 			{
 				gdscript_id_t* id = arena_dynamic_alloc(id_arena, 2 * sizeof *id);
-				id[0] = GDSCRIPT_NONE;
-				id[1] = GDSCRIPT_NONE;
+				id[0] = id_token(src + pos, i - pos);
+				id[1] = id_token(src + i, offset);
 				new_token(arena, len_arena, pos, i - pos);
 				new_token(arena, len_arena, i, offset);
 				state = c == '\n' ? LEADING_WHITESPACE : WAITING_CHAR;
@@ -580,7 +580,7 @@ int32_t gdscript_lex(arena_t* arena, token_table_t* table, const char* src, cons
 				num_tokens += 2;
 			} else if (isspace(c)) {
 				gdscript_id_t *id = arena_dynamic_alloc(id_arena, sizeof *id);
-				*id = GDSCRIPT_NONE;
+				*id = id_token(src + pos, i - pos);
 				new_token(arena, len_arena, pos, i - pos);
 				state = WAITING_CHAR;
 				++num_tokens;
@@ -596,7 +596,7 @@ int32_t gdscript_lex(arena_t* arena, token_table_t* table, const char* src, cons
 			else if ((offset = delimiting_token(src + i, n - i)) > 0)
 			{
 				gdscript_id_t *id = arena_dynamic_alloc(id_arena, sizeof *id);
-				*id = GDSCRIPT_NONE;
+				*id = id_token(src + i, offset);
 				new_token(arena, len_arena, i, offset);
 				num_tokens++;
 				i += offset - 1;
@@ -862,15 +862,42 @@ static void trim_token(int16_t* offsets, int16_t* lens, gdscript_id_t* ids, int3
 	*num_tokens = swap;
 }
 
+static void id_unary_operators(gdscript_id_t* ids, const int32_t num_tokens)
+{
+	gdscript_id_t prev_id = GDSCRIPT_NONE;
+	const int unary_delta = GDSCRIPT_OP_IDENTITY - GDSCRIPT_OP_SUM; // NOTE: THIS ONLY WORKS BECAUSE THE ORDERING ALLOWS IT
+	for (int32_t i = 0; i < num_tokens - 1; ++i) // last token is EOF
+	{
+		const gdscript_id_t id = ids[i];
+		if (id < GDSCRIPT_OP_SUM || GDSCRIPT_OP_DIFFERENCE < id)
+		{
+			prev_id = id;
+		}
+		else
+		{
+			for (int8_t j = 0; j < num_unary_preceders; ++j)
+			{
+				if (prev_id == unary_preceders[j])
+				{
+					ids[i] += unary_delta;
+					prev_id = id + unary_delta;
+					break;
+				}
+			}
+		}
+	}
+}
+
 static void preprocess_tokens(const char* src, int16_t* offsets, int16_t* lens, gdscript_id_t* ids, int32_t* num_tokens)
 {
-	classify_gdscript_tokens(src, ids, offsets, lens, *num_tokens - 1); // don't gotta classify the last token -- it's EOF
+	/* classify_gdscript_tokens(src, ids, offsets, lens, *num_tokens - 1); // don't gotta classify the last token -- it's EOF */
 	coalesce_numbers(src, offsets, lens, ids, num_tokens);
 	trim_token(offsets, lens, ids, num_tokens, GDSCRIPT_WHITESPACE);
 	trim_token(offsets, lens, ids, num_tokens, GDSCRIPT_COMMENT);
 	cull_line_continuations(offsets, lens, ids, num_tokens);
 	cull_pointless_lines(offsets, lens, ids, num_tokens);
 	const uint32_t n = *num_tokens;
+	id_unary_operators(ids, n);
 	// convert remaining to identifiers
 	for (int i = 0; i < n; ++i)
 	{
