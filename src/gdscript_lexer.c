@@ -513,7 +513,7 @@ int32_t gdscript_lex(arena_t* arena, token_table_t* table, const char* src, cons
 	arena->size = 0;
 	SCRATCH* len_arena = scratch_checkout_size(n * sizeof *table->lens);
 	SCRATCH* id_arena = scratch_checkout_size(n * sizeof *table->ids);
-	SCRATCH* missing_arena = scratch_checkout_size(n * sizeof *table->ids);
+	arena_t* missing_arena = scratch_checkout_size(n * sizeof *table->ids);
 	// TODO: rip-off Carbon.  Just insert missing things appropriately
 	stack_t* missing_stack = alloca(sizeof *missing_stack);
 	*missing_stack = (stack_t)
@@ -659,6 +659,9 @@ int32_t gdscript_lex(arena_t* arena, token_table_t* table, const char* src, cons
 		new_token(arena, len_arena, pos, n - pos);
 		++num_tokens;
 	}
+	// TODO: dump missing
+	// DONE: check missing arena back in
+	scratch_checkin(missing_arena);
 	int16_t* eof_offset = arena_dynamic_alloc(arena, sizeof *eof_offset);
 	*eof_offset = n;
 	uint16_t* eof_len = arena_dynamic_alloc(len_arena, sizeof *eof_len);
@@ -685,7 +688,6 @@ int32_t gdscript_lex(arena_t* arena, token_table_t* table, const char* src, cons
 	table->num_tokens = num_tokens;
 	return num_tokens;
 }
-
 
 static void lws_to_scopes(arena_t* offset_arena, arena_t* len_arena, arena_t* id_arena, int32_t* num_tokens)
 {
