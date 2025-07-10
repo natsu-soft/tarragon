@@ -16,7 +16,7 @@ LIBS :=
 LDFLAGS := -fuse-ld=mold -flto -static
 endif
 MAINS := src/tarragon.c src/tests.c
-IGNORE := src/gdscript_ast.c
+IGNORE := src/gdscript_ast.c src/gdscript_tokenizer.c
 ALL_SRC := $(wildcard src/*.c)
 SRC := $(filter-out $(IGNORE), $(filter-out $(MAINS), $(ALL_SRC)))
 DEP := $(patsubst src/%.c,dep/%.d,$(ALL_SRC))
