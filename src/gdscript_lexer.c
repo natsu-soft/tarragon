@@ -122,17 +122,17 @@ static void init_lexer(void)
 }
 
 
-static void classify_gdscript_tokens(const char* src, gdscript_id_t* ids, const int16_t* tokens, const int16_t* lens, const uint32_t n);
-static void preprocess_tokens(const char* src, int16_t* offsets, int16_t* lens, gdscript_id_t* ids, int32_t* num_tokens);
+static void classify_gdscript_tokens(const char* src, gdscript_id_t* ids, const int32_t* tokens, const int16_t* lens, const uint32_t n);
+static void preprocess_tokens(const char* src, int32_t* offsets, int16_t* lens, gdscript_id_t* ids, int32_t* num_tokens);
 static const int32_t delimiting_token(const char* str, const unsigned int n);
 static const int32_t string_starter(const char* str, const unsigned int n, uint8_t* str_bitmask);
 static const int32_t string_ender(const char* str, const unsigned int n, const uint8_t str_bitmask);
 static const gdscript_id_t id_token(const char* token, const int16_t len);
-static inline void new_token(arena_t* offset_arena, arena_t* len_arena, const int16_t pos, const int16_t len);
+static inline void new_token(arena_t* offset_arena, arena_t* len_arena, const int32_t pos, const int16_t len);
 static const gdscript_id_t verify_number(const char* src, const int32_t n);
-static void cull_line_continuations(int16_t* offsets, int16_t* lens, gdscript_id_t* ids, int32_t* num_tokens);
+static void cull_line_continuations(int32_t* offsets, int16_t* lens, gdscript_id_t* ids, int32_t* num_tokens);
 static void lws_to_scopes(arena_t* offset_arena, arena_t* len_arena, arena_t* id_arena, int32_t* num_tokens);
-static void trim_token(int16_t* offsets, int16_t* lens, gdscript_id_t* ids, int32_t* num_tokens, const gdscript_id_t trim_token);
+static void trim_token(int32_t* offsets, int16_t* lens, gdscript_id_t* ids, int32_t* num_tokens, const gdscript_id_t trim_token);
 
 /* static void do_nothing_with_token(const char** t, const char* message) */
 /* { */
@@ -292,10 +292,12 @@ static const gdscript_id_t make_missing(const gdscript_id_t id)
 }
 
 
-static inline void new_token(arena_t* offset_arena, arena_t* len_arena, const int16_t pos, const int16_t len)
+static inline void new_token(arena_t* offset_arena, arena_t* len_arena, const int32_t pos, const int16_t len)
 {
-	arena_dynamic_push(offset_arena, &pos, sizeof pos);
-	arena_dynamic_push(len_arena, &len, sizeof len);
+	/* arena_dynamic_push(offset_arena, &pos, sizeof pos); */
+	/* arena_dynamic_push(len_arena, &len, sizeof len); */
+	arena_dynamic_push(offset_arena, &pos, 4);
+	arena_dynamic_push(len_arena, &len, 2);
 }
 
 static const gdscript_id_t verify_number(const char* src, const int32_t n)
@@ -467,7 +469,7 @@ static const gdscript_id_t verify_number(const char* src, const int32_t n)
 	return GDSCRIPT_NUMBER;
 }
 
-static void cull_line_continuations(int16_t* offsets, int16_t* lens, gdscript_id_t* ids, int32_t* num_tokens)
+static void cull_line_continuations(int32_t* offsets, int16_t* lens, gdscript_id_t* ids, int32_t* num_tokens)
 {
 	uint32_t swap = 0;
 	const uint32_t n = *num_tokens;
@@ -511,7 +513,7 @@ static void cull_line_continuations(int16_t* offsets, int16_t* lens, gdscript_id
 }
 
 
-static void cull_pointless_lines(int16_t* offsets, int16_t* lens, gdscript_id_t* ids, int32_t* num_tokens)
+static void cull_pointless_lines(int32_t* offsets, int16_t* lens, gdscript_id_t* ids, int32_t* num_tokens)
 {
 	uint32_t swap = 0;
 	uint32_t endl = 0;
@@ -561,8 +563,8 @@ int32_t gdscript_lex(arena_t* arena, token_table_t* table, const char* src, cons
 		STRING_DELIMITERS
 		#undef STR_X
 	} str_bitmask = STR_BITMASK_NONE;
-	int16_t offset = 0;
-	int16_t pos = 0;
+	int32_t offset = 0;
+	int32_t pos = 0;
 	arena->size = 0;
 	SCRATCH* len_arena = scratch_checkout_size(n * sizeof *table->lens);
 	SCRATCH* id_arena = scratch_checkout_size(n * sizeof *table->ids);
@@ -724,7 +726,7 @@ int32_t gdscript_lex(arena_t* arena, token_table_t* table, const char* src, cons
 	// TODO: dump missing
 	// DONE: check missing arena back in
 	scratch_checkin(expected_arena);
-	int16_t* eof_offset = arena_dynamic_alloc(arena, sizeof *eof_offset);
+	int32_t* eof_offset = arena_dynamic_alloc(arena, sizeof *eof_offset);
 	*eof_offset = n;
 	uint16_t* eof_len = arena_dynamic_alloc(len_arena, sizeof *eof_len);
 	*eof_len = 0;
@@ -753,7 +755,7 @@ int32_t gdscript_lex(arena_t* arena, token_table_t* table, const char* src, cons
 
 static void lws_to_scopes(arena_t* offset_arena, arena_t* len_arena, arena_t* id_arena, int32_t* num_tokens)
 {
-	int16_t* offsets = offset_arena->allocation;
+	int32_t* offsets = offset_arena->allocation;
 	int16_t* lens = len_arena->allocation;
 	gdscript_id_t* ids = id_arena->allocation;
 	int32_t lws0 = 0;
@@ -769,7 +771,7 @@ static void lws_to_scopes(arena_t* offset_arena, arena_t* len_arena, arena_t* id
 	for (int32_t i = 0; i < n; ++i)
 	{
 		const int32_t i0 = i;
-		const int16_t offset = offsets[i0];
+		const int32_t offset = offsets[i0];
 		const size_t len = lens[i0];
 		for (; ids[i] == GDSCRIPT_LEADING_WHITESPACE && i < n; ++i); // find the first non lws token
 		int32_t lws1 = i - i0;
@@ -805,7 +807,7 @@ static void lws_to_scopes(arena_t* offset_arena, arena_t* len_arena, arena_t* id
 		}
 		for (; ids[i] != GDSCRIPT_LINE_END && i < n; ++i); // find the first non lws token
 	}
-	const int16_t offset = offsets[n - 1];
+	const int32_t offset = offsets[n - 1];
 	const int16_t len = lens[n - 1];
 	while (depth_arena->size > 0)
 	{
@@ -824,7 +826,7 @@ static void lws_to_scopes(arena_t* offset_arena, arena_t* len_arena, arena_t* id
 }
 
 
-static void classify_gdscript_tokens(const char* src, gdscript_id_t* ids, const int16_t* offsets, const int16_t* lens, const uint32_t n)
+static void classify_gdscript_tokens(const char* src, gdscript_id_t* ids, const int32_t* offsets, const int16_t* lens, const uint32_t n)
 {
 	gdscript_id_t prev_id = GDSCRIPT_NONE;
 	for (int i = 0; i < n; ++i)
@@ -853,7 +855,7 @@ static void classify_gdscript_tokens(const char* src, gdscript_id_t* ids, const 
 	}
 }
 
-static void coalesce_numbers(const char* const src, int16_t* offsets, int16_t* lens, gdscript_id_t* ids, int32_t* num_tokens)
+static void coalesce_numbers(const char* const src, int32_t* offsets, int16_t* lens, gdscript_id_t* ids, int32_t* num_tokens)
 {
 	uint32_t n = *num_tokens;
 	for (uint32_t i = 0; i < n; ++i)
@@ -909,10 +911,10 @@ static void coalesce_numbers(const char* const src, int16_t* offsets, int16_t* l
 	*num_tokens = n;
 }
 
-static void trim_token(int16_t* offsets, int16_t* lens, gdscript_id_t* ids, int32_t* num_tokens, const gdscript_id_t trim_token)
+static void trim_token(int32_t* offsets, int16_t* lens, gdscript_id_t* ids, int32_t* num_tokens, const gdscript_id_t trim_token)
 {
-	uint32_t swap = 0;
-	const uint32_t n = *num_tokens;
+	int32_t swap = 0;
+	const int32_t n = *num_tokens;
 	for (int i = swap; i < n; ++i)
 	{
 		if (ids[i] != trim_token)
@@ -952,7 +954,7 @@ static void id_unary_operators(gdscript_id_t* ids, const int32_t num_tokens)
 	}
 }
 
-static void preprocess_tokens(const char* src, int16_t* offsets, int16_t* lens, gdscript_id_t* ids, int32_t* num_tokens)
+static void preprocess_tokens(const char* src, int32_t* offsets, int16_t* lens, gdscript_id_t* ids, int32_t* num_tokens)
 {
 	/* classify_gdscript_tokens(src, ids, offsets, lens, *num_tokens - 1); // don't gotta classify the last token -- it's EOF */
 	coalesce_numbers(src, offsets, lens, ids, num_tokens);
