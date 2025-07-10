@@ -35,7 +35,7 @@ int16_t token_column(const token_table_t* table, const int32_t index)
 }
 
 
-void print_tokens(const char* src, const int16_t* offsets, const int16_t* lens, const int32_t n)
+void print_tokens(const char* src, const int32_t* offsets, const int16_t* lens, const int32_t n)
 {
 	for (int32_t i = 0; i < n; ++i)
 	{
@@ -48,7 +48,7 @@ void print_tokens(const char* src, const int16_t* offsets, const int16_t* lens, 
 	}
 }
 
-void print_allman(const char* src, const int16_t* offsets, const int16_t* lens, const gdscript_id_t* ids, const int32_t num_tokens)
+void print_allman(const char* src, const int32_t* offsets, const int16_t* lens, const gdscript_id_t* ids, const int32_t num_tokens)
 {
 	int8_t newline = 1;
 	int32_t depth = 0;
@@ -95,7 +95,7 @@ void print_allman(const char* src, const int16_t* offsets, const int16_t* lens, 
 	}
 }
 
-void print_clarity(const char* src, const int16_t* offsets, const int16_t* lens, const gdscript_id_t* ids, const int32_t num_tokens)
+void print_clarity(const char* src, const int32_t* offsets, const int16_t* lens, const gdscript_id_t* ids, const int32_t num_tokens)
 {
 	/* uint8_t newline = 1; */
 	/* uint32_t depth = 0; */
