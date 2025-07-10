@@ -16,18 +16,18 @@
 typedef int8_t bool_t;
 
 #define STRING_ENDERS							\
-	STR_X("'''",    0x01, TRIPLE_SINGLE_QOUTE)	\
-	STR_X("\"\"\"", 0x02, TRIPLE_DOUBLE_QUOTE)	\
-	STR_X("'",      0x04, SINGLE_QUOTE)			\
-	STR_X("\"",     0x08, DOUBLE_QUOTE)			\
+	STR_X("'''",    3, 0x01, TRIPLE_SINGLE_QOUTE)	\
+	STR_X("\"\"\"", 3, 0x02, TRIPLE_DOUBLE_QUOTE)	\
+	STR_X("'",      1, 0x04, SINGLE_QUOTE)			\
+	STR_X("\"",     1, 0x08, DOUBLE_QUOTE)				\
 
 #define STRING_DELIMITERS								\
-	STR_X("r'''",    0x10, RAW_TRIPLE_SINGLE_QUOTE)		\
-	STR_X("r\"\"\"", 0x20, RAW_TRIPLE_DOUBLE_QUOTE)     \
-	STR_X("r'",      0x40, RAW_SINGLE_QUOTE)		    \
-	STR_X("r\"",     0x80, RAW_DOUBLE_QUOTE)		    \
-	STR_X("&\"",     0x81, STRING_NAME)		            \
-	STR_X("^\"",     0x82, NODE_PATH)				    \
+	STR_X("r'''",    3, 0x10, RAW_TRIPLE_SINGLE_QUOTE)	\
+	STR_X("r\"\"\"", 4, 0x20, RAW_TRIPLE_DOUBLE_QUOTE)	\
+	STR_X("r'",      2, 0x40, RAW_SINGLE_QUOTE)		    \
+	STR_X("r\"",     2, 0x80, RAW_DOUBLE_QUOTE)		    \
+	STR_X("&\"",     2, 0x81, STRING_NAME)				\
+	STR_X("^\"",     2, 0x82, NODE_PATH)				    \
 	STRING_ENDERS										\
 
 // X(ENCOUNTER, EXPECTED, ...) // use __VA_ARGS__ JUST for enum (which im fine with) 
@@ -124,9 +124,9 @@ static void init_lexer(void)
 
 static void classify_gdscript_tokens(const char* src, gdscript_id_t* ids, const int16_t* tokens, const int16_t* lens, const uint32_t n);
 static void preprocess_tokens(const char* src, int16_t* offsets, int16_t* lens, gdscript_id_t* ids, int32_t* num_tokens);
-static int32_t delimiting_token(const char* str, const unsigned int n);
-static int32_t string_starter(const char* str, const unsigned int n, uint8_t* str_bitmask);
-static int32_t string_ender(const char* str, const unsigned int n, const uint8_t str_bitmask);
+static const int32_t delimiting_token(const char* str, const unsigned int n);
+static const int32_t string_starter(const char* str, const unsigned int n, uint8_t* str_bitmask);
+static const int32_t string_ender(const char* str, const unsigned int n, const uint8_t str_bitmask);
 static const gdscript_id_t id_token(const char* token, const int16_t len);
 static inline void new_token(arena_t* offset_arena, arena_t* len_arena, const int16_t pos, const int16_t len);
 static const gdscript_id_t verify_number(const char* src, const int32_t n);
@@ -145,7 +145,7 @@ static void trim_token(int16_t* offsets, int16_t* lens, gdscript_id_t* ids, int3
 /* static void (*error_token_func)(const char**, const char* message) = do_nothing_with_token; */
 
 // MR. GOD IS ENTERTAINED BY HUMOR
-static int32_t delimiting_token(const char* str, const unsigned int n)
+static const int32_t delimiting_token(const char* str, const unsigned int n)
 {
 	char* temp;
 #define X(ID, STR, LEN)								\
@@ -171,14 +171,13 @@ static int32_t delimiting_token(const char* str, const unsigned int n)
 	#undef X
 }
 
-static int32_t string_starter(const char* str, const unsigned int n, uint8_t* str_bitmask)
+static const int32_t string_starter(const char* str, const unsigned int n, uint8_t* str_bitmask)
 {
 	char* temp;
 	unsigned int len;
-	#define STR_X(STR, BITFLAG, ID) \
+	#define STR_X(STR, LEN, BITFLAG, ID)				\
 	temp = STR; \
-	len = strlen(temp); \
-	for (unsigned int i = 0; i < strlen(temp); ++i) \
+	for (unsigned int i = 0; i < LEN; ++i) \
 	{ \
 		if (i < n) \
 		{ \
@@ -193,22 +192,21 @@ static int32_t string_starter(const char* str, const unsigned int n, uint8_t* st
 		} \
 	} \
 	*str_bitmask = BITFLAG > 0x08 ? BITFLAG >> 4 : BITFLAG; \
-	return len; \
+	return LEN; \
 	STOP_##ID:
 	STRING_DELIMITERS
 	return 0;
 	#undef STR_X
 }
 
-static int32_t string_ender(const char* str, const unsigned int n, const uint8_t str_bitmask)
+static const int32_t string_ender(const char* str, const unsigned int n, const uint8_t str_bitmask)
 {
 	char* temp;
 	unsigned int len;
-	#define STR_X(STR, BITFLAG, _) \
+	#define STR_X(STR, LEN, BITFLAG, ...)					\
 	case BITFLAG: \
 		temp = STR; \
-		len = strlen(temp); \
-		for (unsigned int i = 0; i < strlen(temp); ++i)	\
+		for (unsigned int i = 0; i < LEN; ++i)	\
 		{ \
 			if (i < n) \
 			{ \
@@ -222,7 +220,7 @@ static int32_t string_ender(const char* str, const unsigned int n, const uint8_t
 				goto STOP_##BITFLAG; \
 			} \
 		} \
-		return len; \
+		return LEN; \
 	STOP_##BITFLAG: \
 		break;
 	switch (str_bitmask)
@@ -559,12 +557,12 @@ int32_t gdscript_lex(arena_t* arena, token_table_t* table, const char* src, cons
 	enum __attribute__((packed))
 	{
 		STR_BITMASK_NONE = 0x00,
-		#define STR_X(STR, BITS, NAME) NAME = BITS,
+		#define STR_X(STR, LEN, BITS, NAME) NAME = BITS,
 		STRING_DELIMITERS
 		#undef STR_X
 	} str_bitmask = STR_BITMASK_NONE;
-	int32_t offset = 0;
-	int32_t pos = 0;
+	int16_t offset = 0;
+	int16_t pos = 0;
 	arena->size = 0;
 	SCRATCH* len_arena = scratch_checkout_size(n * sizeof *table->lens);
 	SCRATCH* id_arena = scratch_checkout_size(n * sizeof *table->ids);
