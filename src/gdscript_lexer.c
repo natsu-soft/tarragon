@@ -30,6 +30,21 @@ typedef int8_t bool_t;
 	STR_X("^\"",     0x82, NODE_PATH)				    \
 	STRING_ENDERS										\
 
+// X(ENCOUNTER, EXPECTED, ...) // use __VA_ARGS__ JUST for enum (which im fine with) 
+#define EXPECTED_TOKEN_LIST \
+	X(PAREN_OPEN, PAREN_CLOSE) \
+	X(BRACE_OPEN, BRACE_CLOSE) \
+	X(BRACKET_OPEN, BRACKET_CLOSE) \
+	X(IF, COLON) \
+	X(ELIF, COLON) \
+	X(ELSE, COLON) \
+	X(FOR, COLON) \
+	X(WHILE, COLON) \
+	X(MATCH, COLON)
+// NOTE: just do these ones manually since they're SPECIAL
+	/* X(FUNC, PAREN_OPEN, PAREN_CLOSE, COLON)	\ */
+	/* X(ENUM, BRACE_OPEN, BRACE_CLOSE) // OR: just handle enum manually (not a bad idea tbqh) */
+
 
 // NOTE: THE FUNNY METHOD IS FASTER!
 /* static struct */
@@ -239,6 +254,46 @@ static const gdscript_id_t id_token(const char* token, const int16_t len)
 	}
 }
 
+static void push_expected_tokens(stack_t* stack, const gdscript_id_t id)
+{
+	switch(id)
+	{
+	#define X(A,B) case GDSCRIPT_##A: stack_push8(stack, GDSCRIPT_##B); return;
+		EXPECTED_TOKEN_LIST
+	#undef X
+	case GDSCRIPT_ENUM:
+		stack_push8(stack, GDSCRIPT_BRACE_OPEN);
+		stack_push8(stack, GDSCRIPT_BRACE_CLOSE);
+		return;
+	case GDSCRIPT_FUNC:
+		stack_push8(stack, GDSCRIPT_PAREN_OPEN);
+		stack_push8(stack, GDSCRIPT_PAREN_CLOSE);
+		stack_push8(stack, GDSCRIPT_COLON);
+		return;
+	}
+}
+
+static const gdscript_id_t make_missing(const gdscript_id_t id)
+{
+
+	#define MISSING_LIST \
+		X(COLON) \
+		X(PAREN_OPEN) \
+		X(PAREN_CLOSE) \
+		X(BRACE_OPEN) \
+		X(BRACE_CLOSE) \
+		X(BRACKET_CLOSE)
+	switch(id)
+	{
+	#define X(ID) case GDSCRIPT_##ID: return GDSCRIPT_MISSING_##ID;
+		MISSING_LIST
+	#undef X
+	}
+	return GDSCRIPT_NONE;
+	#undef MISSING_LIST
+}
+
+
 static inline void new_token(arena_t* offset_arena, arena_t* len_arena, const int16_t pos, const int16_t len)
 {
 	arena_dynamic_push(offset_arena, &pos, sizeof pos);
@@ -262,9 +317,9 @@ static const gdscript_id_t verify_number(const char* src, const int32_t n)
 		NC_NEGATIVE_FLAG = 0x10,
 		NC_POSITIVE_FLAG = 0x20
 	} flags = NC_NONE;
-	for (int i = 0; i < n; ++i)
+	for (int32_t i = 0; i < n; ++i)
 	{
-		char c = src[i];
+		const char c = src[i];
 		/* printf("checking: %c\n", c); */
 		switch (c)
 		{
@@ -513,13 +568,13 @@ int32_t gdscript_lex(arena_t* arena, token_table_t* table, const char* src, cons
 	arena->size = 0;
 	SCRATCH* len_arena = scratch_checkout_size(n * sizeof *table->lens);
 	SCRATCH* id_arena = scratch_checkout_size(n * sizeof *table->ids);
-	arena_t* missing_arena = scratch_checkout_size(n * sizeof *table->ids);
+	arena_t* expected_arena = scratch_checkout_size(n * sizeof(gdscript_id_t));
 	// TODO: rip-off Carbon.  Just insert missing things appropriately
-	stack_t* missing_stack = alloca(sizeof *missing_stack);
-	*missing_stack = (stack_t)
+	stack_t* expected_stack = alloca(sizeof *expected_stack);
+	*expected_stack = (stack_t)
 	{
-		.allocation = missing_arena->allocation,
-		.item_size = sizeof *table->ids,
+		.allocation = expected_arena->allocation,
+		.item_size = sizeof(gdscript_id_t),
 		.cap = n
 	};
 	for (int32_t i = 0; i < n; ++i)
@@ -538,7 +593,7 @@ int32_t gdscript_lex(arena_t* arena, token_table_t* table, const char* src, cons
 				__attribute__((fallthrough));
 			case '\t':
 				{
-					gdscript_id_t *id = arena_dynamic_alloc(id_arena, sizeof *id);
+					gdscript_id_t* const id = arena_dynamic_alloc(id_arena, sizeof *id);
 					*id = GDSCRIPT_LEADING_WHITESPACE;
 					new_token(arena, len_arena, i, 1);
 					++num_tokens;
@@ -554,8 +609,9 @@ int32_t gdscript_lex(arena_t* arena, token_table_t* table, const char* src, cons
 				else if ((offset = delimiting_token(src + i, n - i)) > 0)
 				{
 					new_token(arena, len_arena, i, offset);
-					gdscript_id_t *id = arena_dynamic_alloc(id_arena, sizeof *id);
-					*id = id_token(src + i, offset);
+					const gdscript_id_t id = id_token(src + i, offset);
+					push_expected_tokens(expected_stack, id);
+					arena_dynamic_push(id_arena, &id, sizeof id);
 					i += offset - 1;
 					state = WAITING_CHAR;
 					++num_tokens;
@@ -570,17 +626,22 @@ int32_t gdscript_lex(arena_t* arena, token_table_t* table, const char* src, cons
 		case WSB_TOKEN:
 			if ((offset = delimiting_token(src + i, n - i)) > 0)
 			{
-				gdscript_id_t* id = arena_dynamic_alloc(id_arena, 2 * sizeof *id);
+				gdscript_id_t* const id = arena_dynamic_alloc(id_arena, 2 * sizeof *id);
 				id[0] = id_token(src + pos, i - pos);
 				id[1] = id_token(src + i, offset);
 				new_token(arena, len_arena, pos, i - pos);
 				new_token(arena, len_arena, i, offset);
+				push_expected_tokens(expected_stack, id[0]);
+				push_expected_tokens(expected_stack, id[1]);
 				state = c == '\n' ? LEADING_WHITESPACE : WAITING_CHAR;
 				i += offset - 1;
 				num_tokens += 2;
 			} else if (isspace(c)) {
-				gdscript_id_t *id = arena_dynamic_alloc(id_arena, sizeof *id);
-				*id = id_token(src + pos, i - pos);
+				/* const gdscript_id_t id = arena_dynamic_alloc(id_arena, sizeof *id); */
+				/* *id = id_token(src + pos, i - pos); */
+				const gdscript_id_t id = id_token(src + pos, i - pos);
+				arena_dynamic_push(id_arena, &id, sizeof id);
+				push_expected_tokens(expected_stack, id);
 				new_token(arena, len_arena, pos, i - pos);
 				state = WAITING_CHAR;
 				++num_tokens;
@@ -595,8 +656,11 @@ int32_t gdscript_lex(arena_t* arena, token_table_t* table, const char* src, cons
 			}
 			else if ((offset = delimiting_token(src + i, n - i)) > 0)
 			{
-				gdscript_id_t *id = arena_dynamic_alloc(id_arena, sizeof *id);
-				*id = id_token(src + i, offset);
+				/* gdscript_id_t *id = arena_dynamic_alloc(id_arena, sizeof *id); */
+				/* *id = id_token(src + i, offset); */
+				const gdscript_id_t id = id_token(src + i, offset);
+				arena_dynamic_push(id_arena, &id, sizeof id);
+				push_expected_tokens(expected_stack, id);
 				new_token(arena, len_arena, i, offset);
 				num_tokens++;
 				i += offset - 1;
@@ -661,7 +725,7 @@ int32_t gdscript_lex(arena_t* arena, token_table_t* table, const char* src, cons
 	}
 	// TODO: dump missing
 	// DONE: check missing arena back in
-	scratch_checkin(missing_arena);
+	scratch_checkin(expected_arena);
 	int16_t* eof_offset = arena_dynamic_alloc(arena, sizeof *eof_offset);
 	*eof_offset = n;
 	uint16_t* eof_len = arena_dynamic_alloc(len_arena, sizeof *eof_len);

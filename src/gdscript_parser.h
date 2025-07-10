@@ -217,9 +217,15 @@ typedef enum __attribute__((packed)) gdscript_id_t
 	GDSCRIPT_ARGS_START,
 	GDSCRIPT_ARGS_END,
 	GDSCRIPT_MISSING_COLON,
-	GDSCRIPT_MISSING_PAREN,
-	GDSCRIPT_MISSING_BRACE,
-	GDSCRIPT_MISSING_BRACKET,
+	GDSCRIPT_MISSING_PAREN_OPEN, // only triggered by func keyword
+	GDSCRIPT_MISSING_PAREN_CLOSE,
+	GDSCRIPT_MISSING_BRACE_OPEN, // only triggered by enum keyword
+	GDSCRIPT_MISSING_BRACE_CLOSE,
+	GDSCRIPT_MISSING_BRACKET_CLOSE,
+	// NOTE: "extra" openers just create missing closers
+	GDSCRIPT_EXTRA_PAREN_CLOSE,
+	GDSCRIPT_EXTRA_BRACE_CLOSE,
+	GDSCRIPT_EXTRA_BRACKET_CLOSE,
 } gdscript_id_t;
 
 /* int16 max is 32,767--better be plenty large*/
