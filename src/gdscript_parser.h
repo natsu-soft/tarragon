@@ -8,16 +8,16 @@
 	X(LINE_END,		 "\n",	1)	\
 	X(LINE_CONTINUE, "\\",	1)	\
 	X(COMMENT,		 "#",	1)	\
-	X(COLON,		 ":",	1)	\
 	X(PERIOD,		 ".",	1)	\
 	X(COMMA,		 ",",	1)	\
 	X(ARROW,		 "->",	2)	\
-	X(PAREN_OPEN,	 "(",	1)	\
+	X(COLON,		 ":",	1)	\
 	X(PAREN_CLOSE,	 ")",	1)	\
-	X(BRACE_OPEN,	 "{",	1)	\
 	X(BRACE_CLOSE,	 "}",	1)	\
-	X(BRACKET_OPEN,	 "[",	1)	\
-	X(BRACKET_CLOSE, "]",	1)
+	X(BRACKET_CLOSE, "]",	1)  \
+	X(PAREN_OPEN,	 "(",	1)	\
+	X(BRACE_OPEN,	 "{",	1)	\
+	X(BRACKET_OPEN,	 "[",	1)
 
 #define GDSCRIPT_BINARY_OPERATORS  					   \
 	X(OP_ASSIGNMENT_POWER,		    "**=",			3) \
@@ -217,18 +217,19 @@ typedef enum __attribute__((packed)) gdscript_id_t
 	GDSCRIPT_ARGS_START,
 	GDSCRIPT_ARGS_END,
 	GDSCRIPT_MISSING_COLON,
-	GDSCRIPT_MISSING_PAREN_OPEN, // only triggered by func keyword
 	GDSCRIPT_MISSING_PAREN_CLOSE,
-	GDSCRIPT_MISSING_BRACE_OPEN, // only triggered by enum keyword
 	GDSCRIPT_MISSING_BRACE_CLOSE,
 	GDSCRIPT_MISSING_BRACKET_CLOSE,
-	// NOTE: "extra" openers just create missing closers
+	GDSCRIPT_MISSING_PAREN_OPEN, // only triggered by func keyword
+	GDSCRIPT_MISSING_BRACE_OPEN, // only triggered by enum keyword
+	// NOTE: "extra" openers just create missing closers, so dont bother
 	GDSCRIPT_EXTRA_PAREN_CLOSE,
 	GDSCRIPT_EXTRA_BRACE_CLOSE,
 	GDSCRIPT_EXTRA_BRACKET_CLOSE,
 } gdscript_id_t;
 
 /* int16 max is 32,767--better be plenty large*/
+/* NOTE: HAHA NO ITS NOT BIG ENOUGH--IM 32-BIT (secretely 31 bits since one is for sign lmao) PILLED NOW */
 
 typedef struct token_table_t {
 	char *src;
