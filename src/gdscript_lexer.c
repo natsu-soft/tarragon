@@ -8,32 +8,9 @@
 #include <assert.h>
 #include "arena.h"
 #include "scratch.h"
-
-// for indices
-typedef struct stack_t
-{
-	int32_t* allocation;
-	int32_t cap;
-	int32_t size;
-} stack_t;
-
-void stack_push(stack_t* const stack, const int32_t val)
-{
-	// TODO: assert
-	stack->allocation[stack->size++] = val;
-}
-
-const int32_t stack_pop(stack_t* const stack)
-{
-	// TODO: assert
-	return stack->allocation[--stack->size];
-}
-
-const int32_t stack_peek(const stack_t* const stack)
-{
-	// TODO: assert
-	return stack->allocation[stack->size - 1];
-}
+#include "macro_stack.h"
+STACK(id, gdscript_id_t)
+STACK(int32, int32_t)
 
 #define STRING_ENDERS							\
 	STR_X("'''",    3, 0x01, TRIPLE_SINGLE_QOUTE)	\
@@ -523,7 +500,7 @@ static void cull_line_continuations(int32_t* offsets, int16_t* lens, gdscript_id
 			{
 				offsets[swap] = offsets[i];
 				lens[swap] = lens[i];
-				ids[swap] = GDSCRIPT_ERROR;
+				ids[swap] = GDSCRIPT_TOKENS_AFTER_CONTINUATION;
 				++swap;
 			}
 		}
@@ -534,16 +511,16 @@ static void cull_line_continuations(int32_t* offsets, int16_t* lens, gdscript_id
 
 static void cull_pointless_lines(int32_t* offsets, int16_t* lens, gdscript_id_t* ids, int32_t* num_tokens)
 {
-	uint32_t swap = 0;
-	uint32_t endl = 0;
-	const uint32_t n = *num_tokens;
-	for (uint32_t i = swap; i < n; ++i)
+	int32_t swap = 0;
+	int32_t endl = 0;
+	const int32_t n = *num_tokens;
+	for (int32_t i = swap; i < n; ++i)
 	{
 		const gdscript_id_t id = ids[i];
 		if (id == GDSCRIPT_LINE_END)
 		{
 			endl = i;
-			for (uint32_t j = i + 1; j < n; ++j)
+			for (int32_t j = i + 1; j < n; ++j)
 			{
 				if (ids[j] == GDSCRIPT_LINE_END)
 				{
@@ -798,7 +775,7 @@ static void lws_to_scopes(arena_t* offset_arena, arena_t* len_arena, arena_t* id
 	const size_t len_size = sizeof *lens;
 	const gdscript_id_t scope_start = GDSCRIPT_SCOPE_START;
 	const gdscript_id_t scope_end = GDSCRIPT_SCOPE_END;
-	uint32_t* d;
+	int32_t* d;
 	const size_t d_size = sizeof *d;
 	for (int32_t i = 0; i < n; ++i)
 	{
@@ -889,8 +866,8 @@ static void classify_gdscript_tokens(const char* src, gdscript_id_t* ids, const 
 
 static void coalesce_numbers(const char* const src, int32_t* offsets, int16_t* lens, gdscript_id_t* ids, int32_t* num_tokens)
 {
-	uint32_t n = *num_tokens;
-	for (uint32_t i = 0; i < n; ++i)
+	int32_t n = *num_tokens;
+	for (int32_t i = 0; i < n; ++i)
 	{
 		gdscript_id_t id = ids[i];
 		if (id == GDSCRIPT_NUMBER_CANDIDATE || id == GDSCRIPT_PERIOD)
@@ -986,14 +963,75 @@ static void id_unary_operators(gdscript_id_t* ids, const int32_t num_tokens)
 	}
 }
 
-// TODO: THIS
+static void one_assignment_per_line(int32_t* const offsets, int16_t* const lens, gdscript_id_t* const ids, int32_t* const num_tokens)
+{
+	int32_t swap = 0;
+	int32_t apos = 0;
+	const int32_t n = *num_tokens;
+	int8_t has_assignment = 0x00;
+	for (int32_t i = 0; i < n - 1; ++i)
+	{
+		const gdscript_id_t id = ids[i];
+		switch(id)
+		{
+		case GDSCRIPT_OP_ASSIGNMENT_POWER: __attribute__((fallthrough));
+		case GDSCRIPT_OP_ASSIGNMENT_PRODUCT: __attribute__((fallthrough));
+		case GDSCRIPT_OP_ASSIGNMENT_SUM: __attribute__((fallthrough));
+		case GDSCRIPT_OP_ASSIGNMENT_DIFFERENCE: __attribute__((fallthrough));
+		case GDSCRIPT_OP_ASSIGNMENT_DIVISION: __attribute__((fallthrough));
+		case GDSCRIPT_OP_ASSIGNMENT_MODULO: __attribute__((fallthrough));
+		case GDSCRIPT_OP_ASSIGNMENT_BITWISE_AND: __attribute__((fallthrough));
+		case GDSCRIPT_OP_ASSIGNMENT_BITWISE_OR: __attribute__((fallthrough));
+		case GDSCRIPT_OP_ASSIGNMENT_BITSHIFT_LEFT: __attribute__((fallthrough));
+		case GDSCRIPT_OP_ASSIGNMENT_BITSHIFT_RIGHT: __attribute__((fallthrough));
+		case GDSCRIPT_OP_ASSIGNMENT_XOR: __attribute__((fallthrough));
+		case GDSCRIPT_OP_ASSIGNMENT_INFERRED: __attribute__((fallthrough));
+		case GDSCRIPT_OP_ASSIGNMENT:
+			if (!has_assignment)
+			{
+				has_assignment = 0x01;
+			}
+			else
+			{
+				int32_t j = i + 1;
+				for (; j < n - 1; ++j)
+				{
+					if (!(ids[j] < GDSCRIPT_SEMICOLON && GDSCRIPT_LINE_END < ids[j]))
+					{
+						break;
+					}
+				}
+				ids[swap] = GDSCRIPT_MORE_THAN_ONE_ASSIGNMENT;
+				lens[swap] = offsets[j - 1] - offsets[i] + lens[j - 1];
+				++swap;
+				i = j;
+			}
+			break;
+		case GDSCRIPT_SEMICOLON: __attribute__((fallthrough));
+		case GDSCRIPT_LINE_END:
+			has_assignment = 0x00;
+		}
+		offsets[swap] = offsets[i];
+		lens[swap] = lens[i];
+		ids[swap] = ids[i];
+		++swap;
+	}
+	*num_tokens = swap;
+}
+
 static void lint_pairs(int32_t* offsets, int16_t* lens, gdscript_id_t* ids, int32_t* num_tokens)
 {
 	SCRATCH* scratch = scratch_checkout_size(1024);
-	stack_t* pair_stack = alloca(sizeof *pair_stack);
+	id_stack* stack = alloca(sizeof *stack);
+	*stack = (id_stack)
+	{
+		.allocation = scratch->allocation,
+		.cap = 1024
+	};
 	int32_t n = *num_tokens;
 	for (int32_t i = 0; i < n; ++i)
 	{
+
 	}
 }
 
@@ -1005,8 +1043,9 @@ static void preprocess_tokens(const char* src, int32_t* offsets, int16_t* lens, 
 	trim_token(offsets, lens, ids, num_tokens, GDSCRIPT_COMMENT);
 	cull_line_continuations(offsets, lens, ids, num_tokens);
 	cull_pointless_lines(offsets, lens, ids, num_tokens);
+	one_assignment_per_line(offsets, lens, ids, num_tokens);
 	lint_pairs(offsets, lens, ids, num_tokens);
-	const uint32_t n = *num_tokens;
+	const int32_t n = *num_tokens;
 	id_unary_operators(ids, n);
 	// convert remaining to identifiers
 	for (int i = 0; i < n; ++i)
@@ -1014,4 +1053,9 @@ static void preprocess_tokens(const char* src, int32_t* offsets, int16_t* lens, 
 		const gdscript_id_t id = ids[i];
 		ids[i] += (id == GDSCRIPT_NONE) * GDSCRIPT_IDENTIFIER;
 	}
+}
+
+void gdscript_polish(token_table_t* dest_table, const token_table_t *src_table)
+{
+	/* TODO */
 }
