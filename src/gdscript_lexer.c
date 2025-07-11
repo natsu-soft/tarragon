@@ -7,13 +7,33 @@
 #include <string.h>
 #include <assert.h>
 #include "arena.h"
-/* #include "deck.h" */
-/* #include "stack.h" */
 #include "scratch.h"
 
-#define true 1
-#define false 0
-typedef int8_t bool_t;
+// for indices
+typedef struct stack_t
+{
+	int32_t* allocation;
+	int32_t cap;
+	int32_t size;
+} stack_t;
+
+void stack_push(stack_t* const stack, const int32_t val)
+{
+	// TODO: assert
+	stack->allocation[stack->size++] = val;
+}
+
+const int32_t stack_pop(stack_t* const stack)
+{
+	// TODO: assert
+	return stack->allocation[--stack->size];
+}
+
+const int32_t stack_peek(const stack_t* const stack)
+{
+	// TODO: assert
+	return stack->allocation[stack->size - 1];
+}
 
 #define STRING_ENDERS							\
 	STR_X("'''",    3, 0x01, TRIPLE_SINGLE_QOUTE)	\
@@ -30,20 +50,20 @@ typedef int8_t bool_t;
 	STR_X("^\"",     2, 0x82, NODE_PATH)				    \
 	STRING_ENDERS										\
 
-// X(ENCOUNTER, EXPECTED, ...) // use __VA_ARGS__ JUST for enum (which im fine with) 
-#define EXPECTED_TOKEN_LIST \
-	X(PAREN_OPEN, PAREN_CLOSE) \
-	X(BRACE_OPEN, BRACE_CLOSE) \
-	X(BRACKET_OPEN, BRACKET_CLOSE) \
-	X(IF, COLON) \
-	X(ELIF, COLON) \
-	X(ELSE, COLON) \
-	X(FOR, COLON) \
-	X(WHILE, COLON) \
-	X(MATCH, COLON)
-// NOTE: just do these ones manually since they're SPECIAL
-	/* X(FUNC, PAREN_OPEN, PAREN_CLOSE, COLON)	\ */
-	/* X(ENUM, BRACE_OPEN, BRACE_CLOSE) // OR: just handle enum manually (not a bad idea tbqh) */
+/* // X(ENCOUNTER, EXPECTED, ...) // use __VA_ARGS__ JUST for enum (which im fine with)  */
+/* #define EXPECTED_TOKEN_LIST \ */
+/* 	X(PAREN_OPEN, PAREN_CLOSE) \ */
+/* 	X(BRACE_OPEN, BRACE_CLOSE) \ */
+/* 	X(BRACKET_OPEN, BRACKET_CLOSE) \ */
+/* 	X(IF, COLON) \ */
+/* 	X(ELIF, COLON) \ */
+/* 	X(ELSE, COLON) \ */
+/* 	X(FOR, COLON) \ */
+/* 	X(WHILE, COLON) \ */
+/* 	X(MATCH, COLON) */
+/* // NOTE: just do these ones manually since they're SPECIAL */
+/* 	/\* X(FUNC, PAREN_OPEN, PAREN_CLOSE, COLON)	\ *\/ */
+/* 	/\* X(ENUM, BRACE_OPEN, BRACE_CLOSE) // OR: just handle enum manually (not a bad idea tbqh) *\/ */
 
 
 // NOTE: THE FUNNY METHOD IS FASTER!
@@ -966,6 +986,17 @@ static void id_unary_operators(gdscript_id_t* ids, const int32_t num_tokens)
 	}
 }
 
+// TODO: THIS
+static void lint_pairs(int32_t* offsets, int16_t* lens, gdscript_id_t* ids, int32_t* num_tokens)
+{
+	SCRATCH* scratch = scratch_checkout_size(1024);
+	stack_t* pair_stack = alloca(sizeof *pair_stack);
+	int32_t n = *num_tokens;
+	for (int32_t i = 0; i < n; ++i)
+	{
+	}
+}
+
 static void preprocess_tokens(const char* src, int32_t* offsets, int16_t* lens, gdscript_id_t* ids, int32_t* num_tokens)
 {
 	/* classify_gdscript_tokens(src, ids, offsets, lens, *num_tokens - 1); // don't gotta classify the last token -- it's EOF */
@@ -974,6 +1005,7 @@ static void preprocess_tokens(const char* src, int32_t* offsets, int16_t* lens, 
 	trim_token(offsets, lens, ids, num_tokens, GDSCRIPT_COMMENT);
 	cull_line_continuations(offsets, lens, ids, num_tokens);
 	cull_pointless_lines(offsets, lens, ids, num_tokens);
+	lint_pairs(offsets, lens, ids, num_tokens);
 	const uint32_t n = *num_tokens;
 	id_unary_operators(ids, n);
 	// convert remaining to identifiers
@@ -982,41 +1014,4 @@ static void preprocess_tokens(const char* src, int32_t* offsets, int16_t* lens, 
 		const gdscript_id_t id = ids[i];
 		ids[i] += (id == GDSCRIPT_NONE) * GDSCRIPT_IDENTIFIER;
 	}
-}
-
-#define PAIRS \
-	X(PAREN) \
-	X(BRACE) \
-	X(BRACKET)
-
-#define X
-bool_t paired_paren(const gdscript_id_t* ids, int32_t* index, const int32_t n)
-{
-	int16_t depth = 0;
-	for (int32_t i = *index; i < n; ++i)
-	{
-		const gdscript_id_t id = ids[i];
-		if (id == GDSCRIPT_PAREN_CLOSE)
-		{
-			if (depth == 0)
-			{
-				*index = i;
-				return true;
-			}
-		}
-	}
-	return false;
-}
-
-void gdscript_pair_linting(token_table_t* table)
-{
-	const int32_t n = table->num_tokens;
-	for (int32_t i = 0; i < n; ++i)
-	{
-	}
-}
-
-void gdscript_polska(token_table_t* dest_table, const token_table_t *src_table)
-{
-	/* TODO */
 }

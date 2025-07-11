@@ -7,6 +7,7 @@ else
 	RE := grep
 endif
 CFLAGS := -Wall -Wextra -Wno-int-conversion -fpermissive -fdiagnostics-show-option -ggdb -O0
+# CFLAGS := -Wall -Wextra -Wno-int-conversion -fpermissive -fdiagnostics-show-option -O3 -march=native
 ifeq ($(OS),Windows_NT)
 LIBS :=
 LDFLAGS := -fuse-ld=lld -flto -static
@@ -19,7 +20,7 @@ MAINS := src/tarragon.c src/tests.c
 IGNORE := src/gdscript_ast.c src/gdscript_tokenizer.c
 ALL_SRC := $(wildcard src/*.c)
 SRC := $(filter-out $(IGNORE), $(filter-out $(MAINS), $(ALL_SRC)))
-DEP := $(patsubst src/%.c,dep/%.d,$(ALL_SRC))
+DEP := $(patsubst src/%.c,dep/%.d,$(SRC))
 OBJ := $(patsubst src/%.c,obj/%.o,$(SRC))
 HEX_OBJS := obj/supported_godot.o
 # API_OBJS := obj/api/global_constants.o obj/api/global_enums.o obj/api/utility_functions.o obj/api/builtin_classes.o obj/api/classes.o obj/api/singletons.o obj/api/native_structures.o

@@ -216,12 +216,12 @@ typedef enum __attribute__((packed)) gdscript_id_t
 	GDSCRIPT_SCOPE_END,
 	GDSCRIPT_ARGS_START,
 	GDSCRIPT_ARGS_END,
-	GDSCRIPT_MISSING_COLON,
+	/* GDSCRIPT_MISSING_COLON, */
 	GDSCRIPT_MISSING_PAREN_CLOSE,
 	GDSCRIPT_MISSING_BRACE_CLOSE,
 	GDSCRIPT_MISSING_BRACKET_CLOSE,
-	GDSCRIPT_MISSING_PAREN_OPEN, // only triggered by func keyword
-	GDSCRIPT_MISSING_BRACE_OPEN, // only triggered by enum keyword
+	/* GDSCRIPT_MISSING_PAREN_OPEN, // only triggered by func keyword */
+	/* GDSCRIPT_MISSING_BRACE_OPEN, // only triggered by enum keyword */
 	// NOTE: "extra" openers just create missing closers, so dont bother
 	GDSCRIPT_EXTRA_PAREN_CLOSE,
 	GDSCRIPT_EXTRA_BRACE_CLOSE,
