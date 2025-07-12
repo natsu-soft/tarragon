@@ -247,7 +247,8 @@ static const gdscript_id_t id_token(const char* token, const int16_t len)
 	}
 	else
 	{
-		return GDSCRIPT_NONE;
+		/* return GDSCRIPT_NONE; */
+		return GDSCRIPT_IDENTIFIER;
 	}
 }
 
@@ -1144,12 +1145,13 @@ static void preprocess_tokens(const char* src, arena_t* offset_arena, arena_t* l
 	lint_commas(ids, n);
 	id_unary_operators(ids, n);
 	// convert unclassified to identifiers
-	for (int i = 0; i < n; ++i)
-	{
-		const gdscript_id_t id = ids[i];
-		ids[i] += (id == GDSCRIPT_NONE) * GDSCRIPT_IDENTIFIER;
-	}
+	/* for (int i = 0; i < n; ++i) */
+	/* { */
+	/* 	const gdscript_id_t id = ids[i]; */
+	/* 	ids[i] += (id == GDSCRIPT_NONE) * GDSCRIPT_IDENTIFIER; */
+	/* } */
 	// convert semicolons to newlines
+	// CHECK THE ENUMS--THIS IS BASED
 	for (int32_t i = 0; i < n; ++i)
 	{
 		ids[i] += ids[i] == GDSCRIPT_SEMICOLON;
