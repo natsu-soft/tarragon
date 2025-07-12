@@ -1193,24 +1193,42 @@ void gdscript_shunt(token_table_t* dest, const token_table_t* src)
 			dest_ids[swap] = ids[i];
 			++swap;
 			const gdscript_id_t peek_id = stack->size > 0 ? ids[i32_stack_peek((stack))] : GDSCRIPT_NONE;
-			int32_t index;
-			switch (peek_id)
+			uint8_t peek_bits = GDSCRIPT_OP_BITWISE_NOT <= peek_id && peek_id <= GDSCRIPT_OP_BOOL_NOT;
+			peek_bits = (GDSCRIPT_OP_ASSIGNMENT_POWER <= peek_id && peek_id <= GDSCRIPT_OP_ASSIGNMENT) << 1;
+			if (peek_bits & 0x01)
 			{
-			case GDSCRIPT_OP_BITWISE_NOT ... GDSCRIPT_OP_BOOL_NOT: // unary
-				index = i32_stack_pop(stack);
+				const int32_t index = i32_stack_pop(stack);
 				dest_offsets[swap] = offsets[index];
 				dest_lens[swap] = lens[index];
 				dest_ids[swap] = ids[index];
 				++swap;
-				__attribute__((fallthrough));
-			case GDSCRIPT_OP_ASSIGNMENT_POWER ... GDSCRIPT_OP_ASSIGNMENT: // binary
-				index = i32_stack_pop(stack);
-				dest_offsets[swap] = offsets[index];
-				dest_lens[swap] = lens[index];
-				dest_ids[swap] = ids[index];
-				++swap;
-				break;
 			}
+			if (peek_bits & 0x02)
+			{
+				const int32_t index = i32_stack_pop(stack);
+				dest_offsets[swap] = offsets[index];
+				dest_lens[swap] = lens[index];
+				dest_ids[swap] = ids[index];
+				++swap;
+			}
+			// windows did NOT like this
+			/* switch (peek_id) */
+			/* { */
+			/* case GDSCRIPT_OP_BITWISE_NOT ... GDSCRIPT_OP_BOOL_NOT: // unary */
+			/* 	index = i32_stack_pop(stack); */
+			/* 	dest_offsets[swap] = offsets[index]; */
+			/* 	dest_lens[swap] = lens[index]; */
+			/* 	dest_ids[swap] = ids[index]; */
+			/* 	++swap; */
+			/* 	__attribute__((fallthrough)); */
+			/* case GDSCRIPT_OP_ASSIGNMENT_POWER ... GDSCRIPT_OP_ASSIGNMENT: // binary */
+			/* 	index = i32_stack_pop(stack); */
+			/* 	dest_offsets[swap] = offsets[index]; */
+			/* 	dest_lens[swap] = lens[index]; */
+			/* 	dest_ids[swap] = ids[index]; */
+			/* 	++swap; */
+			/* 	break; */
+			/* } */
 		}
 	}
 	dest->num_tokens = n;
