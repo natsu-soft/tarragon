@@ -19,6 +19,7 @@
 	X(BRACE_OPEN,	 "{",	1)	\
 	X(BRACKET_OPEN,	 "[",	1)
 
+// NOTE: REORDER CAREFULLY! A switch in gdscript_shunt is order dependent
 #define GDSCRIPT_BINARY_OPERATORS  					   \
 	X(OP_ASSIGNMENT_POWER,		    "**=",			3) \
 	X(OP_POWER,					    "**",			2) \
@@ -53,6 +54,7 @@
 	X(OP_ASSIGNMENT_INFERRED,		":=",			2) \
 	X(OP_ASSIGNMENT,			     "=",			1)
 
+// NOTE: REORDER CAREFULLY! A switch in gdscript_shunt is order dependent
 #define GDSCRIPT_UNARY_OPERATORS	\
 	X(OP_BITWISE_NOT,	 "~",	1)	\
 	X(OP_IDENTITY,		 "+",	1)	\
@@ -195,6 +197,17 @@
 	GDSCRIPT_KEYWORDS \
 	GDSCRIPT_LITERALS
 
+#define GDSCRIPT_ERRORS \
+	X(TOKENS_AFTER_CONTINUATION) \
+	X(MISSING_PAREN_CLOSE) \
+	X(MISSING_BRACE_CLOSE) \
+	X(MISSING_BRACKET_CLOSE) \
+	X(EXTRA_PAREN_CLOSE) \
+	X(EXTRA_BRACE_CLOSE) \
+	X(EXTRA_BRACKET_CLOSE) \
+	X(MULTIPLE_ASSIGNMENTS) \
+	X(UNEXPECTED_COMMA)
+
 typedef enum __attribute__((packed)) gdscript_id_t
 /* typedef enum gdscript_id_t */
 {
@@ -215,19 +228,10 @@ typedef enum __attribute__((packed)) gdscript_id_t
 	GDSCRIPT_SCOPE_END,
 	GDSCRIPT_ARGS_START,
 	GDSCRIPT_ARGS_END,
-	GDSCRIPT_ERROR_THREHSOLD,
-	GDSCRIPT_TOKENS_AFTER_CONTINUATION,
-	/* GDSCRIPT_MISSING_COLON, */
-	GDSCRIPT_MISSING_PAREN_CLOSE,
-	GDSCRIPT_MISSING_BRACE_CLOSE,
-	GDSCRIPT_MISSING_BRACKET_CLOSE,
-	/* GDSCRIPT_MISSING_PAREN_OPEN, // only triggered by func keyword */
-	/* GDSCRIPT_MISSING_BRACE_OPEN, // only triggered by enum keyword */
-	// NOTE: "extra" openers just create missing closers, so dont bother
-	GDSCRIPT_EXTRA_PAREN_CLOSE,
-	GDSCRIPT_EXTRA_BRACE_CLOSE,
-	GDSCRIPT_EXTRA_BRACKET_CLOSE,
-	GDSCRIPT_MORE_THAN_ONE_ASSIGNMENT
+	GDSCRIPT_ERROR_THRESHOLD,
+	#define X(ID) GDSCRIPT_##ID,
+	GDSCRIPT_ERRORS
+	#undef X
 } gdscript_id_t;
 
 /* int16 max is 32,767--better be plenty large*/
@@ -250,6 +254,8 @@ void print_tokens(const char* src, const int32_t* offsets, const int16_t* lens, 
 void print_allman(const char* src, const int32_t* offsets, const int16_t* lens, const gdscript_id_t* ids, const int32_t num_tokens);
 
 void print_clarity(const char* src, const int32_t* offsets, const int16_t* lens, const gdscript_id_t* ids, const int32_t num_tokens);
+
+void print_ids(const char* src, const int32_t* offsets, const int16_t* lens, const gdscript_id_t* ids, const int32_t num_tokens);
 
 
 #endif /* End GDSCRIPT_PARSER_H */

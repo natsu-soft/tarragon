@@ -57,14 +57,15 @@ void print_allman(const char* src, const int32_t* offsets, const int16_t* lens, 
 		const char* token = src + offsets[i];
 		if (newline)
 		{
-			for (int32_t j = 0; j < depth; ++j) printf("  ");
+			for (int32_t j = 0; j < depth; ++j) printf("    ");
 			newline = 0;
 		}
-		switch(ids[i])
+		const gdscript_id_t id = ids[i];
+		switch(id)
 		{
-			case GDSCRIPT_ERROR:
-				printf("$ERR ");
-				break;
+			/* case GDSCRIPT_ERROR: */
+			/* 	printf("$ERR "); */
+			/* 	break; */
 			case GDSCRIPT_LINE_CONTINUE:
 				printf("$CONT");
 				break;
@@ -78,7 +79,7 @@ void print_allman(const char* src, const int32_t* offsets, const int16_t* lens, 
 				break;
 			case GDSCRIPT_SCOPE_END:
 				--depth;
-				printf("\b\b}\n");
+				printf("\b\b\b\b}\n");
 				newline = 1;
 				break;
 			case GDSCRIPT_LINE_END:
@@ -86,14 +87,90 @@ void print_allman(const char* src, const int32_t* offsets, const int16_t* lens, 
 				newline = 1;
 				break;
 			default:
-				for (int32_t j = 0; j < lens[i]; ++j)
+				if (id < GDSCRIPT_ERROR_THRESHOLD)
 				{
-					printf("%c", token[j]);
+					for (int32_t j = 0; j < lens[i]; ++j)
+					{
+						printf("%c", token[j]);
+					}
+				}
+				else
+				{
+					printf("$ERR");
 				}
 				printf(" ");
 		}
 	}
 }
+
+void print_ids(const char* src, const int32_t* offsets, const int16_t* lens, const gdscript_id_t* ids, const int32_t num_tokens)
+{
+	int8_t newline = 1;
+	int32_t depth = 0;
+	for (int32_t i = 0; i < num_tokens; ++i)
+	{
+		if (newline)
+		{
+			for (int32_t j = 0; j < depth; ++j) printf("    ");
+			newline = 0;
+		}
+		const gdscript_id_t id = ids[i];
+		if (id == GDSCRIPT_LINE_END)
+		{
+			printf("\n");
+			newline = 1;
+			continue;
+		}
+		switch(id)
+		{
+			#define X(ID,...) case GDSCRIPT_##ID: printf(#ID " "); break;
+			GDSCRIPT_BUILTIN_TOKENS
+			#undef X
+			/* case GDSCRIPT_ERROR: */
+			/* 	printf("$ERR "); */
+			/* 	break; */
+			case GDSCRIPT_EOF:
+				printf("EOF\n");
+				break;
+			case GDSCRIPT_SCOPE_START:
+				++depth;
+				printf("{\n");
+				newline = 1;
+				break;
+			case GDSCRIPT_SCOPE_END:
+				--depth;
+				printf("\b\b\b\b}\n");
+				newline = 1;
+				break;
+			default:
+				{
+					const int16_t len = lens[i];
+					const char* token = src + offsets[i];
+					if (id == GDSCRIPT_IDENTIFIER)
+					{
+						printf("(var ");
+					}
+					else if (id == GDSCRIPT_NUMBER)
+					{
+						printf("(num ");
+					}
+					else if (id == GDSCRIPT_STRING)
+					{
+						printf("(str ");
+					}
+					#define X(ID) else if (id == GDSCRIPT_##ID) { printf("(error " #ID " "); }
+					GDSCRIPT_ERRORS
+					#undef X
+					for (int16_t j = 0; j < len; ++j)
+					{
+						printf("%c", token[j]);
+					}
+					printf(") ");
+				}
+		}
+	}
+}
+
 
 void print_clarity(const char* src, const int32_t* offsets, const int16_t* lens, const gdscript_id_t* ids, const int32_t num_tokens)
 {
@@ -183,6 +260,22 @@ int gdscript_parser_test(int argc, char** argv)
 /* 	#undef PRINT */
 	print_allman(src, table.offsets, table.lens, table.ids, table.num_tokens);
 	/* print_clarity(src, table.offsets, table.lens, table.ids, table.num_tokens); */
+	/* print_ids(src, table.offsets, table.lens, table.ids, num_tokens); */
+
+
+	SCRATCH* arena2 = scratch_checkout_size(arena->size);
+	token_table_t rpn =
+	{
+		.src = src,
+		.num_tokens = num_tokens,
+	};
+	rpn.offsets = arena2->allocation;
+	rpn.lens = rpn.offsets + num_tokens;
+	rpn.ids = rpn.lens + num_tokens;
+	gdscript_shunt(&rpn, &table);
+	/* print_ids(src, rpn.offsets, rpn.lens, rpn.ids, num_tokens); */
+	printf("\n\nSHUNTED:\n");
+	print_allman(src, rpn.offsets, rpn.lens, rpn.ids, num_tokens);
 	/* print_tokens(src, table.offsets, table.lens, table.num_tokens); */
 	return 0;
 }
