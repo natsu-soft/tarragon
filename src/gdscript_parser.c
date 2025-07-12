@@ -258,9 +258,9 @@ int gdscript_parser_test(int argc, char** argv)
 /* 	PRINT(GDSCRIPT_SCOPE_START); */
 /* 	PRINT(GDSCRIPT_SCOPE_END); */
 /* 	#undef PRINT */
-	print_allman(src, table.offsets, table.lens, table.ids, table.num_tokens);
+	/* print_allman(src, table.offsets, table.lens, table.ids, table.num_tokens); */
 	/* print_clarity(src, table.offsets, table.lens, table.ids, table.num_tokens); */
-	/* print_ids(src, table.offsets, table.lens, table.ids, num_tokens); */
+	print_ids(src, table.offsets, table.lens, table.ids, num_tokens);
 
 
 	SCRATCH* arena2 = scratch_checkout_size(arena->size);
@@ -272,10 +272,10 @@ int gdscript_parser_test(int argc, char** argv)
 	rpn.offsets = arena2->allocation;
 	rpn.lens = rpn.offsets + num_tokens;
 	rpn.ids = rpn.lens + num_tokens;
-	gdscript_shunt(&rpn, &table);
+	MICROTIME(gdscript_shunt(&rpn, &table);)
 	/* print_ids(src, rpn.offsets, rpn.lens, rpn.ids, num_tokens); */
-	printf("\n\nSHUNTED:\n");
-	print_allman(src, rpn.offsets, rpn.lens, rpn.ids, num_tokens);
+	/* printf("\n\nSHUNTED:\n"); */
+	/* print_allman(src, rpn.offsets, rpn.lens, rpn.ids, num_tokens); */
 	/* print_tokens(src, table.offsets, table.lens, table.num_tokens); */
 	return 0;
 }

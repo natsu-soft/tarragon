@@ -775,11 +775,11 @@ static void lws_to_scopes(arena_t* offset_arena, arena_t* len_arena, arena_t* id
 	const gdscript_id_t scope_start = GDSCRIPT_SCOPE_START;
 	const gdscript_id_t scope_end = GDSCRIPT_SCOPE_END;
 	int32_t* d;
+	const int16_t zero_len = 0;
 	for (int32_t i = 0; i < n; ++i)
 	{
 		const int32_t i0 = i;
 		const int32_t offset = OFFSETS[i0];
-		const size_t len = LENS[i0];
 		for (; (IDS)[i] == GDSCRIPT_LEADING_WHITESPACE && i < n; ++i); // find the first non lws token
 		int32_t lws1 = i - i0;
 		/* printf("i0: %d, i: %d, lws0: %d, lws1: %d,\n", i0, i, lws0, lws1); */
@@ -788,7 +788,7 @@ static void lws_to_scopes(arena_t* offset_arena, arena_t* len_arena, arena_t* id
 			/* printf("INSERT SCOPE START!\n"); */
 			// insert a scope start at i0
 			arena_insert(offset_arena, i0 * 4, &offset, 4);
-			arena_insert(len_arena, i0 * 2, &len, 2);
+			arena_insert(len_arena, i0 * 2, &zero_len, 2);
 			arena_insert(id_arena, i0 , &scope_start, 1);
 			lws0 = lws1;
 			++n;
@@ -803,7 +803,7 @@ static void lws_to_scopes(arena_t* offset_arena, arena_t* len_arena, arena_t* id
 			{
 				depth_arena->size -= 4;
 				arena_insert(offset_arena, i0 * 4, &offset, 4);
-				arena_insert(len_arena, i0 * 2, &len, 2);
+				arena_insert(len_arena, i0 * 2, &zero_len, 2);
 				arena_insert(id_arena, i0, &scope_end, 1);
 				++n;
 			}
@@ -811,12 +811,11 @@ static void lws_to_scopes(arena_t* offset_arena, arena_t* len_arena, arena_t* id
 		for (; (IDS)[i] != GDSCRIPT_LINE_END && i < n; ++i); // find the first non lws token
 	}
 	const int32_t offset = (OFFSETS)[n - 1];
-	const int16_t len = (LENS)[n - 1];
 	while (depth_arena->size > 0)
 	{
 		depth_arena->size -= 4;
 		arena_insert(offset_arena, (n - 1) * 4, &offset, 4);
-		arena_insert(len_arena, (n - 1) * 2, &len, 2);
+		arena_insert(len_arena, (n - 1) * 2, &zero_len, 2);
 		arena_insert(id_arena, (n - 1), &scope_end, 1);
 		++n;
 	}
@@ -1025,6 +1024,7 @@ static void lint_pairs(arena_t* offset_arena, arena_t* len_arena, arena_t* id_ar
 		.cap = 1024
 	};
 	int32_t n = *num_tokens;
+	const int16_t zero_len = 0;
 	const int32_t extra_delta = GDSCRIPT_EXTRA_PAREN_CLOSE - GDSCRIPT_PAREN_CLOSE;
 	const int32_t missing_delta = GDSCRIPT_MISSING_PAREN_CLOSE - GDSCRIPT_PAREN_CLOSE;
 	for (int32_t i = 0; i < n; ++i)
@@ -1049,20 +1049,45 @@ static void lint_pairs(arena_t* offset_arena, arena_t* len_arena, arena_t* id_ar
 			else
 			{
 				const int32_t index = id_stack_has(stack, id);
+				const int32_t offset = OFFSETS[i];
 				if (index > -1)
 				{
-					// insert up to index as missing
-					// finaly pop
+					const gdscript_id_t* stack_ids = stack->allocation;
+					for (int32_t j = stack->size - 1; j > index; --j)
+					{
+						const gdscript_id_t missing_id = stack_ids[j] + missing_delta;
+						arena_insert(offset_arena, i * 4, &offset, 4);
+						arena_insert(len_arena, i * 2, &zero_len, 2);
+						arena_insert(id_arena, i, &missing_id, 1);
+						++n;
+					}
+					stack->size = index;
 				}
 				else
 				{
-					// insert extra
+					const gdscript_id_t extra_id = id + extra_delta;
+					arena_insert(offset_arena, i * 4, &offset, 4);
+					arena_insert(len_arena, i * 2, &zero_len, 2);
+					arena_insert(id_arena, i, &extra_id, 1);
+					++n;
 				}
 			}
 			break;
+		case GDSCRIPT_EOF: __attribute__((fallthrough));
 		case GDSCRIPT_SEMICOLON: __attribute__((fallthrough));
 		case GDSCRIPT_LINE_END:
 			// pop all as missing
+			{
+				const int32_t offset = OFFSETS[i];
+				const gdscript_id_t* stack_ids = stack->allocation;
+				for (int32_t j = stack->size - 1; j >= 0; --j)
+				{
+					const gdscript_id_t missing_id = stack_ids[j] + missing_delta;
+					arena_insert(offset_arena, i * 4, &offset, 4);
+					arena_insert(offset_arena, i * 2, &zero_len, 2);
+					arena_insert(offset_arena, i, &missing_id, 1);
+				}
+			}
 			break;
 		}
 	}
@@ -1113,7 +1138,7 @@ static void preprocess_tokens(const char* src, arena_t* offset_arena, arena_t* l
 	one_assignment_per_line(offsets, lens, ids, num_tokens);
 	lws_to_scopes(offset_arena, len_arena, id_arena, num_tokens);
 	trim_token(offset_arena->allocation, len_arena->allocation, id_arena->allocation, num_tokens, GDSCRIPT_LEADING_WHITESPACE);
-	/* lint_pairs(offset_arena, len_arena, id_arena, num_tokens); */
+	lint_pairs(offset_arena, len_arena, id_arena, num_tokens);
 	ids = id_arena->allocation;
 	const int32_t n = *num_tokens;
 	lint_commas(ids, n);
@@ -1141,7 +1166,7 @@ void gdscript_shunt(token_table_t* dest, const token_table_t* src)
 	*stack = (i32_stack)
 	{
 		.allocation = scratch->allocation,
-		.cap = 1024
+		.cap = n
 	};
 	const int32_t* offsets = src->offsets;
 	const int16_t* lens = src->lens;
