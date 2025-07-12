@@ -8,7 +8,6 @@
 typedef struct NAME##_stack \
 { \
 	TYPE* allocation; \
-	int32_t item_size; \
 	int32_t cap; \
 	int32_t size; \
 } NAME##_stack; \
@@ -26,6 +25,15 @@ const TYPE NAME##_stack_pop(NAME##_stack* const stack) \
 const TYPE NAME##_stack_peek(const NAME##_stack* stack) \
 { \
 	return stack->allocation[stack->size - 1]; \
+} \
+const int32_t NAME##_stack_has(const NAME##_stack* stack, const TYPE value) \
+{ \
+	const TYPE* items = stack->allocation; \
+	for (int32_t i = stack->size - 1; i >= 0; --i) \
+	{ \
+		if (items[i] == value) return i; \
+	} \
+	return -1; \
 }
 
 #endif /* End MACRO_STACK_H */
