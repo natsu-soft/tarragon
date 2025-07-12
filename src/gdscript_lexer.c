@@ -330,6 +330,7 @@ static const gdscript_id_t verify_number(const char* src, const int32_t n)
 			default: continue;
 			}
 			break;
+		// TODO: let the shunter + checker handle unary negative.
 		case '-':
 			if (flags & (NC_POSITIVE_FLAG | NC_NEGATIVE_FLAG))
 			{
