@@ -1161,6 +1161,63 @@ static void preprocess_tokens(const char* src, arena_t* offset_arena, arena_t* l
 
 // Say, "thank you, Djikstra!"
 STACK(i32, int32_t)
+
+// DO repeat yourself :)
+
+static void group_shunt(token_table_t* dest, const token_table_t* src, i32_stack* const stack, const int32_t i0, int32_t* swap0)
+{
+	const int32_t n = src->num_tokens;
+	const int32_t* offsets = src->offsets;
+	const int16_t* lens = src->lens;
+	const gdscript_id_t* ids = src->ids;
+	int32_t* dest_offsets = dest->offsets;
+	int16_t* dest_lens = dest->lens;
+	gdscript_id_t* dest_ids = dest->ids;
+	int32_t swap = *swap0;
+	for (int32_t i = i0; i < n; ++i)
+	{
+		const gdscript_id_t id = ids[i];
+		uint8_t dump_mask = id == GDSCRIPT_PAREN_CLOSE;
+		dump_mask |= id == GDSCRIPT_MISSING_PAREN_CLOSE; // also BREAK!
+		dump_mask |= id == GDSCRIPT_LINE_END;
+		dump_mask |= id == GDSCRIPT_SEMICOLON;
+		dump_mask |= id == GDSCRIPT_COMMA;
+		#define X(ID,...) dump_mask |= id == GDSCRIPT_##ID;
+		GDSCRIPT_ASSIGNMENT_OPERATORS
+		#undef X
+		dump_mask |= (id == GDSCRIPT_PAREN_CLOSE ||
+							id == GDSCRIPT_MISSING_PAREN_CLOSE) << 1;
+		dump_mask |= id == GDSCRIPT_EOF;
+		if (dump_mask)
+		{
+			for (int32_t j = stack->size; j > 0; --j)
+			{
+				const int32_t index = i32_stack_pop(stack);
+				dest_offsets[swap] = offsets[index];
+				dest_lens[swap] = lens[index];
+				dest_ids[swap] = ids[index];
+				++swap;
+			}
+			dest_offsets[swap] = offsets[i];
+			dest_lens[swap] = lens[i];
+			dest_ids[swap] = ids[i];
+			++swap;
+			continue;
+		}
+		bool_t push_flag = id == GDSCRIPT_PERIOD;
+		push_flag |= GDSCRIPT_COLON;
+		#define X(ID,...) push_flag |= id == GDSCRIPT_##ID;
+		GDSCRIPT_NON_ASSIGNMENT_OPERATORS
+		#undef X
+		if (push_flag)
+		{
+			i32_stack_push(stack, i);
+		}
+	}
+	// dump all at the end
+	*swap0 = swap;
+}
+
 void gdscript_shunt(token_table_t* dest, const token_table_t* src)
 {
 	const int32_t n = src->num_tokens;
@@ -1221,9 +1278,9 @@ void gdscript_shunt(token_table_t* dest, const token_table_t* src)
 			dest_ids[swap] = ids[i];
 			++swap;
 			const gdscript_id_t peek_id = stack->size > 0 ? ids[i32_stack_peek((stack))] : GDSCRIPT_NONE;
-			uint8_t peek_bits = GDSCRIPT_OP_BITWISE_NOT <= peek_id && peek_id <= GDSCRIPT_OP_BOOL_NOT;
-			peek_bits = (GDSCRIPT_OP_ASSIGNMENT_POWER <= peek_id && peek_id <= GDSCRIPT_OP_ASSIGNMENT) << 1;
-			if (peek_bits & 0x01)
+			uint8_t peek_mask = GDSCRIPT_OP_BITWISE_NOT <= peek_id && peek_id <= GDSCRIPT_OP_BOOL_NOT;
+			peek_mask = (GDSCRIPT_OP_ASSIGNMENT_POWER <= peek_id && peek_id <= GDSCRIPT_OP_ASSIGNMENT) << 1;
+			if (peek_mask & 0x01)
 			{
 				const int32_t index = i32_stack_pop(stack);
 				dest_offsets[swap] = offsets[index];
@@ -1231,7 +1288,7 @@ void gdscript_shunt(token_table_t* dest, const token_table_t* src)
 				dest_ids[swap] = ids[index];
 				++swap;
 			}
-			if (peek_bits & 0x02)
+			if (peek_mask & 0x02)
 			{
 				const int32_t index = i32_stack_pop(stack);
 				dest_offsets[swap] = offsets[index];
