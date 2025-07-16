@@ -274,8 +274,8 @@ int gdscript_parser_test(int argc, char** argv)
 	rpn.ids = rpn.lens + num_tokens;
 	MICROTIME(gdscript_shunt(&rpn, &table);)
 	/* print_ids(src, rpn.offsets, rpn.lens, rpn.ids, num_tokens); */
-	/* printf("\n\nSHUNTED:\n"); */
-	/* print_allman(src, rpn.offsets, rpn.lens, rpn.ids, num_tokens); */
+	printf("\n\nSHUNTED:\n");
+	print_allman(src, rpn.offsets, rpn.lens, rpn.ids, num_tokens);
 	/* print_tokens(src, table.offsets, table.lens, table.num_tokens); */
 	return 0;
 }

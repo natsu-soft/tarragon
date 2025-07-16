@@ -956,61 +956,61 @@ static void id_unary_operators(gdscript_id_t* ids, const int32_t num_tokens)
 	}
 }
 
-// TODO: lua style dict allowance
-static void one_assignment_per_line(int32_t* const offsets, int16_t* const lens, gdscript_id_t* const ids, int32_t* const num_tokens)
-{
-	int32_t swap = 0;
-	const int32_t n = *num_tokens;
-	int8_t has_assignment = 0x00;
-	for (int32_t i = 0; i < n; ++i)
-	{
-		const gdscript_id_t id = ids[i];
-		switch(id)
-		{
-		case GDSCRIPT_OP_ASSIGNMENT_POWER: __attribute__((fallthrough));
-		case GDSCRIPT_OP_ASSIGNMENT_PRODUCT: __attribute__((fallthrough));
-		case GDSCRIPT_OP_ASSIGNMENT_SUM: __attribute__((fallthrough));
-		case GDSCRIPT_OP_ASSIGNMENT_DIFFERENCE: __attribute__((fallthrough));
-		case GDSCRIPT_OP_ASSIGNMENT_DIVISION: __attribute__((fallthrough));
-		case GDSCRIPT_OP_ASSIGNMENT_MODULO: __attribute__((fallthrough));
-		case GDSCRIPT_OP_ASSIGNMENT_BITWISE_AND: __attribute__((fallthrough));
-		case GDSCRIPT_OP_ASSIGNMENT_BITWISE_OR: __attribute__((fallthrough));
-		case GDSCRIPT_OP_ASSIGNMENT_BITSHIFT_LEFT: __attribute__((fallthrough));
-		case GDSCRIPT_OP_ASSIGNMENT_BITSHIFT_RIGHT: __attribute__((fallthrough));
-		case GDSCRIPT_OP_ASSIGNMENT_XOR: __attribute__((fallthrough));
-		case GDSCRIPT_OP_ASSIGNMENT_INFERRED: __attribute__((fallthrough));
-		case GDSCRIPT_OP_ASSIGNMENT:
-			if (!has_assignment)
-			{
-				has_assignment = 0x01;
-			}
-			else
-			{
-				int32_t j = i + 1;
-				for (; j < n - 1; ++j)
-				{
-					if (ids[j] == GDSCRIPT_SEMICOLON || ids[j] == GDSCRIPT_LINE_END)
-					{
-						break;
-					}
-				}
-				ids[swap] = GDSCRIPT_MULTIPLE_ASSIGNMENTS;
-				lens[swap] = offsets[j - 1] - offsets[i] + lens[j - 1];
-				++swap;
-				i = j;
-			}
-			break;
-		case GDSCRIPT_SEMICOLON: __attribute__((fallthrough));
-		case GDSCRIPT_LINE_END:
-			has_assignment = 0x00;
-		}
-		offsets[swap] = offsets[i];
-		lens[swap] = lens[i];
-		ids[swap] = ids[i];
-		++swap;
-	}
-	*num_tokens = swap;
-}
+/* NOTE: do this during syntax analysis */
+/* static void one_assignment_per_line(int32_t* const offsets, int16_t* const lens, gdscript_id_t* const ids, int32_t* const num_tokens) */
+/* { */
+/* 	int32_t swap = 0; */
+/* 	const int32_t n = *num_tokens; */
+/* 	int8_t has_assignment = 0x00; */
+/* 	for (int32_t i = 0; i < n; ++i) */
+/* 	{ */
+/* 		const gdscript_id_t id = ids[i]; */
+/* 		switch(id) */
+/* 		{ */
+/* 		case GDSCRIPT_OP_ASSIGNMENT_POWER: __attribute__((fallthrough)); */
+/* 		case GDSCRIPT_OP_ASSIGNMENT_PRODUCT: __attribute__((fallthrough)); */
+/* 		case GDSCRIPT_OP_ASSIGNMENT_SUM: __attribute__((fallthrough)); */
+/* 		case GDSCRIPT_OP_ASSIGNMENT_DIFFERENCE: __attribute__((fallthrough)); */
+/* 		case GDSCRIPT_OP_ASSIGNMENT_DIVISION: __attribute__((fallthrough)); */
+/* 		case GDSCRIPT_OP_ASSIGNMENT_MODULO: __attribute__((fallthrough)); */
+/* 		case GDSCRIPT_OP_ASSIGNMENT_BITWISE_AND: __attribute__((fallthrough)); */
+/* 		case GDSCRIPT_OP_ASSIGNMENT_BITWISE_OR: __attribute__((fallthrough)); */
+/* 		case GDSCRIPT_OP_ASSIGNMENT_BITSHIFT_LEFT: __attribute__((fallthrough)); */
+/* 		case GDSCRIPT_OP_ASSIGNMENT_BITSHIFT_RIGHT: __attribute__((fallthrough)); */
+/* 		case GDSCRIPT_OP_ASSIGNMENT_XOR: __attribute__((fallthrough)); */
+/* 		case GDSCRIPT_OP_ASSIGNMENT_INFERRED: __attribute__((fallthrough)); */
+/* 		case GDSCRIPT_OP_ASSIGNMENT: */
+/* 			if (!has_assignment) */
+/* 			{ */
+/* 				has_assignment = 0x01; */
+/* 			} */
+/* 			else */
+/* 			{ */
+/* 				int32_t j = i + 1; */
+/* 				for (; j < n - 1; ++j) */
+/* 				{ */
+/* 					if (ids[j] == GDSCRIPT_SEMICOLON || ids[j] == GDSCRIPT_LINE_END) */
+/* 					{ */
+/* 						break; */
+/* 					} */
+/* 				} */
+/* 				ids[swap] = GDSCRIPT_MULTIPLE_ASSIGNMENTS; */
+/* 				lens[swap] = offsets[j - 1] - offsets[i] + lens[j - 1]; */
+/* 				++swap; */
+/* 				i = j; */
+/* 			} */
+/* 			break; */
+/* 		case GDSCRIPT_SEMICOLON: __attribute__((fallthrough)); */
+/* 		case GDSCRIPT_LINE_END: */
+/* 			has_assignment = 0x00; */
+/* 		} */
+/* 		offsets[swap] = offsets[i]; */
+/* 		lens[swap] = lens[i]; */
+/* 		ids[swap] = ids[i]; */
+/* 		++swap; */
+/* 	} */
+/* 	*num_tokens = swap; */
+/* } */
 
 STACK(id, gdscript_id_t)
 static void lint_pairs(arena_t* offset_arena, arena_t* len_arena, arena_t* id_arena, int32_t* num_tokens)
@@ -1137,7 +1137,7 @@ static void preprocess_tokens(const char* src, arena_t* offset_arena, arena_t* l
 	trim_token(offsets, lens, ids, num_tokens, GDSCRIPT_COMMENT);
 	cull_line_continuations(offsets, lens, ids, num_tokens);
 	cull_pointless_lines(offsets, lens, ids, num_tokens);
-	one_assignment_per_line(offsets, lens, ids, num_tokens);
+	/* one_assignment_per_line(offsets, lens, ids, num_tokens); */
 	lws_to_scopes(offset_arena, len_arena, id_arena, num_tokens);
 	trim_token(offset_arena->allocation, len_arena->allocation, id_arena->allocation, num_tokens, GDSCRIPT_LEADING_WHITESPACE);
 	lint_pairs(offset_arena, len_arena, id_arena, num_tokens);
@@ -1162,32 +1162,26 @@ static void preprocess_tokens(const char* src, arena_t* offset_arena, arena_t* l
 // Say, "thank you, Djikstra!"
 STACK(i32, int32_t)
 
-// DO repeat yourself :)
 
-static void group_shunt(token_table_t* dest, const token_table_t* src, i32_stack* const stack, const int32_t i0, int32_t* swap0)
+#define MISSING_DELTA = GDSCRIPT_MISSING_PAREN_CLOSE - GDSCRIPT_PAREN_CLOSE;
+int32_t shunt_pairs(token_table_t* const dest, const token_table_t* src, i32_stack* const stack, int32_t i0, int32_t* swap0, const gdscript_id_t stop_id)
 {
-	const int32_t n = src->num_tokens;
-	const int32_t* offsets = src->offsets;
-	const int16_t* lens = src->lens;
-	const gdscript_id_t* ids = src->ids;
-	int32_t* dest_offsets = dest->offsets;
-	int16_t* dest_lens = dest->lens;
-	gdscript_id_t* dest_ids = dest->ids;
+	const int32_t *offsets = src->offsets;
+	const int16_t *lens = src->lens;
+	const gdscript_id_t *ids = src->ids;
+	int32_t *dest_offsets = dest->offsets;
+	int16_t *dest_lens = dest->lens;
+	gdscript_id_t *dest_ids = dest->ids;
 	int32_t swap = *swap0;
+	const int32_t n = src->num_tokens; const gdscript_id_t missing_id = stop_id + GDSCRIPT_MISSING_PAREN_CLOSE - GDSCRIPT_PAREN_CLOSE;
 	for (int32_t i = i0; i < n; ++i)
 	{
 		const gdscript_id_t id = ids[i];
-		uint8_t dump_mask = id == GDSCRIPT_PAREN_CLOSE;
-		dump_mask |= id == GDSCRIPT_MISSING_PAREN_CLOSE; // also BREAK!
-		dump_mask |= id == GDSCRIPT_LINE_END;
-		dump_mask |= id == GDSCRIPT_SEMICOLON;
-		dump_mask |= id == GDSCRIPT_COMMA;
-		#define X(ID,...) dump_mask |= id == GDSCRIPT_##ID;
-		GDSCRIPT_ASSIGNMENT_OPERATORS
-		#undef X
-		dump_mask |= (id == GDSCRIPT_PAREN_CLOSE ||
-							id == GDSCRIPT_MISSING_PAREN_CLOSE) << 1;
-		dump_mask |= id == GDSCRIPT_EOF;
+		uint8_t dump_mask = id == GDSCRIPT_COMMA;
+		dump_mask |=  id == GDSCRIPT_IF;
+		dump_mask |=  id == GDSCRIPT_ELSE;
+		dump_mask |= stop_id == GDSCRIPT_BRACE_CLOSE ? id == GDSCRIPT_COLON : 0;
+		dump_mask = (id == stop_id || id == missing_id) << 1;
 		if (dump_mask)
 		{
 			for (int32_t j = stack->size; j > 0; --j)
@@ -1202,84 +1196,31 @@ static void group_shunt(token_table_t* dest, const token_table_t* src, i32_stack
 			dest_lens[swap] = lens[i];
 			dest_ids[swap] = ids[i];
 			++swap;
-			continue;
-		}
-		bool_t push_flag = id == GDSCRIPT_PERIOD;
-		push_flag |= GDSCRIPT_COLON;
-		#define X(ID,...) push_flag |= id == GDSCRIPT_##ID;
-		GDSCRIPT_NON_ASSIGNMENT_OPERATORS
-		#undef X
-		if (push_flag)
-		{
-			i32_stack_push(stack, i);
-		}
-	}
-	// dump all at the end
-	*swap0 = swap;
-}
-
-void gdscript_shunt(token_table_t* dest, const token_table_t* src)
-{
-	const int32_t n = src->num_tokens;
-	SCRATCH* scratch = scratch_checkout_size(4 * n);
-	i32_stack* stack = alloca(sizeof *stack);
-	*stack = (i32_stack)
-	{
-		.allocation = scratch->allocation,
-		.cap = n
-	};
-	const int32_t* offsets = src->offsets;
-	const int16_t* lens = src->lens;
-	const gdscript_id_t* ids = src->ids;
-	int32_t* dest_offsets = dest->offsets;
-	int16_t* dest_lens = dest->lens;
-	gdscript_id_t* dest_ids = dest->ids;
-	int32_t swap = 0;
-	for (int32_t i = 0; i < n; ++i)
-	{
-		const gdscript_id_t id = ids[i];
-		bool_t dump_flag = id == GDSCRIPT_LINE_END;
-		/* dump_flag |= id > GDSCRIPT_ERROR_THRESHOLD; */
-		dump_flag |= id == GDSCRIPT_SEMICOLON;
-		dump_flag |= id == GDSCRIPT_COMMA;
-		#define X(ID,...) dump_flag |= id == GDSCRIPT_##ID;
-		GDSCRIPT_ASSIGNMENT_OPERATORS
-		#undef X
-		dump_flag |= id == GDSCRIPT_EOF;
-		if (dump_flag)
-		{
-			for (int32_t j = stack->size; j > 0; --j)
+			if (dump_mask & 0x02)
 			{
-				const int32_t index = i32_stack_pop(stack);
-				dest_offsets[swap] = offsets[index];
-				dest_lens[swap] = lens[index];
-				dest_ids[swap] = ids[index];
-				++swap;
+				*swap0 = swap;
+				return i;
 			}
-			dest_offsets[swap] = offsets[i];
-			dest_lens[swap] = lens[i];
-			dest_ids[swap] = ids[i];
-			++swap;
-			continue;
+			else
+			{
+				continue;
+			}
 		}
-		bool_t push_flag = id == GDSCRIPT_PERIOD;
-		push_flag |= id == GDSCRIPT_COLON;
-		#define X(ID,...) push_flag |= id == GDSCRIPT_##ID;
-		GDSCRIPT_NON_ASSIGNMENT_OPERATORS
-		#undef X
-		if (push_flag)
+		if (id < GDSCRIPT_PAREN_OPEN || GDSCRIPT_BRACKET_OPEN < id)
 		{
-			i32_stack_push(stack, i);
-		}
-		else
-		{
-			dest_offsets[swap] = offsets[i];
-			dest_lens[swap] = lens[i];
-			dest_ids[swap] = ids[i];
-			++swap;
-			const gdscript_id_t peek_id = stack->size > 0 ? ids[i32_stack_peek((stack))] : GDSCRIPT_NONE;
+			bool_t push_flag = id == GDSCRIPT_PERIOD;
+			push_flag |= id == GDSCRIPT_COLON;
+			#define X(ID,...) push_flag |= GDSCRIPT_##ID;
+			GDSCRIPT_NON_ASSIGNMENT_OPERATORS
+			#undef X
+			if (push_flag)
+			{
+				i32_stack_push(stack, i);
+			}
+			const gdscript_id_t peek_id = stack->size > 0 ? ids[i32_stack_peek(stack)] : GDSCRIPT_NONE;
 			uint8_t peek_mask = GDSCRIPT_OP_BITWISE_NOT <= peek_id && peek_id <= GDSCRIPT_OP_BOOL_NOT;
 			peek_mask = (GDSCRIPT_OP_ASSIGNMENT_POWER <= peek_id && peek_id <= GDSCRIPT_OP_ASSIGNMENT) << 1;
+			peek_mask |= (peek_id == GDSCRIPT_PERIOD || peek_id == GDSCRIPT_COLON) << 1;
 			if (peek_mask & 0x01)
 			{
 				const int32_t index = i32_stack_pop(stack);
@@ -1296,24 +1237,138 @@ void gdscript_shunt(token_table_t* dest, const token_table_t* src)
 				dest_ids[swap] = ids[index];
 				++swap;
 			}
-			// windows did NOT like this
-			/* switch (peek_id) */
-			/* { */
-			/* case GDSCRIPT_OP_BITWISE_NOT ... GDSCRIPT_OP_BOOL_NOT: // unary */
-			/* 	index = i32_stack_pop(stack); */
-			/* 	dest_offsets[swap] = offsets[index]; */
-			/* 	dest_lens[swap] = lens[index]; */
-			/* 	dest_ids[swap] = ids[index]; */
-			/* 	++swap; */
-			/* 	__attribute__((fallthrough)); */
-			/* case GDSCRIPT_OP_ASSIGNMENT_POWER ... GDSCRIPT_OP_ASSIGNMENT: // binary */
-			/* 	index = i32_stack_pop(stack); */
-			/* 	dest_offsets[swap] = offsets[index]; */
-			/* 	dest_lens[swap] = lens[index]; */
-			/* 	dest_ids[swap] = ids[index]; */
-			/* 	++swap; */
-			/* 	break; */
-			/* } */
+		}
+		else // recursive call
+		{
+			dest_offsets[swap] = offsets[i];
+			dest_lens[swap] = lens[i];
+			dest_ids[swap] = ids[i];
+			++swap;
+			i32_stack substack =
+			{
+				.allocation = stack->allocation + stack->size,
+				.cap = n - i
+			};
+			i = shunt_pairs(dest, src, &substack, i + 1, &swap, id - 3);
+		}
+	}
+	printf("WTF!?");
+	// NOTE: this should NOT happen!
+	*swap0 = swap;
+	return n;
+}
+
+void gdscript_shunt(token_table_t* dest, const token_table_t* src)
+{
+	const int32_t n = src->num_tokens;
+	SCRATCH *scratch = scratch_checkout_size(4 * n);
+	i32_stack stack =
+	{
+		.allocation = scratch->allocation,
+		.cap = n
+	};
+	const int32_t *offsets = src->offsets;
+	const int16_t *lens = src->lens;
+	const gdscript_id_t *ids = src->ids;
+	int32_t *dest_offsets = dest->offsets;
+	int16_t *dest_lens = dest->lens;
+	gdscript_id_t *dest_ids = dest->ids;
+	int32_t swap = 0;
+	for (int32_t i = 0; i < n; ++i) {
+		const gdscript_id_t id = ids[i];
+		bool_t dump_flag = id == GDSCRIPT_LINE_END;
+		/* dump_flag |= id > GDSCRIPT_ERROR_THRESHOLD; */
+		dump_flag |= id == GDSCRIPT_SEMICOLON;
+		/* dump_flag |= id == GDSCRIPT_COMMA; */
+		#define X(ID,...) dump_flag |= id == GDSCRIPT_##ID;
+		GDSCRIPT_ASSIGNMENT_OPERATORS
+		#undef X
+		dump_flag |= id == GDSCRIPT_EOF;
+		if (dump_flag)
+		{
+			for (int32_t j = stack.size; j > 0; --j)
+			{
+				const int32_t index = i32_stack_pop(&stack);
+				dest_offsets[swap] = offsets[index];
+				dest_lens[swap] = lens[index];
+				dest_ids[swap] = ids[index];
+				++swap;
+			}
+			dest_offsets[swap] = offsets[i];
+			dest_lens[swap] = lens[i];
+			dest_ids[swap] = ids[i];
+			++swap;
+			continue;
+		}
+		if (id < GDSCRIPT_PAREN_OPEN || GDSCRIPT_BRACKET_OPEN < id)
+		{
+			bool_t push_flag = id == GDSCRIPT_PERIOD;
+			push_flag |= id == GDSCRIPT_COLON;
+			#define X(ID,...) push_flag |= id == GDSCRIPT_##ID;
+			GDSCRIPT_NON_ASSIGNMENT_OPERATORS
+			#undef X
+			if (push_flag)
+			{
+				i32_stack_push(&stack, i);
+			}
+			else
+			{
+				dest_offsets[swap] = offsets[i];
+				dest_lens[swap] = lens[i];
+				dest_ids[swap] = ids[i];
+				++swap;
+				const gdscript_id_t peek_id = stack.size > 0 ? ids[i32_stack_peek((&stack))] : GDSCRIPT_NONE;
+				uint8_t peek_mask = GDSCRIPT_OP_BITWISE_NOT <= peek_id && peek_id <= GDSCRIPT_OP_BOOL_NOT;
+				peek_mask |= (GDSCRIPT_OP_ASSIGNMENT_POWER <= peek_id && peek_id <= GDSCRIPT_OP_ASSIGNMENT) << 1;
+				peek_mask |= (peek_id == GDSCRIPT_PERIOD || peek_id == GDSCRIPT_COLON) << 1;
+				if (peek_mask & 0x01)
+				{
+					const int32_t index = i32_stack_pop(&stack);
+					dest_offsets[swap] = offsets[index];
+					dest_lens[swap] = lens[index];
+					dest_ids[swap] = ids[index];
+					++swap;
+				}
+				if (peek_mask & 0x02)
+				{
+					const int32_t index = i32_stack_pop(&stack);
+					dest_offsets[swap] = offsets[index];
+					dest_lens[swap] = lens[index];
+					dest_ids[swap] = ids[index];
+					++swap;
+				}
+				// windows did NOT like this
+				/* switch (peek_id) */
+				/* { */
+				/* case GDSCRIPT_OP_BITWISE_NOT ... GDSCRIPT_OP_BOOL_NOT: // unary */
+				/* 	index = i32_stack_pop(stack); */
+				/* 	dest_offsets[swap] = offsets[index]; */
+				/* 	dest_lens[swap] = lens[index]; */
+				/* 	dest_ids[swap] = ids[index]; */
+				/* 	++swap; */
+				/* 	__attribute__((fallthrough)); */
+				/* case GDSCRIPT_OP_ASSIGNMENT_POWER ... GDSCRIPT_OP_ASSIGNMENT: // binary */
+				/* 	index = i32_stack_pop(stack); */
+				/* 	dest_offsets[swap] = offsets[index]; */
+				/* 	dest_lens[swap] = lens[index]; */
+				/* 	dest_ids[swap] = ids[index]; */
+				/* 	++swap; */
+				/* 	break; */
+				/* } */
+			}
+		}
+		else
+		{
+			dest_offsets[swap] = offsets[i];
+			dest_lens[swap] = lens[i];
+			dest_ids[swap] = ids[i];
+			++swap;
+			i32_stack substack =
+			{
+				.allocation = stack.allocation + stack.size,
+				.cap = n - i - 1
+			};
+			i = shunt_pairs(dest, src, &substack, i + 1, &swap, id - 3);
 		}
 	}
 	dest->num_tokens = n;
