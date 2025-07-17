@@ -2,7 +2,7 @@ general_shunt algorithm:
 let tokens
 let destination
 let swap = 0
-for i in range(number of tokens):
+ for i in range(number of tokens):
 	if token is a DUMP_TOKEN:
 		while stack.size > 0:
 			destination[swap++] = tokens[stack.pop()]
@@ -11,9 +11,11 @@ for i in range(number of tokens):
 			exit
 	elif token is a PAIR_OPEN: (NOTE: put last for better performance)
 		detination[swap++] = tokens[i]
-		shunt_pair()
+		shunt pair (NOTE: keep parens for function params & args; discard for regular grouping parens)
 	elif token is ANY_OPERATOR: (NOTE: includes period & colon)
 		stack.push(i)
+	if token is a COMMA:
+	   mark as error
 	else:
 		let peek_token = tokens[stack.peek()]
 		destination[swap++] = tokens[i]
@@ -22,10 +24,3 @@ for i in range(number of tokens):
 		if tokens[stack.peek()] is a EXTENDED_OPERATOR: (NOTE: includes colon & period)
 			destination[swap++] = tokens[i]
 		(NOTE: have to re-peek)
-		
-		 
-
-			
-		
-	   		 
-
