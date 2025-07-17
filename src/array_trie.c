@@ -3,9 +3,9 @@
 #include <assert.h>
 #include <string.h>
 #include "error_macros.h"
-#include "free_list.h"
+#include "allocators/free_list.h"
 /* #include "free_list.h" */
-#include "arena.h"
+#include "allocators/arena.h"
 #include "file_sys.h"
 #include "mem_sys.h"
 #include "pointer_memes.h"

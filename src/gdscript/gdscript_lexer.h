@@ -2,14 +2,14 @@
 #define GDSCRIPT_LEXER_H
 
 #include <stdint.h>
-#include "gdscript_parser.h"
+/* #include "gdscript_parser.h" */
+
 
 typedef struct arena_t arena_t;
+typedef struct token_table_t token_table_t;
 
 
 int32_t gdscript_lex(arena_t* arena, token_table_t* table, const char* src, const int32_t n);
-
-void gdscript_shunt(token_table_t* dest, const token_table_t* src);
 
 
 #endif /* End GDSCRIPT_LEXER_H */

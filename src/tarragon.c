@@ -10,7 +10,7 @@
 /* #include "tests.h" */
 #define LOG_FILE_HERE
 #include "logger.h"
-#include "trie.h"
+/* #include "trie.h" */
 
 FILE* log_fp;
 

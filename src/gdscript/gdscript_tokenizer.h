@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 #include "gdscript_parser.h"
-#include "arena.h"
+#include "allocators/arena.h"
 #include "token.h"
 
 

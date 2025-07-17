@@ -7,8 +7,8 @@
 #include <assert.h>
 #include "gdscript_parser.h"
 #include "token.h"
-#include "arena.h"
-#include "scratch.h"
+#include "allocators/arena.h"
+#include "allocators/scratch.h"
 #include "mem_sys.h"
 
 #define RESIZE_OVERHEAD  4096
@@ -41,7 +41,7 @@ static void populate_builtin(void)
 {
 	uint32_t l = 0;
 
-#define X(STR, _) l += strlen(STR);
+#define X(ID, STR, LEN) l += LEN;
 	GDSCRIPT_BUILTIN_TOKENS
 #undef X
 	const size_t size0 = sizeof *builtin.tokens + sizeof *builtin.lens + sizeof *builtin.ids;
@@ -56,7 +56,7 @@ static void populate_builtin(void)
 	};
 	uint32_t i = 0;
 	char* str;
-#define X(STR, ENUM)												\
+#define X(ENUM, STR, ...)												\
 	builtin.tokens[i] = char_arena.allocation + char_arena.size;	\
 	str = STR; \
 	l = strlen(str);												\
@@ -94,10 +94,9 @@ static uint32_t delimiting_token(const char* str, const unsigned int n)
 {
 	char* temp;
 	unsigned int len;
-	#define X(STR, ID)					\
+	#define X(ID, STR, LEN)								\
 	temp = STR;									\
-	len = strlen(temp);							\
-	for (uint32_t i = 0; i < len; ++i)			\
+	for (uint32_t i = 0; i < LEN; ++i)			\
 	{											\
 		if (i < n)								\
 		{										\

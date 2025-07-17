@@ -1,7 +1,6 @@
-#ifndef GDSCRIPT_PARSER_H
-#define GDSCRIPT_PARSER_H
+#ifndef GDSCRIPT_IDS_H
+#define GDSCRIPT_IDS_H
 
-#include <stdint.h>
 
 #define GDSCRIPT_STRUCTURE		\
 	X(SEMICOLON,	 ";",	1)	\
@@ -234,28 +233,5 @@ typedef enum __attribute__((packed)) gdscript_id_t
 	#undef X
 } gdscript_id_t;
 
-/* int16 max is 32,767--better be plenty large*/
-/* NOTE: HAHA NO ITS NOT BIG ENOUGH--IM 32-BIT (secretely 31 bits since one is for sign lmao) PILLED NOW */
 
-typedef struct token_table_t {
-	char *src;
-	int32_t *offsets;
-	int16_t *lens;
-	gdscript_id_t *ids;
-	int32_t num_tokens;
-} token_table_t;
-
-int16_t token_line(const token_table_t* table, const int32_t index);
-
-int16_t token_column(const token_table_t* table, const int32_t index);
-
-void print_tokens(const char* src, const int32_t* offsets, const int16_t* lens, const int32_t n);
-
-void print_allman(const char* src, const int32_t* offsets, const int16_t* lens, const gdscript_id_t* ids, const int32_t num_tokens);
-
-void print_clarity(const char* src, const int32_t* offsets, const int16_t* lens, const gdscript_id_t* ids, const int32_t num_tokens);
-
-void print_ids(const char* src, const int32_t* offsets, const int16_t* lens, const gdscript_id_t* ids, const int32_t num_tokens);
-
-
-#endif /* End GDSCRIPT_PARSER_H */
+#endif /* End GDSCRIPT_IDS_H */

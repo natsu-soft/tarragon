@@ -6,8 +6,8 @@
 #include "json.h"
 #include "error_macros.h"
 /* NOTE: NOT DECREFING JSON STUFF BECAUSE IM BALLING */
-#include "arena.h"
-#include "scratch.h"
+#include "allocators/arena.h"
+#include "allocators/scratch.h"
 #include "logger.h"
 
 static rpc_t request_buffer;

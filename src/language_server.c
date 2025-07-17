@@ -10,8 +10,8 @@
 #include "file_sys.h"
 #include "base_protocol.h"
 #include "logger.h"
-#include "arena.h"
-#include "scratch.h"
+#include "allocators/arena.h"
+#include "allocators/scratch.h"
 #include "json.h"
 
 #define KILOBYTE 1024

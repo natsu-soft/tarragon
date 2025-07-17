@@ -6,8 +6,8 @@
 #include <ctype.h>
 #include <assert.h>
 #include "token.h"
-#include "arena.h"
-#include "scratch.h"
+#include "allocators/arena.h"
+#include "allocators/scratch.h"
 
 
 static void make_token(arena_t *token_arena, arena_t *id_arena, const char *src,  const uint32_t pos, const uint32_t len, const uint32_t line, const uint32_t col);

@@ -1,7 +1,8 @@
 #ifndef GDSCRIPT_AST_H
 #define GDSCRIPT_AST_H
 
-#include <stddef.h> #include <stdint.h>
+#include <stddef.h>
+#include <stdint.h>
 #include "gdscript_parser.h"
 
 

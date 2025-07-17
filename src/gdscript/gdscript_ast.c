@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "pointer_memes.h"
-#include "arena.h"
+#include "allocators/arena.h"
 #include "free_list.h"
 #include "token.h"
 #include "scratch.h"

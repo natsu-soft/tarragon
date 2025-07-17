@@ -1,38 +1,17 @@
 #include "gdscript_parser.h"
+#include <stdio.h>
+#include "token.h"
 #include <stdlib.h>
 #include "gdscript_lexer.h"
-#include "benchmark.h"
-#include "file_sys.h"
-#include "scratch.h"
+#include "gdscript_shunt.h"
+#include "../benchmark.h"
+#include "../file_sys.h"
+#include "../allocators/scratch.h"
 #include "string.h"
-#include "mem_sys.h"
+#include "../mem_sys.h"
 /* #include "token.h" */
-#include "arena.h"
+#include "../allocators/arena.h"
 
-int16_t token_line(const token_table_t* table, const int32_t index)
-{
-	int16_t line = 1;
-	const int32_t offset = table->offsets[index];
-	const char* src = table->src;
-	for (int32_t i = 0; i < offset; ++i)
-	{
-		line += src[i] == '\n';
-	}
-	return line;
-}
-
-int16_t token_column(const token_table_t* table, const int32_t index)
-{
-	int col = 1;
-	const int32_t offset = table->offsets[index];
-	const char* src = table->src;
-	for (int32_t i = 0; i < offset; ++i)
-	{
-		const int8_t k = src[i] != '\n';
-		col = k * (col + 1) + (1 - k);
-	}
-	return col;
-}
 
 
 void print_tokens(const char* src, const int32_t* offsets, const int16_t* lens, const int32_t n)

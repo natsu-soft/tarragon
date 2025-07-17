@@ -5,10 +5,10 @@
 #include <stdint.h>
 #include <time.h>
 #include <assert.h>
-#include "arena.h"
+#include "allocators/arena.h"
 #include "logger.h"
 #include "error_macros.h"
-#include "scratch.h"
+#include "allocators/scratch.h"
 
 
 #define ARENA_OVERHEAD 4096
