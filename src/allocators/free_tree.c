@@ -4,10 +4,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include "avl_tree.h"
-#include "error_macros.h"
-#include "pointer_memes.h"
+#include "../error_macros.h"
+#include "../pointer_memes.h"
 #include "scratch.h"
-#include "benchmark.h"
+#include "../benchmark.h"
 
 /* static uint8_t verbose_resize = 0x01; */
 

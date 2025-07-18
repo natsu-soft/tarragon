@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
-#include "logger.h"
+#include "../logger.h"
 #include "arena.h"
 
 #define SCRATCH_OVERHEAD 4096

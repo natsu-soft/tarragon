@@ -1,9 +1,9 @@
 #include "free_list.h"
 #include <stdlib.h>
 #include "scratch.h"
-#include "error_macros.h"
-#include "pointer_memes.h"
-#include "benchmark.h"
+#include "../error_macros.h"
+#include "../pointer_memes.h"
+#include "../benchmark.h"
 /* #include "sorted_list.h" */
 
 typedef struct free_node_t

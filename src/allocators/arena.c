@@ -1,8 +1,8 @@
 #include "arena.h"
 #include <assert.h>
 #include <stdlib.h>
-#include "error_macros.h"
-#include "logger.h"
+#include "../error_macros.h"
+#include "../logger.h"
 
 #define REALLOC_OVERHEAD 4096
 

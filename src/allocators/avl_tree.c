@@ -3,8 +3,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "error_macros.h"
-#include "pointer_memes.h"
+#include "../error_macros.h"
+#include "../pointer_memes.h"
 
 #define BALANCE
 
