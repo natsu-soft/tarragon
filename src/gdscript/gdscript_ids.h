@@ -24,7 +24,7 @@
 	X(OP_IN,		  "in",				2) \
 	X(OP_AS,		  "as",				2) \
 	X(OP_OR,		  "or",				2) \
-	X(OP_AND,		  "AND",				3) \
+	X(OP_AND,		  "and",				3) \
 	X(OP_ASSIGNMENT_POWER,		    "**=",			3) \
 	X(OP_POWER,					    "**",			2) \
 	X(OP_ASSIGNMENT_PRODUCT,	    "*=",			2) \
@@ -82,8 +82,13 @@
 	X(OP_ASSIGNMENT_INFERRED,		":=",			2) \
 	X(OP_ASSIGNMENT,			     "=",			1)
 
-#define NUM_NON_ASSIGNMENT_OPERATORS 24
+#define NUM_NON_ASSIGNMENT_OPERATORS 30
 #define GDSCRIPT_NON_ASSIGNMENT_OPERATORS \
+	X(OP_IS,		  "is",				2) \
+	X(OP_IN,		  "in",				2) \
+	X(OP_AS,		  "as",				2) \
+	X(OP_OR,		  "or",				2) \
+	X(OP_AND,		  "and",				3) \
 	X(OP_POWER,					    "**",			2) \
 	X(OP_PRODUCT,				    "*",			1) \
 	X(OP_SUM,					    "+",			1) \
@@ -103,6 +108,7 @@
 	X(OP_LESS_THAN,					"<",			1) \
 	X(OP_GREATER_THAN_EQUALS,		">=",			2) \
 	X(OP_GREATER_THAN,				">",			1) \
+	X(OP_NOT,		"not",				3) \
 	X(OP_BITWISE_NOT,	 "~",	1)	\
 	X(OP_IDENTITY,		 "+",	1)	\
 	X(OP_NEGATION,		 "-",	1)	\
