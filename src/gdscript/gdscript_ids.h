@@ -20,6 +20,11 @@
 
 // NOTE: REORDER CAREFULLY! A switch in gdscript_shunt is order dependent
 #define GDSCRIPT_BINARY_OPERATORS  					   \
+	X(OP_IS,		  "is",				2) \
+	X(OP_IN,		  "in",				2) \
+	X(OP_AS,		  "as",				2) \
+	X(OP_OR,		  "or",				2) \
+	X(OP_AND,		  "AND",				3) \
 	X(OP_ASSIGNMENT_POWER,		    "**=",			3) \
 	X(OP_POWER,					    "**",			2) \
 	X(OP_ASSIGNMENT_PRODUCT,	    "*=",			2) \
@@ -55,6 +60,7 @@
 
 // NOTE: REORDER CAREFULLY! A switch in gdscript_shunt is order dependent
 #define GDSCRIPT_UNARY_OPERATORS	\
+	X(OP_NOT,		"not",				3) \
 	X(OP_BITWISE_NOT,	 "~",	1)	\
 	X(OP_IDENTITY,		 "+",	1)	\
 	X(OP_NEGATION,		 "-",	1)	\
@@ -152,17 +158,14 @@
 	X(CLASS_NAME, "class_name",     10) \
 	X(CLASS,	  "class",			5) \
 	X(EXTENDS,	  "extends",		7) \
-	X(IS,		  "is",				2) \
-	X(IN,		  "in",				2) \
-	X(AS,		  "as",				2) \
 	X(SELF,		  "self",			4) \
 	X(SUPER,	  "super",			5) \
 	X(SIGNAL,	  "signal",			6) \
 	X(FUNC,		  "func",		 	4) \
 	X(STATIC,	  "static",			6) \
 	X(CONST,	  "const",			5) \
-	X(ENUM,		  "enum",		 	4) \
 	X(VAR,		  "var",		 	3) \
+	X(ENUM,		  "enum",		 	4) \
 	X(BREAKPOINT, "breakpoint", 	10) \
 	X(PRELOAD,	  "preload",	 	7) \
 	X(AWAIT,	  "await",			5) \
