@@ -105,14 +105,17 @@ static const uint8_t default_mask(const gdscript_id_t id)
 	const uint8_t var = (id == GDSCRIPT_CONST) | (id == GDSCRIPT_VAR);
 	const uint8_t error = (id == GDSCRIPT_COMMA);
 	return operator | (pair << 1) | (dump << 2)  | (var << 4) | (error << 5);
-	/* printf("operator: %d\n", operator); */
-	/* printf("open: %d\n", open); */
-	/* printf("dump: %d\n", dump); */
-	/* printf("var: %d\n", var); */
-	/* printf("error: %d\n", error); */
-	/* const uint8_t res =  operator | (pair << 1) | (dump << 2)  | (var << 4) | (error << 5); */
-	/* printf("union: %d\n", res); */
-	/* return res; */
+	const uint8_t res =  operator | (pair << 1) | (dump << 2)  | (var << 4) | (error << 5);
+	if (id == GDSCRIPT_VAR || id == GDSCRIPT_CONST)
+	{
+	printf("operator: %d\n", operator);
+	printf("open: %d\n", pair);
+	printf("dump: %d\n", dump);
+	printf("var: %d\n", var);
+	printf("error: %d\n", error);
+	printf("union: %d\n", res);
+	}
+	return res;
 }
 
 const static uint8_t pair_mask(const gdscript_id_t id)
@@ -166,6 +169,10 @@ static int32_t shunt(token_table_t* const dest, const token_table_t* src, i32_st
 		/* printf("%03d:%02x, ", i, id_mask); */
 		/* print_id(id); */
 		/* printf("\n"); */
+		/* if (id == GDSCRIPT_VAR) */
+		/* { */
+		/* 	printf("var mask: %04x\n", id_mask); */
+		/* } */
 		if (id_mask & SHUNT_OPERATOR)
 		{
 			i32_stack_push(stack, i);
@@ -197,6 +204,21 @@ static int32_t shunt(token_table_t* const dest, const token_table_t* src, i32_st
 			prev_id = ids0[i];
 			continue;
 		}
+		else if (id_mask & SHUNT_VARIABLE)
+		{
+			offsets1[swap] = offsets0[i];
+			lens1[swap] = lens0[i];
+			ids1[swap] = ids0[i];
+			++swap;
+			i32_stack short_stack =
+			{
+				.allocation = stack->allocation + stack->size,
+				.cap = n - stack->size
+			};
+			i = shunt_variable(dest, src, &short_stack, i + 1, &swap, n);
+			prev_id = ids0[i];
+			continue;
+		}
 		else if (id_mask & SHUNT_DUMP)
 		{
 			for (int32_t j = stack->size; j > 0; --j)
@@ -216,22 +238,6 @@ static int32_t shunt(token_table_t* const dest, const token_table_t* src, i32_st
 			/* 	*swap0 = swap; */
 			/* 	return i; */
 			/* } */
-		}
-		else if (id_mask & SHUNT_VARIABLE)
-		{
-			offsets1[swap] = offsets0[i];
-			lens1[swap] = lens0[i];
-			ids1[swap] = ids0[i];
-			++swap;
-			i32_stack short_stack =
-			{
-				.allocation = stack->allocation + stack->size,
-				.cap = n - stack->size
-			};
-			i = shunt_variable(dest, src, &short_stack, i + 1, &swap, n);
-			prev_id = ids0[i];
-			continue;
-			/* shunt_variable(); */ // shunt til eol or assignment
 		}
 		else if (id_mask & SHUNT_ERROR)
 		{
@@ -325,6 +331,21 @@ static int32_t shunt_pairs(token_table_t* const dest, const token_table_t* src, 
 			prev_id = ids0[i];
 			continue;
 		}
+		/* else if (id_mask & SHUNT_VARIABLE) // NOTE: this should NOT trigger! */
+		/* { */
+		/* 	offsets1[swap] = offsets0[i]; */
+		/* 	lens1[swap] = lens0[i]; */
+		/* 	ids1[swap] = ids0[i]; */
+		/* 	++swap; */
+		/* 	i32_stack short_stack = */
+		/* 	{ */
+		/* 		.allocation = stack->allocation + stack->size, */
+		/* 		.cap = n - stack->size */
+		/* 	}; */
+		/* 	i = shunt_variable(dest, src, &short_stack, i, &swap, n); */
+		/* 	prev_id = ids0[i]; */
+		/* 	continue; */
+		/* } */
 		else if (id_mask & (SHUNT_DUMP | SHUNT_EXIT))
 		{
 			for (int32_t j = stack->size; j > 0; --j)
@@ -348,14 +369,6 @@ static int32_t shunt_pairs(token_table_t* const dest, const token_table_t* src, 
 				*swap0 = swap;
 				return i;
 			}
-		}
-		else if (id_mask & SHUNT_VARIABLE)
-		{
-			offsets1[swap] = offsets0[i];
-			lens1[swap] = lens0[i];
-			ids1[swap] = ids0[i];
-			++swap;
-			/* TODO: shunt_variable(); */ // shunt til eol or assignment
 		}
 		else if (id_mask & SHUNT_ERROR)
 		{
@@ -437,7 +450,6 @@ static int32_t shunt_period(token_table_t* const dest, const token_table_t* src,
 
 static int32_t shunt_variable(token_table_t* const dest, const token_table_t* src, i32_stack* const stack, const int32_t i0, int32_t* swap0, const int32_t n)
 {
-	printf(">shunting variable\n");
 	const int32_t* offsets0 = src->offsets;
 	const int16_t* lens0 = src->lens;
 	gdscript_id_t* ids0 = src->ids;
