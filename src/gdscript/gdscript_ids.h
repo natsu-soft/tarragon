@@ -20,11 +20,6 @@
 
 // NOTE: REORDER CAREFULLY! A switch in gdscript_shunt is order dependent
 #define GDSCRIPT_BINARY_OPERATORS  					   \
-	X(OP_IS,		  "is",				2) \
-	X(OP_IN,		  "in",				2) \
-	X(OP_AS,		  "as",				2) \
-	X(OP_OR,		  "or",				2) \
-	X(OP_AND,		  "and",				3) \
 	X(OP_ASSIGNMENT_POWER,		    "**=",			3) \
 	X(OP_POWER,					    "**",			2) \
 	X(OP_ASSIGNMENT_PRODUCT,	    "*=",			2) \
@@ -60,7 +55,6 @@
 
 // NOTE: REORDER CAREFULLY! A switch in gdscript_shunt is order dependent
 #define GDSCRIPT_UNARY_OPERATORS	\
-	X(OP_NOT,		"not",				3) \
 	X(OP_BITWISE_NOT,	 "~",	1)	\
 	X(OP_IDENTITY,		 "+",	1)	\
 	X(OP_NEGATION,		 "-",	1)	\
@@ -84,11 +78,11 @@
 
 #define NUM_NON_ASSIGNMENT_OPERATORS 30
 #define GDSCRIPT_NON_ASSIGNMENT_OPERATORS \
-	X(OP_IS,		  "is",				2) \
-	X(OP_IN,		  "in",				2) \
-	X(OP_AS,		  "as",				2) \
-	X(OP_OR,		  "or",				2) \
-	X(OP_AND,		  "and",				3) \
+	X(IS,		  "is",				2) \
+	X(IN,		  "in",				2) \
+	X(AS,		  "as",				2) \
+	X(OR,		  "or",				2) \
+	X(AND,		  "and",				3) \
 	X(OP_POWER,					    "**",			2) \
 	X(OP_PRODUCT,				    "*",			1) \
 	X(OP_SUM,					    "+",			1) \
@@ -108,7 +102,7 @@
 	X(OP_LESS_THAN,					"<",			1) \
 	X(OP_GREATER_THAN_EQUALS,		">=",			2) \
 	X(OP_GREATER_THAN,				">",			1) \
-	X(OP_NOT,		"not",				3) \
+	X(NOT,		"not",				3) \
 	X(OP_BITWISE_NOT,	 "~",	1)	\
 	X(OP_IDENTITY,		 "+",	1)	\
 	X(OP_NEGATION,		 "-",	1)	\
@@ -163,6 +157,12 @@
 	X(RETURN,	  "return",			6) \
 	X(CLASS_NAME, "class_name",     10) \
 	X(CLASS,	  "class",			5) \
+	X(IS,		  "is",				2) \
+	X(IN,		  "in",				2) \
+	X(AS,		  "as",				2) \
+	X(OR,		  "or",				2) \
+	X(AND,		  "and",				3) \
+	X(NOT,		"not",				3) \
 	X(EXTENDS,	  "extends",		7) \
 	X(SELF,		  "self",			4) \
 	X(SUPER,	  "super",			5) \

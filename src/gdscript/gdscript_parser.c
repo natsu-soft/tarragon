@@ -195,7 +195,7 @@ int gdscript_parser_test(int argc, char** argv)
 	/* arena_init(&arena, 22000); */
 	token_table_t table = {0};
 	int src_len = 0;
-	char* src = fs_read("RewindAbility.gd", &src_len);
+	char* src = fs_read("ShuntTest.gd", &src_len);
 	int32_t num_tokens;
 	arena_grow(arena, 8 * src_len);
 	/* uint32_t num_tokens = gdscript_tokenize(&arena, &tokens, &ids, src, src_len); */
@@ -237,9 +237,9 @@ int gdscript_parser_test(int argc, char** argv)
 /* 	PRINT(GDSCRIPT_SCOPE_START); */
 /* 	PRINT(GDSCRIPT_SCOPE_END); */
 /* 	#undef PRINT */
-	/* print_allman(src, table.offsets, table.lens, table.ids, table.num_tokens); */
+	print_allman(src, table.offsets, table.lens, table.ids, table.num_tokens);
 	/* print_clarity(src, table.offsets, table.lens, table.ids, table.num_tokens); */
-	print_ids(src, table.offsets, table.lens, table.ids, num_tokens);
+	/* print_ids(src, table.offsets, table.lens, table.ids, num_tokens); */
 
 
 	SCRATCH* arena2 = scratch_checkout_size(arena->size);
