@@ -76,7 +76,7 @@
 	X(OP_ASSIGNMENT_INFERRED,		":=",			2) \
 	X(OP_ASSIGNMENT,			     "=",			1)
 
-#define NUM_NON_ASSIGNMENT_OPERATORS 30
+#define NUM_NON_ASSIGNMENT_OPERATORS 29
 #define GDSCRIPT_NON_ASSIGNMENT_OPERATORS \
 	X(IS,		  "is",				2) \
 	X(IN,		  "in",				2) \

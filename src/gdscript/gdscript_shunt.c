@@ -25,7 +25,7 @@ enum __attribute__((packed)) shunt_enum
 static inline const bool_t is_unary(const gdscript_id_t id)
 {
 	// it's all good at -O2
-	return !(id < GDSCRIPT_OP_BITWISE_NOT || GDSCRIPT_OP_BOOL_NOT < id);
+	return !(id < GDSCRIPT_OP_BITWISE_NOT || GDSCRIPT_OP_BOOL_NOT < id) || id == GDSCRIPT_NOT;
 }
 
 // predicate
@@ -42,7 +42,8 @@ static const bool_t keep_pair_p(const gdscript_id_t id, const gdscript_id_t prev
 
 static int32_t shunt(token_table_t* const dest, const token_table_t* src, i32_stack* const stack, const int32_t n);
 static int32_t shunt_pairs(token_table_t* const dest, const token_table_t* src, i32_stack* const stack, const int32_t i0, int32_t* swap0, const gdscript_id_t stop_id, const bool_t keep_pairs, const int32_t n);
-static int32_t shunt_variable(token_table_t* const dest, const token_table_t* src, i32_stack* const stack, int32_t* swap0, const int32_t n);
+static int32_t shunt_variable(token_table_t* const dest, const token_table_t* src, i32_stack* const stack, const int32_t i0, int32_t* swap0, const int32_t n);
+static int32_t shunt_period(token_table_t* const dest, const token_table_t* src, i32_stack* const stack, const int32_t i0, int32_t* swap0, const int32_t n);
 
 static inline void print_id(const gdscript_id_t id)
 {
@@ -85,7 +86,8 @@ static const uint8_t default_mask(const gdscript_id_t id)
 		#define X(ID, ...) (id == GDSCRIPT_##ID) |
 		GDSCRIPT_NON_ASSIGNMENT_OPERATORS
 		#undef X
-		(id == GDSCRIPT_PERIOD);
+		/* (id == GDSCRIPT_PERIOD); */
+		0x00;
 	const uint8_t pair =
 		(id == GDSCRIPT_PAREN_OPEN) |
 		(id == GDSCRIPT_BRACE_OPEN) |
@@ -119,8 +121,9 @@ const static uint8_t pair_mask(const gdscript_id_t id)
 		#define X(ID, ...) (id == GDSCRIPT_##ID) |
 		GDSCRIPT_NON_ASSIGNMENT_OPERATORS
 		#undef X
-		(id == GDSCRIPT_COLON) |
-		(id == GDSCRIPT_PERIOD);
+		/* (id == GDSCRIPT_COLON) | */
+		/* (id == GDSCRIPT_PERIOD); */
+		(id == GDSCRIPT_COLON);
 	const uint8_t pair =
 		(id == GDSCRIPT_PAREN_OPEN) |
 		(id == GDSCRIPT_BRACE_OPEN) |
@@ -167,6 +170,17 @@ static int32_t shunt(token_table_t* const dest, const token_table_t* src, i32_st
 		{
 			i32_stack_push(stack, i);
 		}
+		else if (id == GDSCRIPT_PERIOD)
+		{
+			i32_stack short_stack =
+			{
+				.allocation = stack->allocation + stack->size,
+				.cap = n - stack->size
+			};
+			i = shunt_period(dest, src, &short_stack, i, &swap, n);
+			prev_id = ids0[i];
+			continue;
+		}
 		else if (id_mask & SHUNT_PAIR)
 		{
 			// TODO: sensible handling
@@ -209,6 +223,14 @@ static int32_t shunt(token_table_t* const dest, const token_table_t* src, i32_st
 			lens1[swap] = lens0[i];
 			ids1[swap] = ids0[i];
 			++swap;
+			i32_stack short_stack =
+			{
+				.allocation = stack->allocation + stack->size,
+				.cap = n - stack->size
+			};
+			i = shunt_variable(dest, src, &short_stack, i + 1, &swap, n);
+			prev_id = ids0[i];
+			continue;
 			/* shunt_variable(); */ // shunt til eol or assignment
 		}
 		else if (id_mask & SHUNT_ERROR)
@@ -220,23 +242,27 @@ static int32_t shunt(token_table_t* const dest, const token_table_t* src, i32_st
 			offsets1[swap] = offsets0[i];
 			lens1[swap] = lens0[i];
 			ids1[swap] = ids0[i];
-			/* printf("FOO %d: %d -> %d\n", i, offsets0[i], offsets1[i]); */
 			++swap;
-			while (stack->size > 0 && is_unary(ids0[i32_stack_peek(stack)]))
+			const gdscript_id_t next_id = i + 1 < n ? ids0[i + 1] : GDSCRIPT_NONE;
+			/* if (next_id != GDSCRIPT_PERIOD && (next_id < GDSCRIPT_PAREN_OPEN && GDSCRIPT_BRACKET_OPEN < next_id)) */
+			if (next_id != GDSCRIPT_PERIOD && (next_id < GDSCRIPT_PAREN_OPEN || GDSCRIPT_BRACKET_OPEN < next_id))
 			{
-				const int32_t index = i32_stack_pop(stack);
-				offsets1[swap] = offsets0[index];
-				lens1[swap] = lens0[index];
-				ids1[swap] = ids0[index];
-				++swap;
-			}
-			if (stack->size > 0)
-			{
-				const int32_t index = i32_stack_pop(stack);
-				offsets1[swap] = offsets0[index];
-				lens1[swap] = lens0[index];
-				ids1[swap] = ids0[index];
-				++swap;
+				while (stack->size > 0 && is_unary(ids0[i32_stack_peek(stack)]))
+				{
+					const int32_t index = i32_stack_pop(stack);
+					offsets1[swap] = offsets0[index];
+					lens1[swap] = lens0[index];
+					ids1[swap] = ids0[index];
+					++swap;
+				}
+				if (stack->size > 0)
+				{
+					const int32_t index = i32_stack_pop(stack);
+					offsets1[swap] = offsets0[index];
+					lens1[swap] = lens0[index];
+					ids1[swap] = ids0[index];
+					++swap;
+				}
 			}
 		}
 		prev_id = id;
@@ -247,7 +273,6 @@ static int32_t shunt(token_table_t* const dest, const token_table_t* src, i32_st
 #define MISSING_DELTA GDSCRIPT_MISSING_PAREN_CLOSE - GDSCRIPT_PAREN_CLOSE
 static int32_t shunt_pairs(token_table_t* const dest, const token_table_t* src, i32_stack* const stack, const int32_t i0, int32_t* swap0, const gdscript_id_t stop_id, const bool_t keep_pairs, const int32_t n)
 {
-
 	const int32_t* offsets0 = src->offsets;
 	const int16_t* lens0 = src->lens;
 	gdscript_id_t* ids0 = src->ids;
@@ -272,6 +297,17 @@ static int32_t shunt_pairs(token_table_t* const dest, const token_table_t* src, 
 		if (id_mask & SHUNT_OPERATOR)
 		{
 			i32_stack_push(stack, i);
+		}
+		else if (id == GDSCRIPT_PERIOD)
+		{
+			i32_stack short_stack =
+			{
+				.allocation = stack->allocation + stack->size,
+				.cap = n - stack->size
+			};
+			i = shunt_period(dest, src, &short_stack, i, &swap, n);
+			prev_id = ids0[i];
+			continue;
 		}
 		else if (id_mask & SHUNT_PAIR)
 		{
@@ -331,26 +367,124 @@ static int32_t shunt_pairs(token_table_t* const dest, const token_table_t* src, 
 			lens1[swap] = lens0[i];
 			ids1[swap] = ids0[i];
 			++swap;
-			while (stack->size > 0 && is_unary(ids0[i32_stack_peek(stack)]))
+			const gdscript_id_t next_id = i + 1 < n ? ids0[i + 1] : GDSCRIPT_NONE;
+			if (next_id != GDSCRIPT_PERIOD && (next_id < GDSCRIPT_PAREN_OPEN || GDSCRIPT_BRACKET_OPEN < next_id))
 			{
-				const int32_t index = i32_stack_pop(stack);
-				offsets1[swap] = offsets0[index];
-				lens1[swap] = lens0[index];
-				ids1[swap] = ids0[index];
-				++swap;
-			}
-			if (stack->size > 0)
-			{
-				const int32_t index = i32_stack_pop(stack);
-				offsets1[swap] = offsets0[index];
-				lens1[swap] = lens0[index];
-				ids1[swap] = ids0[index];
-				++swap;
+				while (stack->size > 0 && is_unary(ids0[i32_stack_peek(stack)]))
+				{
+					const int32_t index = i32_stack_pop(stack);
+					offsets1[swap] = offsets0[index];
+					lens1[swap] = lens0[index];
+					ids1[swap] = ids0[index];
+					++swap;
+				}
+				if (stack->size > 0)
+				{
+					const int32_t index = i32_stack_pop(stack);
+					offsets1[swap] = offsets0[index];
+					lens1[swap] = lens0[index];
+					ids1[swap] = ids0[index];
+					++swap;
+				}
 			}
 		}
 		prev_id = id;
 	}
-	return swap;
+	return n;
+}
+
+static int32_t shunt_period(token_table_t* const dest, const token_table_t* src, i32_stack* const stack, const int32_t i0, int32_t* swap0, const int32_t n)
+{
+	/* printf(">shunting period\n"); */
+	const int32_t* offsets0 = src->offsets;
+	const int16_t* lens0 = src->lens;
+	gdscript_id_t* ids0 = src->ids;
+	int32_t* offsets1 = dest->offsets;
+	int16_t* lens1 = dest->lens;
+	gdscript_id_t* ids1 = dest->ids;
+	int32_t swap = *swap0;
+	for (int32_t i = i0; i < n; ++i)
+	{
+		const gdscript_id_t id = ids0[i];
+		if (id == GDSCRIPT_IDENTIFIER)
+		{
+				offsets1[swap] = offsets0[i];
+				lens1[swap] = lens0[i];
+				ids1[swap] = ids0[i];
+				++swap;
+		}
+		else if (id == GDSCRIPT_PERIOD)
+		{
+			i32_stack_push(stack, i);
+		}
+		else
+		{
+			for (int32_t j = stack->size; j > 0; --j)
+			{
+				const int32_t index = i32_stack_pop(stack);
+				offsets1[swap] = offsets0[index];
+				lens1[swap] = lens0[index];
+				ids1[swap] = ids0[index];
+				++swap;
+			}
+			*swap0 = swap;
+			return i - 1;
+		}
+	}
+	*swap0 = swap;
+	return n;
+}
+
+static int32_t shunt_variable(token_table_t* const dest, const token_table_t* src, i32_stack* const stack, const int32_t i0, int32_t* swap0, const int32_t n)
+{
+	printf(">shunting variable\n");
+	const int32_t* offsets0 = src->offsets;
+	const int16_t* lens0 = src->lens;
+	gdscript_id_t* ids0 = src->ids;
+	int32_t* offsets1 = dest->offsets;
+	int16_t* lens1 = dest->lens;
+	gdscript_id_t* ids1 = dest->ids;
+	int32_t swap = *swap0;
+	for (int32_t i = i0; i < n; ++i)
+	{
+		const gdscript_id_t id = ids0[i];
+		if (id == GDSCRIPT_IDENTIFIER)
+		{
+				offsets1[swap] = offsets0[i];
+				lens1[swap] = lens0[i];
+				ids1[swap] = ids0[i];
+				++swap;
+		}
+		else if (id == GDSCRIPT_COLON)
+		{
+			i32_stack_push(stack, i);
+		}
+		else if (id == GDSCRIPT_PERIOD)
+		{
+			i32_stack short_stack =
+			{
+				.allocation = stack->allocation + stack->size,
+				.cap = n - stack->size
+			};
+			i = shunt_period(dest, src, &short_stack, i, &swap, n);
+			continue;
+		}
+		else
+		{
+			for (int32_t j = stack->size; j > 0; --j)
+			{
+				const int32_t index = i32_stack_pop(stack);
+				offsets1[swap] = offsets0[index];
+				lens1[swap] = lens0[index];
+				ids1[swap] = ids0[index];
+				++swap;
+			}
+			*swap0 = swap;
+			return i - 1;
+		}
+	}
+	*swap0 = swap;
+	return n;
 }
 
 int32_t gdscript_shunt(token_table_t* const dest, const token_table_t* src, const int32_t n)
