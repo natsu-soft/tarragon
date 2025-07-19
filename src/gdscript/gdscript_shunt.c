@@ -479,7 +479,15 @@ static int32_t shunt_variable(token_table_t* const dest, const token_table_t* sr
 				.cap = n - stack->size
 			};
 			i = shunt_period(dest, src, &short_stack, i, &swap, n);
-			continue;
+		}
+		else if  (id == GDSCRIPT_BRACKET_OPEN)
+		{
+			i32_stack short_stack =
+			{
+				.allocation = stack->allocation + stack->size,
+				.cap = n - stack->size
+			};
+			i = shunt_pairs(dest, src, &short_stack, i, &swap, GDSCRIPT_BRACKET_CLOSE, true, n);
 		}
 		else
 		{

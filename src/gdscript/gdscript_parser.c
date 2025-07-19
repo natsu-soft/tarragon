@@ -258,9 +258,9 @@ int gdscript_parser_test(int argc, char** argv)
 	/* { */
 	/* 	printf("%03d: %d\n", i, rpn.offsets[i]); */
 	/* } */
-	/* print_ids(src, rpn.offsets, rpn.lens, rpn.ids, num_tokens); */
+	print_ids(src, rpn.offsets, rpn.lens, rpn.ids, num_tokens);
 	/* printf("\n\nSHUNTED:\n"); */
-	print_allman(src, rpn.offsets, rpn.lens, rpn.ids, num_tokens);
+	/* print_allman(src, rpn.offsets, rpn.lens, rpn.ids, num_tokens); */
 	/* print_tokens(src, table.offsets, table.lens, table.num_tokens); */
 	return 0;
 }
