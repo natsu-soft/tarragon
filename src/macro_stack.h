@@ -12,21 +12,21 @@ typedef struct NAME##_stack \
 	int32_t size; \
 } NAME##_stack; \
 \
-void NAME##_stack_push(NAME##_stack* const stack, const TYPE value) \
+static void NAME##_stack_push(NAME##_stack* const stack, const TYPE value) \
 { \
 	stack->allocation[stack->size++] = value; \
 } \
 \
-const TYPE NAME##_stack_pop(NAME##_stack* const stack) \
+static const TYPE NAME##_stack_pop(NAME##_stack* const stack) \
 { \
 	return stack->allocation[--stack->size]; \
 } \
 \
-const TYPE NAME##_stack_peek(const NAME##_stack* stack) \
+static const TYPE NAME##_stack_peek(const NAME##_stack* stack) \
 { \
 	return stack->allocation[stack->size - 1]; \
 } \
-const int32_t NAME##_stack_has(const NAME##_stack* stack, const TYPE value) \
+static const int32_t NAME##_stack_has(const NAME##_stack* stack, const TYPE value) \
 { \
 	const TYPE* items = stack->allocation; \
 	for (int32_t i = stack->size - 1; i >= 0; --i) \

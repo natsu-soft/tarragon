@@ -8,6 +8,7 @@ else
 	RE := grep
 endif
 CFLAGS := -Wall -Wextra -Wno-int-conversion -fpermissive -fdiagnostics-show-option -ggdb -O0
+# CFLAGS := -Wall -Wextra -Wno-int-conversion -fpermissive -fdiagnostics-show-option -O2
 LIBS :=
 LDFLAGS := -fuse-ld=lld -flto -static
 MAINS := src/tarragon.c src/tests.c

@@ -1,5 +1,4 @@
 #include "gdscript_lexer.h"
-#include "gdscript_parser.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -297,14 +296,9 @@ static inline void new_token(arena_t* offset_arena, arena_t* len_arena, const in
 	arena_push(len_arena, &len, 2);
 }
 
+
 static const gdscript_id_t verify_number(const char* src, const int32_t n)
 {
-	/* printf("verifying: "); */
-	/* for (uint32_t i = 0; i < n; ++i) */
-	/* { */
-	/* 	printf("%c", src[i]); */
-	/* } */
-	/* printf("\n"); */
 	enum __attribute__((packed)) {
 		NC_NONE = 0x00,
 		NC_HEX_FLAG = 0x01,
@@ -1102,7 +1096,7 @@ static void lint_pairs(arena_t* offset_arena, arena_t* len_arena, arena_t* id_ar
 static void lint_commas(gdscript_id_t* const ids, const int32_t num_tokens)
 {
 	gdscript_id_t prev_id = GDSCRIPT_NONE;
-	const int16_t comma_delta = GDSCRIPT_UNEXPECTED_COMMA - GDSCRIPT_COMMA;
+	const int16_t comma_delta = GDSCRIPT_EXTRA_COMMA - GDSCRIPT_COMMA;
 	int16_t depth = 0;
 	for (int32_t i = 0; i < num_tokens; ++i)
 	{

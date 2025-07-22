@@ -3,6 +3,7 @@
 #include "token.h"
 #include <stdlib.h>
 #include "gdscript_lexer.h"
+#include "flexer.h"
 #include "gdscript_shunt.h"
 #include "../benchmark.h"
 #include "../file_sys.h"
@@ -198,9 +199,13 @@ int gdscript_parser_test(int argc, char** argv)
 	/* char* src = fs_read("ShuntTest.gd", &src_len); */
 	char* src = fs_read("RewindAbility.gd", &src_len);
 	int32_t num_tokens;
-	arena_grow(arena, 8 * src_len);
-	/* uint32_t num_tokens = gdscript_tokenize(&arena, &tokens, &ids, src, src_len); */
+	arena_grow(arena, 8 * src_len + 4096);
 	MICROTIME(num_tokens = gdscript_lex(arena, &table, src, src_len);)
+	MICROTIME(num_tokens = gdscript_flex(arena, &table, src, src_len);)
+	/* print_ids(src, table.offsets, table.lens, table.ids, table.num_tokens); */
+	/* print_allman(src, table.offsets, table.lens, table.ids, table.num_tokens); */
+	return 0;
+	/* uint32_t num_tokens = gdscript_tokenize(&arena, &tokens, &ids, src, src_len); */
 	/* for (uint32_t i = 0; i < num_tokens; ++i) */
 	/* { */
 	/* 	const char* token = src + table.offsets[i]; */

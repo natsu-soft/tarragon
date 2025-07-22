@@ -1,8 +1,6 @@
 #ifndef TOKEN_H
 #define TOKEN_H
 
-
-
 #include <stdint.h>
 #include "gdscript_ids.h"
 

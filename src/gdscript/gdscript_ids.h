@@ -51,7 +51,8 @@
 	X(OP_GREATER_THAN_EQUALS,		">=",			2) \
 	X(OP_GREATER_THAN,				">",			1) \
 	X(OP_ASSIGNMENT_INFERRED,		":=",			2) \
-	X(OP_ASSIGNMENT,			     "=",			1)
+	X(OP_ASSIGNMENT,			     "=",			1) \
+	X(OP_TYPE,			     ":",			1) // NOTE: colon matches first AND THATS A GOOD THING!
 
 // NOTE: REORDER CAREFULLY! A switch in gdscript_shunt is order dependent
 #define GDSCRIPT_UNARY_OPERATORS	\
@@ -76,7 +77,7 @@
 	X(OP_ASSIGNMENT_INFERRED,		":=",			2) \
 	X(OP_ASSIGNMENT,			     "=",			1)
 
-#define NUM_NON_ASSIGNMENT_OPERATORS 29
+#define NUM_NON_ASSIGNMENT_OPERATORS 30
 #define GDSCRIPT_NON_ASSIGNMENT_OPERATORS \
 	X(IS,		  "is",				2) \
 	X(IN,		  "in",				2) \
@@ -106,7 +107,8 @@
 	X(OP_BITWISE_NOT,	 "~",	1)	\
 	X(OP_IDENTITY,		 "+",	1)	\
 	X(OP_NEGATION,		 "-",	1)	\
-	X(OP_BOOL_NOT,		 "!",	1)
+	X(OP_BOOL_NOT,		 "!",	1) \
+	X(OP_TYPE,			     ":",			1) // NOTE: colon matches first AND THATS A GOOD THING!
 
 #define GDSCRIPT_ANNOTATIONS											\
 	X(EXPORT_CATEGORY,				"@export_category",				16) \
@@ -168,10 +170,10 @@
 	X(SUPER,	  "super",			5) \
 	X(SIGNAL,	  "signal",			6) \
 	X(FUNC,		  "func",		 	4) \
-	X(STATIC,	  "static",			6) \
 	X(CONST,	  "const",			5) \
 	X(VAR,		  "var",		 	3) \
 	X(ENUM,		  "enum",		 	4) \
+	X(STATIC,	  "static",			6) \
 	X(BREAKPOINT, "breakpoint", 	10) \
 	X(PRELOAD,	  "preload",	 	7) \
 	X(AWAIT,	  "await",			5) \
@@ -205,16 +207,29 @@
 	GDSCRIPT_KEYWORDS \
 	GDSCRIPT_LITERALS
 
+#define GDSCRIPT_WARNINGS \
+	X(BULLSHIT) \
+	X(THIS_BULLSHIT) \
+
 #define GDSCRIPT_ERRORS \
+	X(SEEK_CHRIST) \
+	X(IMPROPER_DEPTH) \
+	X(MIXED_LWS) \
+	X(PERVERTED_NUMBER) \
+	X(PERVERTED_IDENTIFIER) \
+	X(NON_UNARY_OPERATOR)	 \
 	X(TOKENS_AFTER_CONTINUATION) \
 	X(MISSING_PAREN_CLOSE) \
 	X(MISSING_BRACE_CLOSE) \
 	X(MISSING_BRACKET_CLOSE) \
+	X(MISSING_PAREN_OPEN) \
+	X(MISSING_COLON) \
+	X(MISSING_IDENTIFIER) \
 	X(EXTRA_PAREN_CLOSE) \
 	X(EXTRA_BRACE_CLOSE) \
 	X(EXTRA_BRACKET_CLOSE) \
+	X(EXTRA_COMMA) \
 	X(MULTIPLE_ASSIGNMENTS) \
-	X(UNEXPECTED_COMMA)
 
 typedef enum __attribute__((packed)) gdscript_id_t
 /* typedef enum gdscript_id_t */
@@ -224,22 +239,30 @@ typedef enum __attribute__((packed)) gdscript_id_t
 	GDSCRIPT_BUILTIN_TOKENS
 	#undef X
 	GDSCRIPT_NUM_BUILTIN,
-	GDSCRIPT_STRING,
-	GDSCRIPT_NUMBER,
 	GDSCRIPT_IDENTIFIER,
+	GDSCRIPT_NUMBER,
+	GDSCRIPT_STRING,
 	/* GDSCRIPT_PARSE_TABLE_SIZE, // NOTE: wtf is this for? */
 	GDSCRIPT_EOF, // NOTE-> USED, BUT DOESN'T HAVE TO BE
 	GDSCRIPT_LEADING_WHITESPACE, // gets trimmed out
 	GDSCRIPT_WHITESPACE, // also gets trimmed out
-	GDSCRIPT_NUMBER_CANDIDATE, // partially used
+	GDSCRIPT_NUMBER_CANDIDATE, // TODO: comment this out ASAP
 	GDSCRIPT_SCOPE_START,
 	GDSCRIPT_SCOPE_END,
-	GDSCRIPT_ARGS_START,
-	GDSCRIPT_ARGS_END,
+	// JUST THUG THIS SHIT OUT
+	/* GDSCRIPT_PARAMS_START, */
+	/* GDSCRIPT_PARAMS_END, */
+	/* GDSCRIPT_ARGS_START, */
+	/* GDSCRIPT_ARGS_END, */
+	GDSCRIPT_WARNING_THRESHOLD,
+	#define X(ID) WARN_##ID,
+	GDSCRIPT_WARNINGS
+	#undef X
 	GDSCRIPT_ERROR_THRESHOLD,
 	#define X(ID) GDSCRIPT_##ID,
 	GDSCRIPT_ERRORS
 	#undef X
+	GDSCRIPT_TOTAL_NUM
 } gdscript_id_t;
 
 
