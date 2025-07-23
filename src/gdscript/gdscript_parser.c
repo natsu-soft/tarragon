@@ -53,13 +53,13 @@ void print_allman(const char* src, const int32_t* offsets, const int16_t* lens, 
 				printf("$EOF\n");
 				break;
 			case GDSCRIPT_SCOPE_START:
+				printf("%d\n", depth);
 				++depth;
-				printf("{\n");
 				newline = 1;
 				break;
 			case GDSCRIPT_SCOPE_END:
 				--depth;
-				printf("\b\b\b\b}\n");
+				printf("\b\b\b\b%d\n", depth);
 				newline = 1;
 				break;
 			case GDSCRIPT_LINE_END:
@@ -76,7 +76,12 @@ void print_allman(const char* src, const int32_t* offsets, const int16_t* lens, 
 				}
 				else
 				{
-					printf("$ERR");
+					switch (id)
+					{
+#define X(ID, ...) case GDSCRIPT_##ID: printf("#ERR_" #ID); break;
+						GDSCRIPT_ERRORS
+#undef X
+					}
 				}
 				printf(" ");
 		}
@@ -202,7 +207,7 @@ int gdscript_parser_test(int argc, char** argv)
 	arena_grow(arena, 8 * src_len + 4096);
 	MICROTIME(num_tokens = gdscript_lex(arena, &table, src, src_len);)
 	MICROTIME(num_tokens = gdscript_flex(arena, &table, src, src_len);)
-	/* print_ids(src, table.offsets, table.lens, table.ids, table.num_tokens); */
+	print_ids(src, table.offsets, table.lens, table.ids, table.num_tokens);
 	/* print_allman(src, table.offsets, table.lens, table.ids, table.num_tokens); */
 	return 0;
 	/* uint32_t num_tokens = gdscript_tokenize(&arena, &tokens, &ids, src, src_len); */

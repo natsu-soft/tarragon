@@ -179,9 +179,9 @@
 	X(AWAIT,	  "await",			5) \
 	X(YIELD,	  "yield",		 	5) \
 	X(ASSERT,	  "assert",		 	6) \
-	X(GET,		  "get",		 	3) \
-	X(SET,		  "set",		 	3) \
 	X(VOID,		  "void",		 	4)
+	/* X(GET,		  "get",		 	3) \ */
+	/* X(SET,		  "set",		 	3) \ */
 
 #define GDSCRIPT_LITERALS						\
 	X(NULL, "null",   4)							\
@@ -223,9 +223,6 @@
 	X(MISSING_PAREN_CLOSE) \
 	X(MISSING_BRACE_CLOSE) \
 	X(MISSING_BRACKET_CLOSE) \
-	X(MISSING_PAREN_OPEN) \
-	X(MISSING_COLON) \
-	X(MISSING_IDENTIFIER) \
 	X(EXTRA_PAREN_CLOSE) \
 	X(EXTRA_BRACE_CLOSE) \
 	X(EXTRA_BRACKET_CLOSE) \
@@ -240,6 +237,9 @@ typedef enum __attribute__((packed)) gdscript_id_t
 	GDSCRIPT_BUILTIN_TOKENS
 	#undef X
 	GDSCRIPT_NUM_BUILTIN,
+	// NOTE: fml I have to promote identifiers to these manually
+	GDSCRIPT_GET,
+	GDSCRIPT_SET,
 	GDSCRIPT_IDENTIFIER,
 	GDSCRIPT_NUMBER,
 	GDSCRIPT_STRING,
