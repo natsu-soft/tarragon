@@ -21,36 +21,36 @@
 // NOTE: REORDER CAREFULLY! A switch in gdscript_shunt is order dependent
 #define GDSCRIPT_BINARY_OPERATORS  					   \
 	X(OP_ASSIGNMENT_POWER,		    "**=",			3) \
+	X(OP_ASSIGNMENT_BITSHIFT_LEFT,	"<<=",			3) \
+	X(OP_ASSIGNMENT_BITSHIFT_RIGHT,	">>=",			3) \
 	X(OP_POWER,					    "**",			2) \
 	X(OP_ASSIGNMENT_PRODUCT,	    "*=",			2) \
-	X(OP_PRODUCT,				    "*",			1) \
 	X(OP_ASSIGNMENT_SUM,		    "+=",			2) \
 	X(OP_ASSIGNMENT_DIFFERENCE,	    "-=",			2) \
-	X(OP_SUM,					    "+",			1) \
-	X(OP_DIFFERENCE,			    "-",			1) \
 	X(OP_ASSIGNMENT_DIVISION,	    "/=",			2) \
-	X(OP_DIVISION,				    "/",			1) \
 	X(OP_ASSIGNMENT_MODULO,		    "%=",			2) \
-	X(OP_MODULO,				    "%",			1) \
 	X(OP_BOOL_AND,				    "&&",			2) \
 	X(OP_ASSIGNMENT_BITWISE_AND,    "&=",			2) \
-	X(OP_BITWISE_AND,			    "&",			1) \
 	X(OP_BOOL_OR,				    "||",			2) \
-	X(OP_ASSIGNMENT_BITWISE_OR,	    "|=",			1) \
-	X(OP_BITWISE_OR,				"|",			1) \
-	X(OP_ASSIGNMENT_BITSHIFT_LEFT,	"<<=",			3) \
+	X(OP_ASSIGNMENT_BITWISE_OR,	    "|=",			2) \
 	X(OP_BITSHIFT_LEFT,				"<<",			2) \
-	X(OP_ASSIGNMENT_BITSHIFT_RIGHT,	">>=",			3) \
 	X(OP_BITSHIFT_RIGHT,			">>",			2) \
 	X(OP_ASSIGNMENT_XOR,			"^=",			2) \
-	X(OP_BITWISE_XOR,				"^",			1) \
 	X(OP_EQUALS,					"==",			2) \
 	X(OP_INEQUALS,					"!=",			2) \
 	X(OP_LESS_THAN_EQUALS,			"<=",			2) \
-	X(OP_LESS_THAN,					"<",			1) \
 	X(OP_GREATER_THAN_EQUALS,		">=",			2) \
-	X(OP_GREATER_THAN,				">",			1) \
 	X(OP_ASSIGNMENT_INFERRED,		":=",			2) \
+	X(OP_SUM,					    "+",			1) \
+	X(OP_DIFFERENCE,			    "-",			1) \
+	X(OP_PRODUCT,				    "*",			1) \
+	X(OP_DIVISION,				    "/",			1) \
+	X(OP_MODULO,				    "%",			1) \
+	X(OP_BITWISE_AND,			    "&",			1) \
+	X(OP_BITWISE_OR,				"|",			1) \
+	X(OP_BITWISE_XOR,				"^",			1) \
+	X(OP_LESS_THAN,					"<",			1) \
+	X(OP_GREATER_THAN,				">",			1) \
 	X(OP_ASSIGNMENT,			     "=",			1) \
 	X(OP_TYPE,			     ":",			1) // NOTE: colon matches first AND THATS A GOOD THING!
 
@@ -147,7 +147,7 @@
 	X(WARNING_IGNORE,				"@warning_ignore",				15) \
 
 #define GDSCRIPT_KEYWORDS \
-	X(IF,         "if",				6) \
+	X(IF,         "if",				2) \
 	X(ELIF,		  "elif",			4) \
 	X(ELSE,		  "else",			4) \
 	X(FOR,		  "for",			3) \
@@ -215,6 +215,7 @@
 	X(SEEK_CHRIST) \
 	X(IMPROPER_DEPTH) \
 	X(MIXED_LWS) \
+	X(UNKNOWN_GRAPH) \
 	X(PERVERTED_NUMBER) \
 	X(PERVERTED_IDENTIFIER) \
 	X(NON_UNARY_OPERATOR)	 \
