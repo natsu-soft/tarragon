@@ -8,7 +8,6 @@
 #include "../allocators/arena.h"
 #include "../allocators/scratch.h"
 #include "../macro_stack.h"
-STACK(i32, int32_t)
 STACK(i16, int16_t)
 STACK(id, gdscript_id_t)
 
@@ -975,6 +974,9 @@ int32_t gdscript_flex(arena_t* arena, token_table_t* table, const char* src, con
 	{
 		const gdscript_id_t id = ids[i];
 		ids[i] += (id == GDSCRIPT_FAKE_SCOPE_START || id == GDSCRIPT_FAKE_SCOPE_END) * fake_delta;
+		ids[i] = id == GDSCRIPT_NOT ? GDSCRIPT_OP_BOOL_NOT : id;
+		ids[i] = id == GDSCRIPT_AND ? GDSCRIPT_OP_BOOL_AND : id;
+		ids[i] = id == GDSCRIPT_OR ? GDSCRIPT_OP_BOOL_OR : id;
 	}
 	// FINALLY, insert EOF
 	offsets[num] = n;
@@ -985,49 +987,4 @@ int32_t gdscript_flex(arena_t* arena, token_table_t* table, const char* src, con
 	table->ids = ids;
 	table->num_tokens = ++num;
 	return num;
-}
-
-
-/******************/
-/* THE SHUNT ZONE */
-/******************/
-
-
-// NOTE: 1 HIDDEN SCRATCH CHECKOUT
-// shunt
-// also check numbers & identifiers
-// condense missing tokens into the desired token
-// and sublimate other errors to the END
-// allow perversions to pass to syntax & type check
-int32_t gdscript_shunt_etc(token_table_t* const dest, const token_table_t* src, const int32_t n)
-{
-	dest->num_tokens = n;
-	SCRATCH *scratch = scratch_checkout_size(4 * n);
-	i32_stack* stack = alloca(sizeof *stack);
-	*stack = (i32_stack)
-	{
-		.allocation = scratch->allocation,
-		.cap = n
-	};
-	int32_t sswap = 0;
-	int32_t nswap = 0;
-	const int32_t* offsets0 = src->offsets;
-	const int16_t* lens0 = src->lens;
-	const gdscript_id_t* ids0 = src->ids;
-	int32_t* const offsets = dest->offsets;
-	int16_t* const lens = dest->lens;
-	gdscript_id_t* const ids = dest->ids;
-	gdscript_id_t prev_id = GDSCRIPT_NONE;
-	for (int32_t i = 0; i < n; ++i)
-	{
-		gdscript_id_t id = ids0[i];
-		if (GDSCRIPT_MISSING_PAREN_CLOSE <= id && id <= GDSCRIPT_MISSING_BRACE_CLOSE)
-		{
-
-		}
-		/* id += (GDSCRIPT_MISSING_PAREN_CLOSE <= id && id <= GDSCRIPT_MISSING_BRACE_CLOSE) * missing_delta; */
-		prev_id = id;
-	}
-	dest->num_tokens = nswap;
-	return nswap;
 }
