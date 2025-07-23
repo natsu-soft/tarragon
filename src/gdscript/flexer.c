@@ -970,12 +970,12 @@ int32_t gdscript_flex(arena_t* arena, token_table_t* table, const char* src, con
 	// use memmove since memory might overlap
 	lens = memmove(offsets + num + 1, lens, 2 * num);
 	ids = memmove(lens + num + 1, ids, num);
-	/* const gdscript_id_t fake_delta = GDSCRIPT_FAKE_SCOPE_START - GDSCRIPT_FAKE_SCOPE_END; */
-	/* for (int32_t i = 0; i < num; ++i) */
-	/* { */
-	/* 	const gdscript_id_t id = ids[i]; */
-	/* 	ids[i] += (id == GDSCRIPT_FAKE_SCOPE_START || id == GDSCRIPT_FAKE_SCOPE_END) * fake_delta; */
-	/* } */
+	const gdscript_id_t fake_delta = GDSCRIPT_SCOPE_START - GDSCRIPT_FAKE_SCOPE_START;
+	for (int32_t i = 0; i < num; ++i)
+	{
+		const gdscript_id_t id = ids[i];
+		ids[i] += (id == GDSCRIPT_FAKE_SCOPE_START || id == GDSCRIPT_FAKE_SCOPE_END) * fake_delta;
+	}
 	// FINALLY, insert EOF
 	offsets[num] = n;
 	lens[num] = 0;
