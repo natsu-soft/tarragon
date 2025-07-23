@@ -150,6 +150,7 @@
 	X(IF,         "if",				2) \
 	X(ELIF,		  "elif",			4) \
 	X(ELSE,		  "else",			4) \
+	X(FUNC,		  "func",		 	4) \
 	X(FOR,		  "for",			3) \
 	X(WHILE,	  "while",			5) \
 	X(MATCH,	  "match",			5) \
@@ -169,7 +170,6 @@
 	X(SELF,		  "self",			4) \
 	X(SUPER,	  "super",			5) \
 	X(SIGNAL,	  "signal",			6) \
-	X(FUNC,		  "func",		 	4) \
 	X(CONST,	  "const",			5) \
 	X(VAR,		  "var",		 	3) \
 	X(ENUM,		  "enum",		 	4) \
@@ -250,6 +250,8 @@ typedef enum __attribute__((packed)) gdscript_id_t
 	GDSCRIPT_NUMBER_CANDIDATE, // TODO: comment this out ASAP
 	GDSCRIPT_SCOPE_START,
 	GDSCRIPT_SCOPE_END,
+	GDSCRIPT_FAKE_SCOPE_START,
+	GDSCRIPT_FAKE_SCOPE_END,
 	// JUST THUG THIS SHIT OUT
 	/* GDSCRIPT_PARAMS_START, */
 	/* GDSCRIPT_PARAMS_END, */
