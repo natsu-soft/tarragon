@@ -8,8 +8,8 @@
 #include "../allocators/arena.h"
 #include "../allocators/scratch.h"
 #include "../macro_stack.h"
-/* STACK(i32, int32_t) */
-STACK(i16, int32_t)
+STACK(i32, int32_t)
+STACK(i16, int16_t)
 STACK(id, gdscript_id_t)
 
 #define true 1
@@ -43,9 +43,23 @@ static struct {
 	int16_t* keyword_lens;
 	gdscript_id_t* graph_ids;
 	gdscript_id_t* keyword_ids;
-	int32_t num_graphs;
-	int32_t num_keywords;
+	gdscript_id_t* unary_triggers;
+	int16_t num_graphs;
+	int16_t num_keywords;
+	int16_t num_unary_triggers;
 } flex_table = {0};
+
+#define UNARY_TRIGGERS \
+	GDSCRIPT_OPERATORS \
+	X(NONE) \
+	X(LINE_END) \
+	X(COMMA) \
+	X(PAREN_OPEN) \
+	X(BRACE_OPEN) \
+	X(BRACKET_OPEN) \
+	X(SCOPE_START) \
+	X(SCOPE_END) \
+	X(EXTRA_COMMA) \
 
 /* #define BESPOKE_DELIM_CHARS \ */
 /* 	X('@') */
@@ -65,8 +79,13 @@ static void init_flexer(void)
 	GDSCRIPT_ANNOTATIONS
 	int32_t num_keywords = i;
 #undef X
+	i = 0;
+#define X(...) ++i;
+	UNARY_TRIGGERS
+#undef X
+	int32_t num_unary_triggers = i;
 	const size_t sum_size = sizeof(char*) + sizeof(int16_t) + sizeof(gdscript_id_t);
-	uint8_t* addr = malloc(sum_size * (num_graphs + num_keywords) + l + 1);
+	uint8_t* addr = malloc(sum_size * (num_graphs + num_keywords)  + num_unary_triggers + l + 1);
 	assert(addr != NULL && "BRO HOW?");
 	char** graphs = addr;
 	char** keywords = graphs + num_graphs;
@@ -75,6 +94,7 @@ static void init_flexer(void)
 	gdscript_id_t* graph_ids = keyword_lens + num_keywords;
 	gdscript_id_t* keyword_ids = graph_ids + num_graphs;
 	const char* char_alloc = keyword_ids + num_keywords;
+	gdscript_id_t* unary_triggers = char_alloc + l; // NOTE: DANGER DANGER DANGER DANGER DANGER
 	int16_t char_offset = 0;
 	i = 0;
 #define X(ID, STR, LEN) \
@@ -101,6 +121,10 @@ static void init_flexer(void)
 	GDSCRIPT_LITERALS
 	GDSCRIPT_ANNOTATIONS
 #undef X
+	i = 0;
+#define X(ID,...) unary_triggers[i++] = GDSCRIPT_##ID;
+	UNARY_TRIGGERS
+#undef X
 	flex_table.graphs = graphs;
 	flex_table.keywords = keywords;
 	flex_table.graph_lens = graph_lens;
@@ -109,6 +133,8 @@ static void init_flexer(void)
 	flex_table.keyword_ids = keyword_ids;
 	flex_table.num_graphs = num_graphs;
 	flex_table.num_keywords = num_keywords;
+	flex_table.unary_triggers = unary_triggers;
+	flex_table.num_unary_triggers = num_unary_triggers;
 	/* for (int32_t j = 0; j < num_graphs; ++j) */
 	/* { */
 	/* 	printf("\n> "); */
@@ -468,6 +494,7 @@ static void hustle(const gdscript_id_t id0, int32_t* const offsets, int16_t* con
 // NOTE: semicolon must be followed by an EXPRESSION.  A REAL expression!
 // FUCK IT WE BALL
 // NOTE: DO NOT ADD SCOPES AROUND ONE LINERS -- JUST THUNG IT OUT.
+// NOTE: Disregard--use temp scopes then convert to real scopes at the end :^)
 int32_t gdscript_flex(arena_t* arena, token_table_t* table, const char* src, const int32_t n)
 {
 	table->src = src;
@@ -512,8 +539,20 @@ int32_t gdscript_flex(arena_t* arena, token_table_t* table, const char* src, con
 		STR_MASK   = 0xf0,
 	};
 	uint8_t lex_mask = 0x00;
+	enum __attribute__((packed))
+	{
+		ONELINE_NONE = 0x00,
+		ONELINE_START = 0x01,
+		ONELINE_END = 0x02,
+		ONELINE_ALL = 0x03,
+	};
+	uint8_t oneline_mask = 0x00;
 	int16_t lws = 0;
-	const int16_t zero_len = 0;
+#define UNARY_PRECEDERS \
+	GDSCRIPT_OPERATORS \
+	X(NONE) \
+		X(SEMICbciw)
+	int16_t num_unary_preceders = 0;
 	/* char prev_c = 0; */
 	for (int32_t i = 0; i < n; ++i)
 	{
@@ -537,7 +576,7 @@ int32_t gdscript_flex(arena_t* arena, token_table_t* table, const char* src, con
 				}
 				continue;
 			}
-			else if (c == '\n')
+			else if (c == '\n' || c == ';')
 			{
 				const int32_t N = expected.size;
 				if (N == 0) { /* i can FEEL the branch being predicted */ }
@@ -563,19 +602,42 @@ int32_t gdscript_flex(arena_t* arena, token_table_t* table, const char* src, con
 						num += N;
 						expected.size = 0;
 				}
+				if (oneline_mask & ONELINE_END && c == '\n')
+				{
+					offsets[num] = i;
+					offsets[num + 1] = i;
+					lens[num] = 1;
+					lens[num + 1] = 0;
+					ids[num] = GDSCRIPT_LINE_END;
+					ids[num + 1] = GDSCRIPT_FAKE_SCOPE_END;
+					num += 2;
+				}
 				offsets[num] = i;
 				lens[num] = 1;
 				ids[num] = GDSCRIPT_LINE_END;
 				++num;
-				lex_mask &= ~LWS_INACTIVE;
+				lex_mask &= ~((c == '\n') * LWS_INACTIVE);
+				oneline_mask &= c == '\n' ? ONELINE_NONE : ONELINE_ALL;
 				lws = 0;
 			}
-			else if (c == ';')
-			{
-				// TODO: semicolon
-			}
+			/* else if (c == ';') */
+			/* { */
+			/* 	// TODO: proper semicolon handling.  ATM just treating like newlines */
+
+			/* } */
 			else
 			{
+				if (oneline_mask & ONELINE_START)
+				{
+					offsets[num] = i;
+					offsets[num + 1] = i;
+					lens[num] = 0;
+					lens[num + 1] = 0;
+					ids[num] = GDSCRIPT_LINE_END;
+					ids[num + 1] = GDSCRIPT_FAKE_SCOPE_START;
+					num += 2;
+					oneline_mask = ONELINE_END;
+				}
 				const char next_char = i + 1 < n ? src[i + 1]: 0;
 				const bool_t num_flag = ('0' <= c && c <= '9') ||
 					(c == '.' && '0' < next_char && next_char <= '9');
@@ -651,7 +713,64 @@ int32_t gdscript_flex(arena_t* arena, token_table_t* table, const char* src, con
 					{
 						id_stack_push(&expected, id - 3);
 					}
-					// TODO: BURIED PAIRS & UNEXPECTED CLOSURES
+					else if (id == GDSCRIPT_PAREN_CLOSE || id == GDSCRIPT_BRACE_CLOSE || id == GDSCRIPT_BRACKET_CLOSE)
+					{
+						const int32_t N = expected.size;
+						gdscript_id_t* expected_ids = expected.allocation;
+						int32_t match_index = -1;
+						for (int32_t j = N - 2; j >= 0; --j)
+						{
+							if (expected_ids[j] == id)
+							{
+								match_index = j;
+								break;
+							}
+						}
+						if (match_index > -1)
+						{
+							int32_t num0 = num > 0 ? num - 1 : 0;
+							const int32_t offset0 = offsets[num0];
+							for (int32_t j = N; j > match_index + 1; --j)
+							{
+								const gdscript_id_t open_id = expected_ids[j - 1] + 3;
+								for (int32_t k = num0; k >= 0; --k)
+								{
+									if (ids[k] != open_id)
+									{
+										continue;
+									}
+									else
+									{
+										num0 = k;
+										break;
+									}
+								}
+								offsets[num + N - j] = offsets[num0];
+								lens[num + N - j] = offset0 - offsets[num0];
+								ids[num + N - j] = missing(open_id - 3);
+								--num0;
+							}
+							num += N - match_index - 1; // NOTE: think about this
+							expected.size = match_index;
+						}
+						else
+						{
+							id += GDSCRIPT_EXTRA_PAREN_CLOSE - GDSCRIPT_PAREN_CLOSE;
+						}
+					}
+					else if (id == GDSCRIPT_OP_SUM || id == GDSCRIPT_OP_DIFFERENCE)
+					{
+						const int16_t N = flex_table.num_unary_triggers;
+						const gdscript_id_t* unary_triggers = flex_table.unary_triggers;
+						for (int16_t j = 0; j < N; ++j)
+						{
+							if (id1 == unary_triggers[j])
+							{
+								id = id == GDSCRIPT_OP_SUM ? GDSCRIPT_OP_IDENTITY : GDSCRIPT_OP_NEGATION;
+								break;
+							}
+						}
+					}
 					#define X(ID, ...) || id == GDSCRIPT_##ID
 					else if (expected.size > 0 && id == GDSCRIPT_COLON GDSCRIPT_ASSIGNMENT_OPERATORS)
 					#undef X
@@ -659,12 +778,17 @@ int32_t gdscript_flex(arena_t* arena, token_table_t* table, const char* src, con
 						const int32_t N = expected.size;
 						int32_t num0 = num > 0 ? num - 1 : 0;
 						const int32_t offset0 = offsets[num0];
+						const gdscript_id_t* expected_ids = expected.allocation;
 						for (int j = N; j > 0; --j)
 						{
-							const gdscript_id_t open_id = expected.allocation[j - 1] + 3;
-							for (int k = num0; k >= 0; --k)
+							const gdscript_id_t open_id = expected_ids[j - 1] + 3;
+							for (int32_t k = num0; k >= 0; --k)
 							{
-								if (ids[k] == open_id)
+								if (ids[k] != open_id)
+								{
+									continue;
+								}
+								else;
 								{
 									num0 = k;
 									break;
@@ -673,10 +797,46 @@ int32_t gdscript_flex(arena_t* arena, token_table_t* table, const char* src, con
 							offsets[num + N - j] = offsets[num0];
 							lens[num + N - j] = offset0 - offsets[num0];
 							ids[num + N - j] = missing(open_id - 3);
+							--num0;
 						}
 						num += N;
 						expected.size = 0;
 						// dump expected
+					}
+					if (id == GDSCRIPT_COLON)
+					{
+						for (int32_t j = num - 1; j >= 0; --j)
+						{
+							// NOTE: figure out what is actually better
+							/* switch (ids[j]) */
+							/* { */
+							/* case GDSCRIPT_LINE_END: */
+							/* 	break; */
+							/* case GDSCRIPT_IF ... GDSCRIPT_FUNC: */
+							/* 	{ */
+							/* 		const int32_t N = expected.size; */
+							/* 		expected.allocation[N] = GDSCRIPT_TEMP_SCOPE_END; */
+							/* 		expected.allocation[N + 2] = GDSCRIPT_TEMP_SCOPE_START; */
+							/* 		expected.allocation[N + 1] = GDSCRIPT_LINE_END; */
+							/* 		expected.size += 3; */
+							/* 	} */
+							/* 	break; */
+							/* default: continue; */
+							/* } */
+							/* break; */
+							const char temp = ids[j];
+							// could put in a dumb BUT ALMOST ALWAYS TRUE condition here. That mite help!
+							if (temp == GDSCRIPT_LINE_END)
+							{
+								break;
+							}
+							else if (GDSCRIPT_IF <= temp && temp <= GDSCRIPT_ELSE || temp == GDSCRIPT_FUNC)
+							{
+								// here I am just not giving a fuck anymore
+								oneline_mask = ONELINE_START;
+								break;
+							}
+						}
 					}
 					// check if in stack
 					// push ids onto expected
@@ -757,12 +917,15 @@ int32_t gdscript_flex(arena_t* arena, token_table_t* table, const char* src, con
 				{
 					for (int32_t k = N; k > pop_index + 1; --k)
 					{
-						offsets[num + N - k] = i;
-						lens[num + N - k] = 0;
-						ids[num + N - k] = GDSCRIPT_SCOPE_END;
+						offsets[num + 2 * (N - k)] = i;
+						lens[num + 2 * (N - k)] = 0;
+						ids[num + 2 * (N - k)] = GDSCRIPT_SCOPE_END;
+						offsets[num + 2 * (N - k) + 1] = i;
+						lens[num + 2 * (N - k) + 1] = 0;
+						ids[num + 2 * (N - k) + 1] = GDSCRIPT_LINE_END;
 					}
 					depths.size = pop_index + 1;
-					num += N - pop_index - 1;
+					num += 2 * (N - pop_index - 1);
 				}
 				else
 				{
@@ -807,21 +970,11 @@ int32_t gdscript_flex(arena_t* arena, token_table_t* table, const char* src, con
 	// use memmove since memory might overlap
 	lens = memmove(offsets + num + 1, lens, 2 * num);
 	ids = memmove(lens + num + 1, ids, num);
-	// NOTE: run this whilestve shunting
+	/* const gdscript_id_t fake_delta = GDSCRIPT_FAKE_SCOPE_START - GDSCRIPT_FAKE_SCOPE_END; */
 	/* for (int32_t i = 0; i < num; ++i) */
 	/* { */
-	/* 	/\* const int16_t offset = offsets[i]; *\/ */
 	/* 	const gdscript_id_t id = ids[i]; */
-	/* 	/\* const int16_t len = token_len(src, id, offset, n); *\/ */
-	/* 	if (id == GDSCRIPT_IDENTIFIER) */
-	/* 	{ */
-	/* 		ids[i] = verify_identifier(src, offset, len); */
-	/* 	} */
-	/* 	else if (id == GDSCRIPT_NUMBER) */
-	/* 	{ */
-	/* 		ids[i] = verify_number(src, offset, len); */
-	/* 	} */
-	/* 	lens[i] = len; */
+	/* 	ids[i] += (id == GDSCRIPT_FAKE_SCOPE_START || id == GDSCRIPT_FAKE_SCOPE_END) * fake_delta; */
 	/* } */
 	// FINALLY, insert EOF
 	offsets[num] = n;
@@ -835,17 +988,46 @@ int32_t gdscript_flex(arena_t* arena, token_table_t* table, const char* src, con
 }
 
 
+/******************/
+/* THE SHUNT ZONE */
+/******************/
 
 
-int32_t gdscript_shunt_etc(token_table_t* const dest, const token_table_t* src, int32_t n)
+// NOTE: 1 HIDDEN SCRATCH CHECKOUT
+// shunt
+// also check numbers & identifiers
+// condense missing tokens into the desired token
+// and sublimate other errors to the END
+// allow perversions to pass to syntax & type check
+int32_t gdscript_shunt_etc(token_table_t* const dest, const token_table_t* src, const int32_t n)
 {
 	dest->num_tokens = n;
-	// shunt
-	// also check numbers & identifiers
-	// and unary-ize appropriate operators
-	// and sublimate some errors to the END
-	// whereas condense missing errors into the desired token
-	// allow perversions to pass to type check
-	// etc. errors
-	return 0;
+	SCRATCH *scratch = scratch_checkout_size(4 * n);
+	i32_stack* stack = alloca(sizeof *stack);
+	*stack = (i32_stack)
+	{
+		.allocation = scratch->allocation,
+		.cap = n
+	};
+	int32_t sswap = 0;
+	int32_t nswap = 0;
+	const int32_t* offsets0 = src->offsets;
+	const int16_t* lens0 = src->lens;
+	const gdscript_id_t* ids0 = src->ids;
+	int32_t* const offsets = dest->offsets;
+	int16_t* const lens = dest->lens;
+	gdscript_id_t* const ids = dest->ids;
+	gdscript_id_t prev_id = GDSCRIPT_NONE;
+	for (int32_t i = 0; i < n; ++i)
+	{
+		gdscript_id_t id = ids0[i];
+		if (GDSCRIPT_MISSING_PAREN_CLOSE <= id && id <= GDSCRIPT_MISSING_BRACE_CLOSE)
+		{
+
+		}
+		/* id += (GDSCRIPT_MISSING_PAREN_CLOSE <= id && id <= GDSCRIPT_MISSING_BRACE_CLOSE) * missing_delta; */
+		prev_id = id;
+	}
+	dest->num_tokens = nswap;
+	return nswap;
 }
