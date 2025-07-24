@@ -693,15 +693,16 @@ int32_t gdscript_flex(arena_t* arena, token_table_t* table, const char* src, con
 					int16_t len;
 					gdscript_id_t id = tokenize(src, i, n, &len); // NOTE: DO NOT ADD 1 TO i
 					const gdscript_id_t id1 = num > 0 ? ids[num - 1] : GDSCRIPT_NONE;
-					const gdscript_id_t id2 = num > 1 ? ids[num - 2] : GDSCRIPT_NONE;
-					const gdscript_id_t type_delta = GDSCRIPT_OP_TYPE - GDSCRIPT_COLON;
-					id += (id == GDSCRIPT_COLON) * (id2 == GDSCRIPT_VAR) * type_delta;
-					id += (id == GDSCRIPT_COLON) * (id2 == GDSCRIPT_CONST) * type_delta;
-					id += (id == GDSCRIPT_COLON) * (expected.size > 0) * type_delta;
+					/* const gdscript_id_t id2 = num > 1 ? ids[num - 2] : GDSCRIPT_NONE; */
+					/* const gdscript_id_t type_delta = GDSCRIPT_OP_TYPE - GDSCRIPT_COLON; */
+					/* id += (id == GDSCRIPT_COLON) * (id2 == GDSCRIPT_VAR) * type_delta; */
+					/* id += (id == GDSCRIPT_COLON) * (id2 == GDSCRIPT_CONST) * type_delta; */
+					/* id += (id == GDSCRIPT_COLON) * (expected.size > 0) * type_delta; */
 					const gdscript_id_t comma_delta = GDSCRIPT_EXTRA_COMMA - GDSCRIPT_COMMA;
-					id += (id == GDSCRIPT_COMMA) * (id1 == GDSCRIPT_EXTRA_COMMA) * comma_delta;
-					id += (id == GDSCRIPT_COMMA) * (id1 == GDSCRIPT_COMMA) * comma_delta;
-					id += (id == GDSCRIPT_COMMA) * (expected.size == 0) * comma_delta;
+					id += (id == GDSCRIPT_COMMA) * (id1 == GDSCRIPT_COMMA || id1 == GDSCRIPT_EXTRA_COMMA || expected.size == 0) * comma_delta;
+					/* id += (id == GDSCRIPT_COMMA) * (id1 == GDSCRIPT_EXTRA_COMMA) * comma_delta; */
+					/* id += (id == GDSCRIPT_COMMA) * (id1 == GDSCRIPT_COMMA) * comma_delta; */
+					/* id += (id == GDSCRIPT_COMMA) * (expected.size == 0) * comma_delta; */
 					/* i += len - 1; */
 					/* int16_t id_mask = id; */
 					if (id_stack_peek(&expected) == id)
