@@ -229,72 +229,10 @@ int gdscript_parser_test(int argc, char** argv)
 	num_tokens = diagnostics_post_flex(&table, src_len, "RewindAbility.gd");
 	arena_t* shunt_arena = scratch_checkout_size(7 * num_tokens);
 	token_table_t shunt_table = {};
-	/* MICROTIME(num_tokens= shunt(shunt_arena, &shunt_table, &table, num_tokens);) */
-	/* scratch_checkin(flex_arena); */
-	print_allman(src, table.offsets, table.lens, table.ids, table.num_tokens);
+	MICROTIME(num_tokens= shunt(shunt_arena, &shunt_table, &table, num_tokens);)
+	scratch_checkin(flex_arena);
+	print_allman(src, shunt_table.offsets, shunt_table.lens, shunt_table.ids, shunt_table.num_tokens);
 	printf("tokens: %d, src size: %d, token_size: %d, max size: %d\n", num_tokens, src_len, num_tokens * 7, 8 * src_len + 4096);
 	return 0;
-	/* uint32_t num_tokens = gdscript_tokenize(&arena, &tokens, &ids, src, src_len); */
-	/* for (uint32_t i = 0; i < num_tokens; ++i) */
-	/* { */
-	/* 	const char* token = src + table.offsets[i]; */
-	/* 	gdscript_id_t id = table.ids[i]; */
-	/* 	/\* char* str = alloca(t.len + 1); *\/ */
-	/* 	/\* memcpy(str, t.string, t.len); *\/ */
-	/* 	/\* str[t.len] = '\0'; *\/ */
-	/* 	/\* uint32_t line = 1; *\/ */
-	/* 	/\* uint32_t col = 1; *\/ */
-	/* 	/\* for (int j = 0; j < t.pos; ++j) *\/ */
-	/* 	/\* { *\/ */
-	/* 	/\* 	const uint8_t newline_flag = src[j] == '\n'; *\/ */
-	/* 	/\* 	line += newline_flag; *\/ */
-	/* 	/\* 	col = col * (1 - newline_flag) + 1; *\/ */
-	/* 	/\* } *\/ */
-	/* 	/\* printf("%d:%d:(%#06x) \n", line, col, id); *\/ */
-	/* 	printf("%d:%d:(%#06x) ", token_line(&table, i), token_column(&table, i), id); */
-	/* 	for (int j = 0; j < table.lens[i]; ++j) */
-	/* 	{ */
-	/* 		printf("%c", token[j]); */
-	/* 	} */
-	/* 	printf("\n"); */
-	/* } */
-/* 	printf("SIZE: %zu, CAP: %zu\n", arena->size, arena->cap); */
-/* #define PRINT(A) printf("%#04x: " #A "\n", A) */
-/* 	PRINT(GDSCRIPT_COMMENT); */
-/* 	PRINT(GDSCRIPT_OP_DOT); */
-/* 	PRINT(GDSCRIPT_PERIOD); */
-/* 	PRINT(GDSCRIPT_EOF); */
-/* 	PRINT(GDSCRIPT_NUMBER); */
-/* 	PRINT(GDSCRIPT_IDENTIFIER); */
-/* 	PRINT(GDSCRIPT_NUMBER_CANDIDATE); */
-/* 	PRINT(GDSCRIPT_LEADING_WHITESPACE); */
-/* 	PRINT(GDSCRIPT_WHITESPACE); */
-/* 	PRINT(GDSCRIPT_SCOPE_START); */
-/* 	PRINT(GDSCRIPT_SCOPE_END); */
-/* 	#undef PRINT */
-	print_allman(src, table.offsets, table.lens, table.ids, table.num_tokens);
-	/* print_clarity(src, table.offsets, table.lens, table.ids, table.num_tokens); */
-	/* print_ids(src, table.offsets, table.lens, table.ids, num_tokens); */
-
-
-	SCRATCH* arena2 = scratch_checkout_size(flex_arena->size);
-	token_table_t rpn =
-	{
-		.src = src,
-		.num_tokens = num_tokens,
-	};
-	rpn.offsets = arena2->allocation;
-	rpn.lens = rpn.offsets + num_tokens;
-	rpn.ids = rpn.lens + num_tokens;
-	MICROTIME(num_tokens = gdscript_shunt(&rpn, &table, num_tokens);)
-	/* printf("\n"); */
-	/* for(int32_t i = 0; i < rpn.num_tokens; ++i) */
-	/* { */
-	/* 	printf("%03d: %d\n", i, rpn.offsets[i]); */
-	/* } */
-	print_ids(src, rpn.offsets, rpn.lens, rpn.ids, num_tokens);
-	/* printf("\n\nSHUNTED:\n"); */
-	/* print_allman(src, rpn.offsets, rpn.lens, rpn.ids, num_tokens); */
-	/* print_tokens(src, table.offsets, table.lens, table.num_tokens); */
 	return 0;
 }
