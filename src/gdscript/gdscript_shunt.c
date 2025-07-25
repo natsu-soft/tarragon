@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include "token.h"
 #include "gdscript_ids.h"
+#include "print_diagnostics.h"
 #include "../macro_stack.h"
 STACK(i32, int32_t)
 #include "../allocators/scratch.h"

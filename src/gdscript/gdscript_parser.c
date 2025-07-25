@@ -1,9 +1,11 @@
 #include "gdscript_parser.h"
 #include <stdio.h>
+#include "gdscript_ids.h"
 #include "token.h"
 #include <stdlib.h>
 #include "gdscript_lexer.h"
 #include "flexer.h"
+#include "diagnostics.h"
 #include "gdscript_shunt.h"
 #include "../benchmark.h"
 #include "../file_sys.h"
@@ -43,47 +45,62 @@ void print_allman(const char* src, const int32_t* offsets, const int16_t* lens, 
 		const gdscript_id_t id = ids[i];
 		switch(id)
 		{
-			/* case GDSCRIPT_ERROR: */
-			/* 	printf("$ERR "); */
-			/* 	break; */
-			case GDSCRIPT_LINE_CONTINUE:
-				printf("$CONT");
-				break;
-			case GDSCRIPT_EOF:
-				printf("$EOF\n");
-				break;
-			case GDSCRIPT_SCOPE_START:
-				printf("%d\n", depth);
-				++depth;
-				newline = 1;
-				break;
-			case GDSCRIPT_SCOPE_END:
-				--depth;
-				printf("\b\b\b\b%d\n", depth);
-				newline = 1;
-				break;
-			case GDSCRIPT_LINE_END:
-				printf("\n");
-				newline = 1;
-				break;
-			default:
-				if (id < GDSCRIPT_ERROR_THRESHOLD)
+		/* case GDSCRIPT_ERROR: */
+		/* 	printf("$ERR "); */
+		/* 	break; */
+		case GDSCRIPT_LINE_CONTINUE:
+			printf("$CONT");
+			break;
+		case GDSCRIPT_EOF:
+			printf("$EOF\n");
+			break;
+		case GDSCRIPT_FAKE_SCOPE_START: __attribute__((fallthrough));
+		case GDSCRIPT_SCOPE_START:
+			/* printf("%d\n", depth); */
+			printf("{\n");
+			/* printf("{"); */
+			++depth;
+			newline = 1;
+			break;
+		case GDSCRIPT_FAKE_SCOPE_END: __attribute__((fallthrough));
+		case GDSCRIPT_SCOPE_END:
+			--depth;
+			/* printf("\b\b\b\b%d", depth); */
+			printf("\b\b\b\b}");
+			/* printf("}"); */
+			newline = 1;
+			break;
+		case GDSCRIPT_LINE_END:
+			printf("\n");
+			newline = 1;
+			break;
+		default:
+			if (id < GDSCRIPT_NUM_BUILTIN)
+			{
+				switch (id)
 				{
-					for (int32_t j = 0; j < lens[i]; ++j)
-					{
-						printf("%c", token[j]);
-					}
-				}
-				else
-				{
-					switch (id)
-					{
-#define X(ID, ...) case GDSCRIPT_##ID: printf("#ERR_" #ID); break;
-						GDSCRIPT_ERRORS
+#define X(ID, STR,...) case GDSCRIPT_##ID: printf(STR); break;
+					GDSCRIPT_BUILTIN_TOKENS
 #undef X
-					}
 				}
-				printf(" ");
+			}
+			else if (id < GDSCRIPT_ERROR_THRESHOLD)
+			{
+				for (int32_t j = 0; j < lens[i]; ++j)
+				{
+					printf("%c", token[j]);
+				}
+			}
+			else
+			{
+				switch (id)
+				{
+#define X(ID, ...) case GDSCRIPT_##ID: printf("#ERR_" #ID); break;
+					GDSCRIPT_ERRORS
+#undef X
+				}
+			}
+			printf(" ");
 		}
 	}
 }
@@ -207,8 +224,10 @@ int gdscript_parser_test(int argc, char** argv)
 	arena_grow(arena, 8 * src_len + 4096);
 	MICROTIME(num_tokens = gdscript_lex(arena, &table, src, src_len);)
 	MICROTIME(num_tokens = gdscript_flex(arena, &table, src, src_len);)
-	print_ids(src, table.offsets, table.lens, table.ids, table.num_tokens);
+	/* print_ids(src, table.offsets, table.lens, table.ids, table.num_tokens); */
+	int32_t num0 = diagnostics_post_flex(&table, src_len, "RewindAbility.gd");
 	/* print_allman(src, table.offsets, table.lens, table.ids, table.num_tokens); */
+	printf("tokens: %d, src size: %d, token_size: %d, max size: %d\n", num_tokens, src_len, num_tokens * 7, 8 * src_len + 4096);
 	return 0;
 	/* uint32_t num_tokens = gdscript_tokenize(&arena, &tokens, &ids, src, src_len); */
 	/* for (uint32_t i = 0; i < num_tokens; ++i) */

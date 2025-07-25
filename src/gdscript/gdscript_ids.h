@@ -16,7 +16,8 @@
 	X(BRACKET_CLOSE, "]",	1)  \
 	X(PAREN_OPEN,	 "(",	1)	\
 	X(BRACE_OPEN,	 "{",	1)	\
-	X(BRACKET_OPEN,	 "[",	1)
+	X(BRACKET_OPEN,	 "[",	1) \
+	X(NESTED_COLON,		 ":",	1) // it doesn't dump expected, unlike regular colons
 
 // NOTE: REORDER CAREFULLY! A switch in gdscript_shunt is order dependent
 #define GDSCRIPT_BINARY_OPERATORS  					   \
@@ -52,7 +53,7 @@
 	X(OP_LESS_THAN,					"<",			1) \
 	X(OP_GREATER_THAN,				">",			1) \
 	X(OP_ASSIGNMENT,			     "=",			1) \
-	X(OP_TYPE,			     ":",			1) // NOTE: colon matches first AND THATS A GOOD THING!
+	X(OP_TYPE,			     ":",			1) // NOTE: I hate this.
 
 // NOTE: REORDER CAREFULLY! A switch in gdscript_shunt is order dependent
 #define GDSCRIPT_UNARY_OPERATORS	\

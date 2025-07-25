@@ -58,7 +58,7 @@ static struct {
 	X(BRACKET_OPEN) \
 	X(SCOPE_START) \
 	X(SCOPE_END) \
-	X(EXTRA_COMMA) \
+	X(EXTRA_COMMA)
 
 /* #define BESPOKE_DELIM_CHARS \ */
 /* 	X('@') */
@@ -158,6 +158,8 @@ static void init_flexer(void)
 	/* } */
 	/* fflush(stdout); */
 }
+
+#undef UNARY_TRIGGERS
 
 static const gdscript_id_t missing(const gdscript_id_t id)
 {
@@ -484,8 +486,23 @@ enum __attribute__((packed))
 	COLON_PREV		  = 0x04,
 };
 
-static void hustle(const gdscript_id_t id0, int32_t* const offsets, int16_t* const lens, gdscript_id_t* const ids, int32_t* const num, id_stack* const expected)
+static const int32_t just_offending_lws(int32_t* offsets, const int32_t i0, const char* src, const int32_t n, const char bad_lws)
 {
+	int32_t res = 0;
+	for (int32_t i = 0; i < n; ++i)
+	{
+		const char c = src[i];
+		if (c != ' ' && c != '\t')
+		{
+			for (; i < n && src[i] != '\n'; ++i);
+		}
+		else if (c == bad_lws)
+		{
+			offsets[res] = i;
+			++res;
+		}
+	}
+	return res;
 }
 
 // arena_t has atleast 8 * n + 4096 bytes. Extras for inserting scope tokens & missing closing pairs.
@@ -547,11 +564,6 @@ int32_t gdscript_flex(arena_t* arena, token_table_t* table, const char* src, con
 	};
 	uint8_t oneline_mask = 0x00;
 	int16_t lws = 0;
-#define UNARY_PRECEDERS \
-	GDSCRIPT_OPERATORS \
-	X(NONE) \
-		X(SEMICbciw)
-	int16_t num_unary_preceders = 0;
 	/* char prev_c = 0; */
 	for (int32_t i = 0; i < n; ++i)
 	{
@@ -595,7 +607,7 @@ int32_t gdscript_flex(arena_t* arena, token_table_t* table, const char* src, con
 								}
 							}
 							offsets[num + N - j] = offsets[num0];
-							lens[num + N - j] = offset0 - offsets[num0];
+							lens[num + N - j] = i - offsets[num0];
 							ids[num + N - j] = missing(open_id - 3);
 						}
 						num += N;
@@ -692,12 +704,11 @@ int32_t gdscript_flex(arena_t* arena, token_table_t* table, const char* src, con
 				{
 					int16_t len;
 					gdscript_id_t id = tokenize(src, i, n, &len); // NOTE: DO NOT ADD 1 TO i
+					const gdscript_id_t peek_id = expected.size > 0 ? id_stack_peek(&expected) : GDSCRIPT_NONE;
 					const gdscript_id_t id1 = num > 0 ? ids[num - 1] : GDSCRIPT_NONE;
 					/* const gdscript_id_t id2 = num > 1 ? ids[num - 2] : GDSCRIPT_NONE; */
-					/* const gdscript_id_t type_delta = GDSCRIPT_OP_TYPE - GDSCRIPT_COLON; */
-					/* id += (id == GDSCRIPT_COLON) * (id2 == GDSCRIPT_VAR) * type_delta; */
-					/* id += (id == GDSCRIPT_COLON) * (id2 == GDSCRIPT_CONST) * type_delta; */
-					/* id += (id == GDSCRIPT_COLON) * (expected.size > 0) * type_delta; */
+					const gdscript_id_t nest_delta = GDSCRIPT_NESTED_COLON - GDSCRIPT_COLON;
+					id += (id == GDSCRIPT_COLON) * (peek_id != GDSCRIPT_NONE) * nest_delta;
 					const gdscript_id_t comma_delta = GDSCRIPT_EXTRA_COMMA - GDSCRIPT_COMMA;
 					id += (id == GDSCRIPT_COMMA) * (id1 == GDSCRIPT_COMMA || id1 == GDSCRIPT_EXTRA_COMMA || expected.size == 0) * comma_delta;
 					/* id += (id == GDSCRIPT_COMMA) * (id1 == GDSCRIPT_EXTRA_COMMA) * comma_delta; */
@@ -705,7 +716,7 @@ int32_t gdscript_flex(arena_t* arena, token_table_t* table, const char* src, con
 					/* id += (id == GDSCRIPT_COMMA) * (expected.size == 0) * comma_delta; */
 					/* i += len - 1; */
 					/* int16_t id_mask = id; */
-					if (id_stack_peek(&expected) == id)
+					if (peek_id == id)
 					{
 						--expected.size;
 					}
@@ -728,8 +739,10 @@ int32_t gdscript_flex(arena_t* arena, token_table_t* table, const char* src, con
 						}
 						if (match_index > -1)
 						{
-							int32_t num0 = num > 0 ? num - 1 : 0;
+							/* int32_t num0 = num > 0 ? num - 1 : 0; */
+							int32_t num0 = num;
 							const int32_t offset0 = offsets[num0];
+							/* const int16_t len0 = lens[num0]; */
 							for (int32_t j = N; j > match_index + 1; --j)
 							{
 								const gdscript_id_t open_id = expected_ids[j - 1] + 3;
@@ -746,7 +759,7 @@ int32_t gdscript_flex(arena_t* arena, token_table_t* table, const char* src, con
 									}
 								}
 								offsets[num + N - j] = offsets[num0];
-								lens[num + N - j] = offset0 - offsets[num0];
+								lens[num + N - j] = i - offsets[num0];
 								ids[num + N - j] = missing(open_id - 3);
 								--num0;
 							}
@@ -772,12 +785,14 @@ int32_t gdscript_flex(arena_t* arena, token_table_t* table, const char* src, con
 						}
 					}
 					#define X(ID, ...) || id == GDSCRIPT_##ID
-					else if (expected.size > 0 && id == GDSCRIPT_COLON GDSCRIPT_ASSIGNMENT_OPERATORS)
+					else if (peek_id != GDSCRIPT_NONE && id == GDSCRIPT_COLON  GDSCRIPT_ASSIGNMENT_OPERATORS)
 					#undef X
 					{
 						const int32_t N = expected.size;
-						int32_t num0 = num > 0 ? num - 1 : 0;
+						/* int32_t num0 = num > 0 ? num - 1 : 0; */
+						int32_t num0 = num;
 						const int32_t offset0 = offsets[num0];
+						/* const int16_t len0 = lens[num0]; */
 						const gdscript_id_t* expected_ids = expected.allocation;
 						for (int j = N; j > 0; --j)
 						{
@@ -795,7 +810,8 @@ int32_t gdscript_flex(arena_t* arena, token_table_t* table, const char* src, con
 								}
 							}
 							offsets[num + N - j] = offsets[num0];
-							lens[num + N - j] = offset0 - offsets[num0];
+							/* lens[num + N - j] = offset0 - offsets[num0] + len0; */
+							lens[num + N - j] = i - offsets[num0];
 							ids[num + N - j] = missing(open_id - 3);
 							--num0;
 						}
@@ -855,16 +871,20 @@ int32_t gdscript_flex(arena_t* arena, token_table_t* table, const char* src, con
 			lex_mask |= c == '\t' ? LWS_TABS : LWS_SPACES;
 			if ((lex_mask & LWS_MASK) == LWS_BOTH)
 			{
-				lens = offsets + 1;
-				ids = lens + 1;
+				/* offsets[0] = i; */
+				int32_t res = just_offending_lws(offsets, i, src, n, c);
+				lens = offsets + res;
+				ids = lens + res;
+				for (int32_t i = 0; i < res; ++i)
+				{
+					lens[i] = 1;
+					ids[i] = GDSCRIPT_MIXED_LWS;
+				}
 				table->offsets = offsets;
 				table->lens = lens;
 				table->ids = ids;
-				table->num_tokens = 1;
-				*offsets = 0;
-				*lens = n;
-				*ids = GDSCRIPT_MIXED_LWS;
-				return 1;
+				table->num_tokens = res;
+				return res;
 			}
 		}
 		else if (c == '\n')
@@ -970,15 +990,21 @@ int32_t gdscript_flex(arena_t* arena, token_table_t* table, const char* src, con
 	// use memmove since memory might overlap
 	lens = memmove(offsets + num + 1, lens, 2 * num);
 	ids = memmove(lens + num + 1, ids, num);
-	const gdscript_id_t fake_delta = GDSCRIPT_SCOPE_START - GDSCRIPT_FAKE_SCOPE_START;
-	for (int32_t i = 0; i < num; ++i)
-	{
-		const gdscript_id_t id = ids[i];
-		ids[i] += (id == GDSCRIPT_FAKE_SCOPE_START || id == GDSCRIPT_FAKE_SCOPE_END) * fake_delta;
-		ids[i] = id == GDSCRIPT_NOT ? GDSCRIPT_OP_BOOL_NOT : id;
-		ids[i] = id == GDSCRIPT_AND ? GDSCRIPT_OP_BOOL_AND : id;
-		ids[i] = id == GDSCRIPT_OR ? GDSCRIPT_OP_BOOL_OR : id;
-	}
+	// NOTE: do this during the diagnostics post flex
+	/* const gdscript_id_t fake_delta = GDSCRIPT_SCOPE_START - GDSCRIPT_FAKE_SCOPE_START; */
+	/* const gdscript_id_t or_delta = GDSCRIPT_OP_BOOL_OR - GDSCRIPT_OR; */
+	/* const gdscript_id_t and_delta = GDSCRIPT_OP_BOOL_AND - GDSCRIPT_AND; */
+	/* const gdscript_id_t not_delta = GDSCRIPT_OP_BOOL_NOT - GDSCRIPT_NOT; */
+	/* const gdscript_id_t nest_delta = GDSCRIPT_COLON - GDSCRIPT_NESTED_COLON; */
+	/* for (int32_t i = 0; i < num; ++i) */
+	/* { */
+	/* 	const gdscript_id_t id = ids[i]; */
+	/* 	ids[i] += (id == GDSCRIPT_FAKE_SCOPE_START || id == GDSCRIPT_FAKE_SCOPE_END) * fake_delta; */
+	/* 	ids[i] += (id == GDSCRIPT_OR) * or_delta; */
+	/* 	ids[i] += (id == GDSCRIPT_AND) * and_delta; */
+	/* 	ids[i] += (id == GDSCRIPT_NOT) * not_delta; */
+	/* 	ids[i] += (id == GDSCRIPT_NESTED_COLON) * nest_delta; */
+	/* } */
 	// FINALLY, insert EOF
 	offsets[num] = n;
 	lens[num] = 0;
