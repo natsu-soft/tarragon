@@ -16,8 +16,7 @@
 	X(BRACKET_CLOSE, "]",	1)  \
 	X(PAREN_OPEN,	 "(",	1)	\
 	X(BRACE_OPEN,	 "{",	1)	\
-	X(BRACKET_OPEN,	 "[",	1) \
-	X(NESTED_COLON,		 ":",	1) // it doesn't dump expected, unlike regular colons
+	X(BRACKET_OPEN,	 "[",	1)
 
 // NOTE: REORDER CAREFULLY! A switch in gdscript_shunt is order dependent
 #define GDSCRIPT_BINARY_OPERATORS  					   \
@@ -78,13 +77,11 @@
 	X(OP_ASSIGNMENT_INFERRED,		":=",			2) \
 	X(OP_ASSIGNMENT,			     "=",			1)
 
-#define NUM_NON_ASSIGNMENT_OPERATORS 30
-#define GDSCRIPT_NON_ASSIGNMENT_OPERATORS \
+#define NUM_NON_ASSIGNMENT_OPERATORS 26
+#define GDSCRIPT_REGULAR_OPERATORS \
 	X(IS,		  "is",				2) \
 	X(IN,		  "in",				2) \
 	X(AS,		  "as",				2) \
-	X(OR,		  "or",				2) \
-	X(AND,		  "and",				3) \
 	X(OP_POWER,					    "**",			2) \
 	X(OP_PRODUCT,				    "*",			1) \
 	X(OP_SUM,					    "+",			1) \
@@ -104,12 +101,10 @@
 	X(OP_LESS_THAN,					"<",			1) \
 	X(OP_GREATER_THAN_EQUALS,		">=",			2) \
 	X(OP_GREATER_THAN,				">",			1) \
-	X(NOT,		"not",				3) \
 	X(OP_BITWISE_NOT,	 "~",	1)	\
 	X(OP_IDENTITY,		 "+",	1)	\
 	X(OP_NEGATION,		 "-",	1)	\
 	X(OP_BOOL_NOT,		 "!",	1) \
-	X(OP_TYPE,			     ":",			1) // NOTE: colon matches first AND THATS A GOOD THING!
 
 #define GDSCRIPT_ANNOTATIONS											\
 	X(EXPORT_CATEGORY,				"@export_category",				16) \
