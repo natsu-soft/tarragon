@@ -5,41 +5,40 @@
 #include "gdscript_ids.h"
 #include "token.h"
 
-
 diagnostics_output_t diagnostics_out = DIAGNOSTICS_STDOUT;
 
 
 void diagnostic_note(const char* msg, const char* src, const int32_t src_len, const char* path, const int32_t offset, const int16_t len)
 {
-	if (diagnostics_out & DIAGNOSTICS_STDOUT)
+	if (diagnostics_out & DIANGOSTICS_JSONRPC)
 	{
-		print_note(msg, src, src_len, path, offset, len);
 	}
 	else
 	{
+		print_note(msg, src, src_len, path, offset, len);
 	}
 	/* TODO */
 }
 
 void diagnostic_warn(const char* msg, const char* src, const int32_t src_len, const char* path, const int32_t offset, const int16_t len)
 {
-	if (diagnostics_out & DIAGNOSTICS_STDOUT)
+	if (diagnostics_out & DIANGOSTICS_JSONRPC)
 	{
-		print_warn(msg, src, src_len, path, offset, len);
 	}
 	else
 	{
+		print_warn(msg, src, src_len, path, offset, len);
 	}
 }
 
 void diagnostic_error(const char* msg, const char* src, const int32_t src_len, const char* path, const int32_t offset, const int16_t len)
 {
-	if (diagnostics_out & DIAGNOSTICS_STDOUT)
+	if (diagnostics_out & DIANGOSTICS_JSONRPC)
 	{
-		print_error(msg, src, src_len, path, offset, len);
 	}
 	else
 	{
+		print_error(msg, src, src_len, path, offset, len);
 	}
 }
 
@@ -56,7 +55,7 @@ const int32_t diagnostics_post_flex(token_table_t* const table, const int32_t sr
 	const gdscript_id_t fake_delta = GDSCRIPT_SCOPE_START - GDSCRIPT_FAKE_SCOPE_START;
 	const gdscript_id_t or_delta = GDSCRIPT_OP_BOOL_OR - GDSCRIPT_OR;
 	const gdscript_id_t and_delta = GDSCRIPT_OP_BOOL_AND - GDSCRIPT_AND;
-	const gdscript_id_t not_delta = GDSCRIPT_OP_BOOL_NOT - GDSCRIPT_NOT;
+	/* const gdscript_id_t not_delta = GDSCRIPT_OP_BOOL_NOT - GDSCRIPT_NOT; */
 	const gdscript_id_t missing_delta = GDSCRIPT_PAREN_CLOSE - GDSCRIPT_MISSING_PAREN_CLOSE;
 	const gdscript_id_t nest_delta = GDSCRIPT_COLON - GDSCRIPT_NESTED_COLON;
 	for (int32_t i = 0; i < num_tokens; ++i)
@@ -67,7 +66,7 @@ const int32_t diagnostics_post_flex(token_table_t* const table, const int32_t sr
 			id += (id == GDSCRIPT_FAKE_SCOPE_START || id == GDSCRIPT_FAKE_SCOPE_END) * fake_delta;
 			id += (id == GDSCRIPT_OR) * or_delta;
 			id += (id == GDSCRIPT_AND) * and_delta;
-			id += (id == GDSCRIPT_NOT) * not_delta;
+			/* id += (id == GDSCRIPT_NOT) * not_delta; */ /* NOTE: not is so fucked I have to shunt first before promoting to OP_BOOL_NOT */
 			id += (id == GDSCRIPT_NESTED_COLON) * nest_delta;
 			offsets[swap] = offsets[i];
 			lens[swap] = lens[i];

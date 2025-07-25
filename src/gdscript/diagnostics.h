@@ -9,7 +9,7 @@ typedef struct token_table_t token_table_t;
 typedef enum __attribute__((packed)) diagnostics_output_t
 {
 	DIAGNOSTICS_STDOUT = 0x01,
-	DIAGNOSTICS_LSP = 0x02,
+	DIANGOSTICS_JSONRPC = 0x02,
 } diagnostics_output_t;
 
 void diagnostic_note(const char* msg, const char* src, const int32_t src_len, const char* path, const int32_t offset, const int16_t len);
