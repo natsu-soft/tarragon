@@ -85,7 +85,7 @@ static const uint8_t default_mask(const gdscript_id_t id)
 {
 	const uint8_t operator =
 		#define X(ID, ...) (id == GDSCRIPT_##ID) |
-		GDSCRIPT_NON_ASSIGNMENT_OPERATORS
+		GDSCRIPT_REGULAR_OPERATORS
 		#undef X
 		/* (id == GDSCRIPT_PERIOD); */
 		0x00;
@@ -123,7 +123,7 @@ const static uint8_t pair_mask(const gdscript_id_t id)
 {
 	const uint8_t operator =
 		#define X(ID, ...) (id == GDSCRIPT_##ID) |
-		GDSCRIPT_NON_ASSIGNMENT_OPERATORS
+		GDSCRIPT_REGULAR_OPERATORS
 		#undef X
 		/* (id == GDSCRIPT_COLON) | */
 		/* (id == GDSCRIPT_PERIOD); */
