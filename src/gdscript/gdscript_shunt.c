@@ -25,7 +25,7 @@ static const bool_t keep_pair_p(const gdscript_id_t id, const gdscript_id_t prev
 {
 	return id != GDSCRIPT_PAREN_OPEN ||
 		prev_id == GDSCRIPT_IDENTIFIER || prev_id == GDSCRIPT_SUPER ||
-		GDSCRIPT_EXPORT_CATEGORY <= id && id <= GDSCRIPT_WARNING_IGNORE;
+		GDSCRIPT_EXPORT_CATEGORY <= prev_id && prev_id <= GDSCRIPT_WARNING_IGNORE;
 	/* if (id != GDSCRIPT_PAREN_OPEN || prev_id == GDSCRIPT_IDENTIFIER || prev_id == GDSCRIPT_SUPER) */
 	/* { */
 	/* 	return true; */
