@@ -16,6 +16,6 @@ void diagnostic_note(const char* msg, const char* src, const int32_t src_len, co
 void diagnostic_warn(const char* msg, const char* src, const int32_t src_len, const char* path, const int32_t offset, const int16_t len);
 void diagnostic_error(const char* msg, const char* src, const int32_t src_len, const char* path, const int32_t offset, const int16_t len);
 
-const int32_t diagnostics_post_flex(token_table_t* const table, const int32_t src_len, const char* path);
+const int32_t diagnostics_pre_analysis(token_table_t* const table, const int32_t src_len, const char* path);
 
 #endif /* End DIAGNOSTICS_H */

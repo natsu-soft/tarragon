@@ -226,14 +226,15 @@ int gdscript_parser_test(int argc, char** argv)
 	MICROTIME(num_tokens = gdscript_flex(flex_arena, &table, src, src_len);)
 	printf("tokens: %d, src size: %d, token_size: %d, max size: %d\n", num_tokens, src_len, num_tokens * 7, 8 * src_len + 4096);
 	/* print_ids(src, table.offsets, table.lens, table.ids, table.num_tokens); */
-	MICROTIME(num_tokens = diagnostics_post_flex(&table, src_len, "RewindAbility.gd");)
+	MICROTIME(num_tokens = diagnostics_pre_analysis(&table, src_len, "RewindAbility.gd");)
 	arena_t* shunt_arena = scratch_checkout_size(7 * num_tokens);
 	/* print_allman(src, table.offsets, table.lens, table.ids, table.num_tokens); */
 	token_table_t shunt_table = {};
 	MICROTIME(num_tokens = gdscript_shunt(shunt_arena, &shunt_table, &table, num_tokens);)
 	scratch_checkin(flex_arena);
-	print_allman(src, shunt_table.offsets, shunt_table.lens, shunt_table.ids, num_tokens);
 	printf("tokens: %d, src size: %d, token_size: %d, max size: %d\n", num_tokens, src_len, num_tokens * 7, 8 * src_len + 4096);
-	return 0;
+	MICROTIME(num_tokens = diagnostics_pre_analysis(&shunt_table, src_len, "RewindAbility.gd");)
+	printf("tokens: %d, src size: %d, token_size: %d, max size: %d\n", num_tokens, src_len, num_tokens * 7, 8 * src_len + 4096);
+	print_allman(src, shunt_table.offsets, shunt_table.lens, shunt_table.ids, num_tokens);
 	return 0;
 }

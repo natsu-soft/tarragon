@@ -9,6 +9,7 @@
 #include "../macro_stack.h"
 STACK(i32, int32_t)
 #include "gdscript_ids.h"
+STACK(id, gdscript_id_t)
 
 #define true 1
 #define false 0
@@ -333,11 +334,11 @@ const int32_t gdscript_shunt(arena_t* arena, token_table_t* dest, const token_ta
 	dest->ids = dest->lens + n;
 	if (n > 0)
 	{
-		SCRATCH* stack_scratch = scratch_checkout_size(n * sizeof(int32_t));
+		SCRATCH* scratch = scratch_checkout_size(n * sizeof(int32_t));
 		/* SCRATCH* indices_scratch = scratch_checkout_size(n * sizeof(int32_t)); */
 		i32_stack stack =
 		{
-			.allocation = stack_scratch->allocation,
+			.allocation = scratch->allocation,
 			.cap = n
 		};
 		// lmao look at this fookn aliasing LMAO
@@ -366,7 +367,16 @@ const int32_t gdscript_shunt(arena_t* arena, token_table_t* dest, const token_ta
 		{
 			offsets[i] = offsets0[indices[i]];
 		}
-		/* dest->src = src->src; */
+		int16_t pair_depth = 0;
+		// KILL WILD COMMAS
+		const gdscript_id_t comma_delta = GDSCRIPT_EXTRA_COMMA - GDSCRIPT_COMMA;
+		for (int32_t i = 0; i < res; ++i)
+		{
+			const gdscript_id_t id = ids[i];
+			pair_depth += (GDSCRIPT_PAREN_OPEN <= id && id <= GDSCRIPT_BRACKET_OPEN);
+			pair_depth -= (GDSCRIPT_PAREN_CLOSE <= id && id <= GDSCRIPT_BRACKET_CLOSE);
+			ids[i] += (id == GDSCRIPT_COMMA) * (pair_depth == 0) * comma_delta;
+		}
 		dest->num_tokens = res;
 		return res;
 	}

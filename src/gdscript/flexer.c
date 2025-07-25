@@ -972,6 +972,21 @@ int32_t gdscript_flex(arena_t* arena, token_table_t* table, const char* src, con
 	lens = memmove(offsets + num + 1, lens, 2 * num);
 	ids = memmove(lens + num + 1, ids, num);
 	// NOTE: do this during the diagnostics post flex
+	// NOTE: ignore the previous note.  It's more sovlfvl here.
+	const gdscript_id_t fake_delta = GDSCRIPT_SCOPE_START - GDSCRIPT_FAKE_SCOPE_START;
+	const gdscript_id_t or_delta = GDSCRIPT_OP_BOOL_OR - GDSCRIPT_OR;
+	const gdscript_id_t and_delta = GDSCRIPT_OP_BOOL_AND - GDSCRIPT_AND;
+	const gdscript_id_t nest_delta = GDSCRIPT_COLON - GDSCRIPT_NESTED_COLON;
+	for (int32_t i = 0; i < num; ++i)
+	{
+		gdscript_id_t id = ids[i];
+		id += (id == GDSCRIPT_FAKE_SCOPE_START || id == GDSCRIPT_FAKE_SCOPE_END) * fake_delta;
+		id += (id == GDSCRIPT_OR) * or_delta;
+		id += (id == GDSCRIPT_AND) * and_delta;
+		/* id += (id == GDSCRIPT_NOT) * not_delta; */ /* NOTE: not is so fucked I have to shunt first before promoting to OP_BOOL_NOT */
+		id += (id == GDSCRIPT_NESTED_COLON) * nest_delta;
+		ids[i] = id;
+	}
 	/* const gdscript_id_t fake_delta = GDSCRIPT_SCOPE_START - GDSCRIPT_FAKE_SCOPE_START; */
 	/* const gdscript_id_t or_delta = GDSCRIPT_OP_BOOL_OR - GDSCRIPT_OR; */
 	/* const gdscript_id_t and_delta = GDSCRIPT_OP_BOOL_AND - GDSCRIPT_AND; */
