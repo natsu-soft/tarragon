@@ -60,6 +60,7 @@ static struct {
 	X(SCOPE_END) \
 	X(EXTRA_COMMA)
 
+
 /* #define BESPOKE_DELIM_CHARS \ */
 /* 	X('@') */
 
@@ -159,8 +160,6 @@ static void init_flexer(void)
 	/* fflush(stdout); */
 }
 
-#undef UNARY_TRIGGERS
-
 static const gdscript_id_t missing(const gdscript_id_t id)
 {
 	#define MISSING \
@@ -232,24 +231,6 @@ static const gdscript_id_t tokenize(const char* src, const int32_t i0, const int
 	}
 	return GDSCRIPT_IDENTIFIER;
 }
-
-/* static int32_t delimiter(const char* src, const int32_t i0, const int32_t n) */
-/* { */
-/* 	const char* delims = flex_table.delim_chars; */
-/* 	const int32_t num_delims = flex_table.num_delim_chars; */
-/* 	for (int32_t i = i0; i < n; ++i) */
-/* 	{ */
-/* 		const char c = src[i]; */
-/* 		for (int8_t j = 0; j < num_delims; ++j) */
-/* 		{ */
-/* 			if (c == delims[j]) */
-/* 			{ */
-/* 				return i; */
-/* 			} */
-/* 		} */
-/* 	} */
-/* 	return n; */
-/* } */
 
 static int32_t num_delimiter(const char* src, const int32_t i0, const int32_t n)
 {

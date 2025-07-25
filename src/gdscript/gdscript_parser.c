@@ -7,7 +7,6 @@
 #include "flexer.h"
 #include "diagnostics.h"
 #include "gdscript_shunt.h"
-#include "shunt.h"
 #include "../benchmark.h"
 #include "../file_sys.h"
 #include "../allocators/scratch.h"
@@ -225,13 +224,15 @@ int gdscript_parser_test(int argc, char** argv)
 	arena_grow(flex_arena, 8 * src_len + 4096);
 	MICROTIME(num_tokens = gdscript_lex(flex_arena, &table, src, src_len);)
 	MICROTIME(num_tokens = gdscript_flex(flex_arena, &table, src, src_len);)
+	printf("tokens: %d, src size: %d, token_size: %d, max size: %d\n", num_tokens, src_len, num_tokens * 7, 8 * src_len + 4096);
 	/* print_ids(src, table.offsets, table.lens, table.ids, table.num_tokens); */
-	num_tokens = diagnostics_post_flex(&table, src_len, "RewindAbility.gd");
+	MICROTIME(num_tokens = diagnostics_post_flex(&table, src_len, "RewindAbility.gd");)
 	arena_t* shunt_arena = scratch_checkout_size(7 * num_tokens);
+	/* print_allman(src, table.offsets, table.lens, table.ids, table.num_tokens); */
 	token_table_t shunt_table = {};
-	MICROTIME(num_tokens= shunt(shunt_arena, &shunt_table, &table, num_tokens);)
+	MICROTIME(num_tokens = gdscript_shunt(shunt_arena, &shunt_table, &table, num_tokens);)
 	scratch_checkin(flex_arena);
-	print_allman(src, shunt_table.offsets, shunt_table.lens, shunt_table.ids, shunt_table.num_tokens);
+	print_allman(src, shunt_table.offsets, shunt_table.lens, shunt_table.ids, num_tokens);
 	printf("tokens: %d, src size: %d, token_size: %d, max size: %d\n", num_tokens, src_len, num_tokens * 7, 8 * src_len + 4096);
 	return 0;
 	return 0;

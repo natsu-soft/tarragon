@@ -4,7 +4,8 @@
 #include <stdint.h>
 
 typedef struct token_table_t token_table_t;
+typedef struct arena_t arena_t;
 
-int32_t gdscript_shunt(token_table_t* const dest, const token_table_t* src, const int32_t n);
+const int32_t gdscript_shunt(arena_t* arena, token_table_t* dest, const token_table_t* src, const int32_t n);
 
 #endif /* End GDSCRIPT_SHUNT_H */

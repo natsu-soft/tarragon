@@ -3,10 +3,6 @@
 
 
 #define GDSCRIPT_STRUCTURE		\
-	X(SEMICOLON,	 ";",	1)	\
-	X(LINE_END,		 "\n",	1)	\
-	X(LINE_CONTINUE, "\\",	1)	\
-	X(COMMENT,		 "#",	1)	\
 	X(PERIOD,		 ".",	1)	\
 	X(COMMA,		 ",",	1)	\
 	X(ARROW,		 "->",	2)	\
@@ -17,7 +13,11 @@
 	X(BRACKET_CLOSE, "]",	1)  \
 	X(PAREN_OPEN,	 "(",	1)	\
 	X(BRACE_OPEN,	 "{",	1)	\
-	X(BRACKET_OPEN,	 "[",	1)
+	X(BRACKET_OPEN,	 "[",	1) \
+	X(SEMICOLON,	 ";",	1)	\
+	X(LINE_END,		 "\n",	1)	\
+	X(LINE_CONTINUE, "\\",	1)	\
+	X(COMMENT,		 "#",	1)
 
 // NOTE: REORDER CAREFULLY! A switch in gdscript_shunt is order dependent
 #define GDSCRIPT_BINARY_OPERATORS  					   \
@@ -83,6 +83,7 @@
 	X(IS,		  "is",				2) \
 	X(IN,		  "in",				2) \
 	X(AS,		  "as",				2) \
+	X(NOT,		  "not",				3) \
 	X(OP_POWER,					    "**",			2) \
 	X(OP_PRODUCT,				    "*",			1) \
 	X(OP_SUM,					    "+",			1) \
@@ -105,8 +106,9 @@
 	X(OP_BITWISE_NOT,	 "~",	1)	\
 	X(OP_IDENTITY,		 "+",	1)	\
 	X(OP_NEGATION,		 "-",	1)	\
-	X(OP_BOOL_NOT,		 "!",	1) \
+	X(OP_BOOL_NOT,		 "!",	1)
 
+// NOTE: DONT TOUCH, RETARD.  ORDER MATTERS FOR keep_pair_p IN gdscript_shunt.c
 #define GDSCRIPT_ANNOTATIONS											\
 	X(EXPORT_CATEGORY,				"@export_category",				16) \
 	X(EXPORT_COLOR_NO_ALPHA,		"@export_color_no_alpha",		22) \

@@ -5,7 +5,7 @@
 #include "gdscript_ids.h"
 #include "token.h"
 
-diagnostics_output_t diagnostics_out = DIAGNOSTICS_STDOUT;
+diagnostics_output_t diagnostics_out = 0x00;
 
 
 void diagnostic_note(const char* msg, const char* src, const int32_t src_len, const char* path, const int32_t offset, const int16_t len)
@@ -13,7 +13,7 @@ void diagnostic_note(const char* msg, const char* src, const int32_t src_len, co
 	if (diagnostics_out & DIANGOSTICS_JSONRPC)
 	{
 	}
-	else
+	else if (diagnostics_out & DIAGNOSTICS_STDOUT)
 	{
 		print_note(msg, src, src_len, path, offset, len);
 	}
@@ -25,7 +25,7 @@ void diagnostic_warn(const char* msg, const char* src, const int32_t src_len, co
 	if (diagnostics_out & DIANGOSTICS_JSONRPC)
 	{
 	}
-	else
+	else if (diagnostics_out & DIAGNOSTICS_STDOUT)
 	{
 		print_warn(msg, src, src_len, path, offset, len);
 	}
@@ -36,7 +36,7 @@ void diagnostic_error(const char* msg, const char* src, const int32_t src_len, c
 	if (diagnostics_out & DIANGOSTICS_JSONRPC)
 	{
 	}
-	else
+	else if (diagnostics_out & DIAGNOSTICS_STDOUT)
 	{
 		print_error(msg, src, src_len, path, offset, len);
 	}
