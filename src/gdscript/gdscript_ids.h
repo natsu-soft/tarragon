@@ -11,6 +11,7 @@
 	X(COMMA,		 ",",	1)	\
 	X(ARROW,		 "->",	2)	\
 	X(COLON,		 ":",	1)	\
+	X(NESTED_COLON,		 ":",	1)	\ // NOTE: you SNEED it if you want to scope oneliners properly
 	X(PAREN_CLOSE,	 ")",	1)	\
 	X(BRACE_CLOSE,	 "}",	1)	\
 	X(BRACKET_CLOSE, "]",	1)  \

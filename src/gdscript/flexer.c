@@ -784,8 +784,8 @@ int32_t gdscript_flex(arena_t* arena, token_table_t* table, const char* src, con
 							}
 						}
 					}
-					#define X(ID, ...) || id == GDSCRIPT_##ID
-					else if (peek_id != GDSCRIPT_NONE && id == GDSCRIPT_COLON  GDSCRIPT_ASSIGNMENT_OPERATORS)
+					#define X(ID, ...) id == GDSCRIPT_##ID ||
+					else if (peek_id != GDSCRIPT_NONE && GDSCRIPT_ASSIGNMENT_OPERATORS false)
 					#undef X
 					{
 						const int32_t N = expected.size;
@@ -819,7 +819,7 @@ int32_t gdscript_flex(arena_t* arena, token_table_t* table, const char* src, con
 						expected.size = 0;
 						// dump expected
 					}
-					if (id == GDSCRIPT_COLON)
+					else if (id == GDSCRIPT_COLON)
 					{
 						for (int32_t j = num - 1; j >= 0; --j)
 						{
