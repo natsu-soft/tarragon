@@ -707,8 +707,8 @@ int32_t gdscript_flex(arena_t* arena, token_table_t* table, const char* src, con
 					const gdscript_id_t peek_id = expected.size > 0 ? id_stack_peek(&expected) : GDSCRIPT_NONE;
 					const gdscript_id_t id1 = num > 0 ? ids[num - 1] : GDSCRIPT_NONE;
 					/* const gdscript_id_t id2 = num > 1 ? ids[num - 2] : GDSCRIPT_NONE; */
-					/* const gdscript_id_t nest_delta = GDSCRIPT_NESTED_COLON - GDSCRIPT_COLON; */
-					/* id += (id == GDSCRIPT_COLON) * (peek_id != GDSCRIPT_NONE) * nest_delta; */
+					const gdscript_id_t nest_delta = GDSCRIPT_NESTED_COLON - GDSCRIPT_COLON;
+					id += (id == GDSCRIPT_COLON) * (peek_id != GDSCRIPT_NONE) * nest_delta;
 					const gdscript_id_t comma_delta = GDSCRIPT_EXTRA_COMMA - GDSCRIPT_COMMA;
 					id += (id == GDSCRIPT_COMMA) * (id1 == GDSCRIPT_COMMA || id1 == GDSCRIPT_EXTRA_COMMA || expected.size == 0) * comma_delta;
 					/* id += (id == GDSCRIPT_COMMA) * (id1 == GDSCRIPT_EXTRA_COMMA) * comma_delta; */
@@ -785,7 +785,7 @@ int32_t gdscript_flex(arena_t* arena, token_table_t* table, const char* src, con
 						}
 					}
 					#define X(ID, ...) || id == GDSCRIPT_##ID
-					else if (peek_id != GDSCRIPT_NONE && id == GDSCRIPT_COMMA  GDSCRIPT_ASSIGNMENT_OPERATORS)
+					else if (peek_id != GDSCRIPT_NONE && id == GDSCRIPT_COLON  GDSCRIPT_ASSIGNMENT_OPERATORS)
 					#undef X
 					{
 						const int32_t N = expected.size;
@@ -819,7 +819,7 @@ int32_t gdscript_flex(arena_t* arena, token_table_t* table, const char* src, con
 						expected.size = 0;
 						// dump expected
 					}
-					else if (peek_id == GDSCRIPT_NONE && id == GDSCRIPT_COLON)
+					if (id == GDSCRIPT_COLON)
 					{
 						for (int32_t j = num - 1; j >= 0; --j)
 						{
