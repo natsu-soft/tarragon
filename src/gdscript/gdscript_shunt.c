@@ -1,6 +1,6 @@
 
 #include "gdscript_shunt.h"
-#include <stdlib.h>
+// #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
 #include "token.h"
@@ -25,7 +25,7 @@ typedef int8_t bool_t;
 static const bool_t keep_pair_p(const gdscript_id_t id, const gdscript_id_t prev_id)
 {
 	return id != GDSCRIPT_PAREN_OPEN ||
-		prev_id == GDSCRIPT_IDENTIFIER || prev_id == GDSCRIPT_SUPER ||
+		prev_id == GDSCRIPT_IDENTIFIER || prev_id == GDSCRIPT_SUPER || // prev_id == GDSCRIPT_PAREN_OPEN ||
 		GDSCRIPT_EXPORT_CATEGORY <= prev_id && prev_id <= GDSCRIPT_WARNING_IGNORE;
 	/* if (id != GDSCRIPT_PAREN_OPEN || prev_id == GDSCRIPT_IDENTIFIER || prev_id == GDSCRIPT_SUPER) */
 	/* { */
@@ -147,8 +147,15 @@ static int32_t shunt_pairs(int32_t* dest, gdscript_id_t* ids0, i32_stack* stack,
 {
 	int32_t swap = *swap0;
 	gdscript_id_t prev_id = stop_id + 3;
+	// muh branch prediction
 	if (keep_pairs)
 	{
+		dest[swap] = i0;
+		++swap;
+	}
+	else if (prev_id == GDSCRIPT_PAREN_OPEN)
+	{
+		ids0[i0] = GDSCRIPT_CULL_PAREN_OPEN;
 		dest[swap] = i0;
 		++swap;
 	}
@@ -195,14 +202,35 @@ static int32_t shunt_pairs(int32_t* dest, gdscript_id_t* ids0, i32_stack* stack,
 			{
 				dest[swap++] = i32_stack_pop(stack);
 			}
-			if (id != stop_id || keep_pairs)
+			// it was too hot to live :(
+			/* if (id != stop_id || keep_pairs) */
+			/* { */
+			/* 	dest[swap++] = i; */
+			/* } */
+			/* if (id == stop_id) */
+			/* { */
+			/* 	*swap0 = swap; */
+			/* 	return i; */
+			/* } */
+			if (id != stop_id)
 			{
 				dest[swap++] = i;
 			}
-			if (id == stop_id)
+			// NOTE: braces & brackets are ALWAYS kept
+			else if (keep_pairs)
 			{
+				dest[swap++] = i;
 				*swap0 = swap;
 				return i;
+			}
+			// So here, you're only dealing with close parens, so just mark it to be culled
+			else
+			{
+				ids0[i] = GDSCRIPT_CULL_PAREN_CLOSE;
+				dest[swap++] = i;
+				*swap0 = swap;
+				return i;
+				// just stop
 			}
 		}
 		else if (id == GDSCRIPT_PERIOD)
@@ -367,18 +395,60 @@ const int32_t gdscript_shunt(arena_t* arena, token_table_t* dest, const token_ta
 		{
 			offsets[i] = offsets0[indices[i]];
 		}
-		int16_t pair_depth = 0;
 		// KILL WILD COMMAS
 		const gdscript_id_t comma_delta = GDSCRIPT_EXTRA_COMMA - GDSCRIPT_COMMA;
+		id_stack pairs =
+		{
+			.allocation = scratch->allocation,
+			.cap = res
+		};
+		int32_t swap = 0;
+		// FACT: CULLS ARE BEING PLACED PROPERLY
 		for (int32_t i = 0; i < res; ++i)
 		{
+			// most things just pass through
 			const gdscript_id_t id = ids[i];
-			pair_depth += (GDSCRIPT_PAREN_OPEN <= id && id <= GDSCRIPT_BRACKET_OPEN);
-			pair_depth -= (GDSCRIPT_PAREN_CLOSE <= id && id <= GDSCRIPT_BRACKET_CLOSE);
-			ids[i] += (id == GDSCRIPT_COMMA) * (pair_depth == 0) * comma_delta;
+			if (id != GDSCRIPT_COMMA && (id < GDSCRIPT_PAREN_CLOSE || GDSCRIPT_BRACKET_OPEN < id) && id != GDSCRIPT_CULL_PAREN_OPEN && id != GDSCRIPT_CULL_PAREN_CLOSE)
+			{
+				offsets[swap] = offsets[i];
+				lens[swap] = lens[i];
+				ids[swap] = id;
+				++swap;
+			}
+			else if (GDSCRIPT_PAREN_OPEN <= id && id <= GDSCRIPT_BRACKET_OPEN)
+			{
+				id_stack_push(&pairs, id);
+				offsets[swap] = offsets[i];
+				lens[swap] = lens[i];
+				ids[swap] = id;
+				++swap;
+			}
+			else if (GDSCRIPT_PAREN_CLOSE <= id && id <= GDSCRIPT_BRACKET_CLOSE)
+			{
+				--pairs.size;
+				offsets[swap] = offsets[i];
+				lens[swap] = lens[i];
+				ids[swap] = id;
+				++swap;
+			}
+			else if (id == GDSCRIPT_COMMA)
+			{
+				offsets[swap] = offsets[i];
+				lens[swap] = lens[i];
+				ids[swap] = id + (pairs.size == 0 || id_stack_peek(&pairs) == GDSCRIPT_CULL_PAREN_OPEN) * comma_delta;
+				++swap;
+			}
+			else if (id == GDSCRIPT_CULL_PAREN_OPEN)
+			{
+				id_stack_push(&pairs, id);
+			}
+			else if (id == GDSCRIPT_CULL_PAREN_CLOSE)
+			{
+				--pairs.size;
+			}
 		}
-		dest->num_tokens = res;
-		return res;
+		dest->num_tokens = swap;
+		return swap;
 	}
 	else
 	{
