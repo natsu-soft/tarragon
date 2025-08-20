@@ -1,5 +1,5 @@
-#ifndef TOKEN_H
-#define TOKEN_H
+#ifndef GDSCRIPT_TOKEN_H
+#define GDSCRIPT_TOKEN_H
 
 #include <stdint.h>
 #include "gdscript_ids.h"
@@ -16,4 +16,4 @@ int32_t token_line(const token_table_t* table, const int32_t index);
 
 int32_t token_column(const token_table_t* table, const int32_t index);
 
-#endif /* End TOKEN_H */
+#endif /* End GDSCRIPT_TOKEN_H */
