@@ -34,8 +34,7 @@ static void get_doc_range(src_range_t* const dest, const char* src, const int32_
 	dest->col1 = col;
 }
 
-// returns the offset col
-static int32_t print_src(const int32_t offset, int32_t len, const src_range_t* range, const char* src, const int32_t src_len)
+static void print_src(const int32_t offset, int32_t len, const src_range_t* range, const char* src, const int32_t src_len)
 {
 	int32_t line = 1;
 	int32_t i = 0;
