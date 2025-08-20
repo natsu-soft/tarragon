@@ -3,12 +3,6 @@
 
 #include <stdint.h>
 
-#ifdef _WIN32
-typedef struct _iobuf FILE;
-#else
-typedef struct _IO_FILE FILE;
-#endif
-
 #define JSON_STRUCTURE_LIST	\
 	X(COMMA,		',')	\
 	X(COLON,		':')	\
