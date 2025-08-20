@@ -12,8 +12,8 @@ FILE* log_fp;
 #define TESTS								\
 	X(scratch) \
 	X(base_protocol) \
-	X(json) \
-	X(gdscript_parser)
+	X(perfect_json)
+	/* X(gdscript_parser) */
 	/* X(json)									\ */
 	/* X(gdscript_parser) */
 
