@@ -2,9 +2,7 @@
 #define XML_H
 
 // NOTE: I assume the xml is perfect (its generated)
-
-// OH MY GOD I HAVE TO TOKENIZE LMAO HAHAHA
-// UPDATE: NO.
+// ya im out here zero-copying :^)
 
 #include <stdint.h>
 
@@ -23,17 +21,8 @@ typedef enum __attribute__((packed)) xml_ret_t
 	XML_HAS_NESTED	= 0x04
 }	xml_ret_t;
 
-xml_ret_t next_elem(char** str, int32_t* len, xml_t* xml, xml_t* attributes_xml, xml_t* nested_xml);
+xml_ret_t xml_next_attribute(char** attribute, int32_t* a_len, char** value, int32_t* v_len, xml_t* xml);
 
-uint8_t next_attribute(char** attribute, int32_t* a_len, char** value, int32_t* v_len, xml_t* xml);
+uint8_t xml_next_elem(char** str, int32_t* len, xml_t* xml, xml_t* attributes_xml, xml_t* nested_xml);
 
 #endif /* End XML_H */
-
-
-	/* const char d = src[i]; */
-	/* if (depth >= 0) { continue; } */
-	/* else */
-	/* { */
-	/* 	nested_xml->len = i - nest_pos + 1; */
-	/* 	break; */
-	/* } */
