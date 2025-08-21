@@ -40,8 +40,33 @@ int ms_munmap(void* addr, size_t len)
 #endif
 }
 
+/****************************************************************************/
+/* When MAP_FIXED is set in the flags argument, the implementation  is  in‐ */
+/* formed that the value of pa shall be addr, exactly. If MAP_FIXED is set, */
+/* mmap()  may return MAP_FAILED and set errno to [EINVAL].  If a MAP_FIXED */
+/* request is successful, then any previous mappings or  memory  locks  for */
+/* those  whole  pages containing any part of the address range [pa,pa+len) */
+/* shall be removed, as if by an appropriate call to munmap(),  before  the */
+/* new mapping is established.											   */
+/****************************************************************************/
 
-void* ms_map_file(const char* filename, size_t len, handle_t* out_handle)
+void* ms_map_entire_file(const char* filename, int32_t* out_len, ms_handle_t* out_handle)
+{
+#ifdef _WIN32
+	assert(0 && "LMAO IMPLEMENT ms_map_entire_fil() on Wangblows\n");
+	return NULL;
+#else
+	/* int filedesc = open(filename, O_RDWR | O_CREAT | O_APPEND, 0400 | 0200); */
+	int filedesc = open(filename, O_RDWR, 0400 | 0200);
+	assertf(filedesc != -1, "failed to get filedesc in ms_map_file_into_arena().  Check the perms!\n");
+	const int32_t len = lseek(filedesc, 0, SEEK_END);
+	*out_len = len;
+	*out_handle = filedesc;
+	return mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_SHARED, filedesc, 0);
+#endif
+}
+
+void* ms_map_file(const char* filename, size_t len, ms_handle_t* out_handle)
 {
 #ifdef _WIN32
 	// see: https://learn.microsoft.com/en-us/windows/win32/memory/file-mapping
@@ -69,7 +94,7 @@ void* ms_map_file(const char* filename, size_t len, handle_t* out_handle)
 #endif
 }
 
-int ms_munmap_file(void* addr, size_t len, handle_t handle)
+int ms_munmap_file(void* addr, size_t len, ms_handle_t handle)
 {
 #ifdef _WIN32
 	BOOL res = UnmapViewOfFile(addr);
@@ -77,6 +102,14 @@ int ms_munmap_file(void* addr, size_t len, handle_t handle)
 	return 1 - res;
 #else
 	int res = munmap(addr, len);
+	/*
+       The  mmap() function shall add an extra reference to the file associated
+       with the file descriptor fildes which is not  removed  by  a  subsequent
+       close()  on  that  file descriptor. This reference shall be removed when
+       there are no more mappings to the file.
+
+	   So, should I close the handle or not?
+	 */
 	assert(close(handle) == 0);
 	return res;
 #endif
@@ -148,7 +181,7 @@ void ms_buffer_swap(void* a, void* b, void* buf, const size_t len)
 
 int mem_sys_test(int argc, char** argv)
 {
-	handle_t file_handle;
+	ms_handle_t file_handle;
 	char* ptr = ms_map_file("map.txt", 1024, &file_handle);
 	const char* string = "BASED BASED BASED";
 	memcpy(ptr, string, strlen(string));
