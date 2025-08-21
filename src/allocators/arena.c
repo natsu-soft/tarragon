@@ -13,13 +13,13 @@ void arena_init(arena_t* arena, const size_t bytes)
 	arena->allocation = malloc(bytes);
 }
 
-void arena_grow(arena_t* arena, const size_t bytes)
+void arena_grow(arena_t* arena, const size_t new_size)
 {
-	if (arena->cap >= bytes + REALLOC_OVERHEAD) return;
-	uint8_t* allocation = realloc(arena->allocation, bytes + REALLOC_OVERHEAD);
+	if (arena->cap >= new_size) return;
+	uint8_t* allocation = realloc(arena->allocation, new_size + REALLOC_OVERHEAD);
 	assert(allocation != NULL && "failed to grow arena!");
 	arena->allocation = allocation;
-	arena->cap = bytes + REALLOC_OVERHEAD;
+	arena->cap = new_size + REALLOC_OVERHEAD;
 }
 
 void* arena_alloc(arena_t* arena, const size_t bytes)

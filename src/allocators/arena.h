@@ -13,7 +13,7 @@ typedef struct arena_t
 
 void arena_init(arena_t* arena, const size_t bytes);
 
-void arena_grow(arena_t* arena, const size_t bytes);
+void arena_grow(arena_t* arena, const size_t new_size);
 
 void* arena_alloc(arena_t* arena, const size_t bytes);
 
