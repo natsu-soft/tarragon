@@ -11,8 +11,8 @@ CFLAGS := -Wall -Wextra -Wno-int-conversion -fpermissive -fdiagnostics-show-opti
 # CFLAGS := -Wall -Wextra -Wno-int-conversion -fpermissive -fdiagnostics-show-option -O2
 LIBS :=
 LDFLAGS := -fuse-ld=lld -flto -static
-MAINS := src/tarragon.c src/tests.c
-IGNORE := src/gdscript/gdscript_ast.c src/gdscript/gdscript_tokenizer.c
+MAINS := src/tarragon.c src/tests.c src/builtin_generator.c
+IGNORE := src/gdscript/gdscript_ast.c src/gdscript/gdscript_tokenizer.c src/logger.c src/builtin.c
 ALL_SRC := $(wildcard src/*.c)
 ALL_SRC += $(wildcard src/*/*.c)
 SRC := $(filter-out $(IGNORE), $(filter-out $(MAINS), $(ALL_SRC)))
@@ -24,7 +24,7 @@ JSON_OBJS :=  obj/default_config.o
 ALL_OBJ := $(patsubst src/%.c,obj/%.o,$(ALL_SRC))
 OBJ += $(HEX_OBJS) $(JSON_OBJS)
 
-.PHONY: default dependencies clean clean-dep clean-emacs clean-all dep_dirs obj_dirs lsp-test test test2 test/%
+.PHONY: default dependencies clean clean-dep clean-emacs clean-all dep_dirs obj_dirs lsp-test test test2 test/% test_gen
 
 default: tarragon
 
@@ -33,20 +33,32 @@ test/%:
 	${CURDIR}/test_$*
 	@echo "TESTED: src/$*.c"
 
-tarragon: obj/tarragon.o $(OBJ)
+tarragon: obj/tarragon.o obj/builtin.o $(OBJ)
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS) $(LDFLAGS)
 	file $@
 
 tests: obj/tests.o $(OBJ)
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS) $(LDFLAGS)
 
-test: tests
+# test: tests
+# 	${CURDIR}/$<
+
+test: builtin-generator
 	${CURDIR}/$<
 
 obj/%.o: src/%.c dep/%.d | obj_dirs
 	$(CC) $(CFLAGS) -c $< -o $@ $(LIBS)
 
 dependencies: $(DEP)
+
+builtin-generator: obj/builtin_generator.o $(OBJ)
+	$(CC) $(CFLAGS) -o $@ $^ $(LIBS) $(LDFLAGS)
+
+src/builtin.gen: builtin-generator extension_api.json 
+	${CURDIR}/$<
+
+obj/builtin.o: src/builtin.c src/builtin.gen | dep_dirs
+	$(CC) $(CFLAGS) -o $@ $<
 
 dep/%.d: src/%.c | dep_dirs
 	$(CC) -MM -MP -MT obj/$*.o -MF $@ $< $(LIBS)
@@ -77,6 +89,7 @@ obj_dirs:
 	@mkdir -p obj/
 	@mkdir -p obj/gdscript
 	@mkdir -p obj/allocators
+	@mkdir -p obj/gen
 
 clean:
 	rm -rf *.o obj/*.o *.exe tarragon

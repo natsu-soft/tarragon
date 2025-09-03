@@ -5,7 +5,6 @@
 /* #include "scratch.h" */
 #include "benchmark.h"
 
-
 FILE* log_fp;
 
 
