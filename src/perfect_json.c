@@ -331,7 +331,7 @@ json_id_t pj_parse(json_t* json, arena_t* arena, const char* src, const int32_t 
 }
 
 // return the value of the key
-uint8_t pj_next_key(json_t* json, char** key, int32_t* key_len)
+uint8_t pj_next_key(char** key, int32_t* key_len, json_t* json)
 {
 	int32_t depth = 0;
 	json->index += json->index == 0;
@@ -357,7 +357,7 @@ uint8_t pj_next_key(json_t* json, char** key, int32_t* key_len)
 	return JSON_ERROR;
 }
 
-uint8_t pj_next_value(json_t* json, json_t* value)
+uint8_t pj_next_value(json_t* value, json_t* json)
 {
 	json->index += json->index == 0;
 	/* printf("next_value(): index0: %d, ", json->index); */
@@ -394,7 +394,7 @@ uint8_t pj_next_value(json_t* json, json_t* value)
 			}
 			json->index = i + 1;
 			/* printf("index1: %d, ", json->index); */
-			return bitmask & 0x3f;
+			return bitmask & 0x2f;
 		}
 	}
 	json->index = n - 1;
@@ -481,10 +481,10 @@ int perfect_json_test(int argc, char** argv)
 		int32_t k_len;
 		json_t temp = {0};
 		/* printf("offset: %d\n", json->offsets[json->index]); */
-		while ((res = pj_next_key(json, &key, &k_len)))
+		while ((res = pj_next_key(&key, &k_len, json)))
 		{
 			/* printf("offset: %d\n", json->offsets[json->index]); */
-			res = pj_next_value(json, &temp);
+			res = pj_next_value(&temp, json);
 			/* printf("offset: %d\n", json->offsets[json->index]); */
 			for (int32_t i = 0; i < k_len; ++i)
 			{
@@ -526,4 +526,40 @@ int perfect_json_test(int argc, char** argv)
 		}
 	}
 	return 1 - (p_res != JSON_ERROR);
+}
+
+// GOLD
+void pj_mapc_array(json_func func, json_t* json)
+{
+	json_t value = { 0x00 };
+	while (pj_next_value(&value, json))
+	{
+		func(&value);
+	}
+}
+
+static inline void pack_data(json_data_t* dest, json_t* json)
+{
+		switch (dest->id)
+		{
+		case JSON_TRUE:
+			dest->boolean = 1;
+			break;
+		case JSON_FALSE:
+			dest->boolean = 0;
+			break;
+		case JSON_INTEGER:
+			pj_int(&dest->integer, json);
+			break;
+		case JSON_FLOAT:
+			pj_float(&dest->floater, json);
+			break;
+		case JSON_STRING:
+			pj_str(&dest->str, &dest->len, json);
+			break;
+		case JSON_ARRAY: __attribute__((fallthrough));
+		case JSON_OBJECT:
+			dest->json = json;
+			break;
+		}
 }

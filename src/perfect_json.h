@@ -13,12 +13,12 @@
 
 #define JSON_IDS \
 	JSON_STRUCTURE_LIST \
-	X(INTEGER)  /* 0x07 */ \
-	X(FLOAT) /* 0x08 */ \
-	X(STRING) /* 0x09 */ \
-	X(NULL) /* 0x0a */ \
-	X(TRUE)  /* 0x0b */ \
-	X(FALSE) /* 0x0c */
+	X(INTEGER = 0x08) \
+	X(FLOAT) /* 0x09 */ \
+	X(STRING) /* 0x0a */ \
+	X(NULL) /* 0x0n */ \
+	X(TRUE)  /* 0x0c */ \
+	X(FALSE) /* 0x0d */
 
 
 typedef enum __attribute__((packed)) json_id_t
@@ -48,20 +48,47 @@ typedef struct json_t
 	int32_t index;
 } json_t;
 
+typedef struct json_data_t
+{
+	union
+	{
+		struct
+		{
+			char* str;
+			int32_t len;
+		};
+		json_t* json;
+		int8_t boolean;
+		int32_t integer;
+		float floater;
+	};
+	const json_id_t id;
+} json_data_t;
+
+typedef void (*json_data_func)(const json_data_t* data);
+typedef void (*json_func)(json_t* json);
+
+
 typedef struct arena_t arena_t;
+
+
+// jfc u idiot child create a hashmap.
 
 void pj_allman(const json_t* json);
 
 json_id_t pj_parse(json_t* json, arena_t* arena, const char* src, const int32_t len);
 
-uint8_t pj_next_key(json_t* json, char** key, int32_t* key_len);
+uint8_t pj_next_key(char** key, int32_t* key_len, json_t* json);
 
-uint8_t pj_next_value(json_t* json, json_t* value); // for both objects AND arrays
+uint8_t pj_next_value(json_t* value, json_t* json); // for both objects AND arrays
 
 json_id_t pj_str(char** str, int32_t* len, const json_t* json);
 
 json_id_t pj_int(int* dest, const json_t* json);
 
 json_id_t pj_float(float* dest, const json_t* json);
+
+// GOLD!
+void pj_mapc_array(json_func func, json_t* json);
 
 #endif /* End PERFECT_JSON_H */
