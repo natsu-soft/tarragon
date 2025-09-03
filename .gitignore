@@ -3,12 +3,14 @@
 *.o
 *.s
 *.exe
+*.gen
 .cache
 .sconsign.dblite
 compile_commands.json
 tarragon.json
 tarragon
 unit-tests
+builtin-generator
 test-json-parser
 jansson-test
 *.log
