@@ -10,15 +10,15 @@
 
 arena_t* scratch_checkout(void);
 
-arena_t* scratch_checkout_size(const uint32_t size);
+arena_t* scratch_checkout_size(const int32_t size);
 
 void scratch_checkin(const arena_t* scratch);
 
 void scratch_checkin_all(void);
 
-void* scratch_alloc(const uint32_t size);
+void* scratch_alloc(const int32_t size);
 
-void* scratch_calloc(const uint32_t size);
+void* scratch_calloc(const int32_t size);
 
 void scratch_audit(void);
 

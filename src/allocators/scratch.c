@@ -12,7 +12,7 @@
 static struct
 {
 	arena_t* arenas;
-	uint16_t availability_mask;
+	uint16_t availability;
 } scratch_table = {0};
 
 
@@ -22,16 +22,16 @@ void scratch_init(void)
 	scratch_table.arenas = calloc(NUM_SCRATCHPADS, sizeof(*scratch_table.arenas));
 	assert(scratch_table.arenas && "scratch_init(): failed to allocate scratch arenas! How are you ALREADY out of memory?");
 	arena_init(scratch_table.arenas, SCRATCH_OVERHEAD);
-	scratch_table.availability_mask = ~0;
+	scratch_table.availability = ~0;
 }
 
 arena_t* scratch_checkout(void)
 {
 	for (int8_t i = 0; i < NUM_SCRATCHPADS; ++i)
 	{
-		if (scratch_table.availability_mask & (1 << i))
+		if (scratch_table.availability & (1 << i))
 		{
-			scratch_table.availability_mask ^= 1 << i;
+			scratch_table.availability ^= 1 << i;
 			arena_t* res = scratch_table.arenas + i;
 			res->size = 0;
 			return res;
@@ -42,38 +42,26 @@ arena_t* scratch_checkout(void)
 	return NULL;
 }
 
-struct arena_t* scratch_checkout_size(const uint32_t size)
+struct arena_t* scratch_checkout_size(const int32_t size)
 {
 	int8_t available = NUM_SCRATCHPADS;
 	for (int8_t i = 0; i < NUM_SCRATCHPADS; ++i)
 	{
-		if (scratch_table.availability_mask & (1 << i))
+		if (scratch_table.availability & (1 << i))
 		{
-			available = i;
+			scratch_table.availability ^= 1 << i;
 			arena_t* res = scratch_table.arenas + i;
-			if (res->cap < size)
+			if (res->size < size)
 			{
-				continue;
+				arena_grow(res, size);
 			}
-			scratch_table.availability_mask ^= 1 << i;
 			res->size = 0;
 			return res;
 		}
 	}
-	if (available < NUM_SCRATCHPADS)
-	{
-		arena_t* res = scratch_table.arenas + available;
-		arena_grow(res, size);
-		scratch_table.availability_mask ^= 1 << available;
-		res->size = 0;
-		return res;
-	}
-	else
-	{
-		ERROR("OUT OF SCRATCHPADS!");
-		assert(0 && "out of scratchpad arenas :(");
-		return NULL;
-	}
+	ERROR("OUT OF SCRATCHPADS!");
+	assert(0 && "out of scratchpad arenas :(");
+	return NULL;
 }
 
 
@@ -81,7 +69,7 @@ static void* table_peek(void)
 {
 	for (int8_t i = 0; i < NUM_SCRATCHPADS; ++i)
 	{
-		if (scratch_table.availability_mask & (1 << i))
+		if (scratch_table.availability & (1 << i))
 		{
 			arena_t* res = scratch_table.arenas + i;
 			res->size = 0;
@@ -99,18 +87,17 @@ void scratch_checkin(const arena_t* arena)
 	{
 		if (scratch_table.arenas + i == arena)
 		{
-			scratch_table.availability_mask |= 1 << i;
+			scratch_table.availability |= 1 << i;
 		}
 	}
 }
 
 void scratch_checkin_all(void)
 {
-	scratch_table.availability_mask = ~0;
+	scratch_table.availability = ~0;
 }
 
-
-void* scratch_alloc(const uint32_t size)
+void* scratch_alloc(const int32_t size)
 {
 	arena_t* scratch = table_peek();
 	scratch->size = 0;
@@ -124,7 +111,7 @@ void* scratch_alloc(const uint32_t size)
 	return scratch->allocation;
 }
 
-void* scratch_calloc(const uint32_t size)
+void* scratch_calloc(const int32_t size)
 {
 	void* addr = scratch_alloc(size);
 	memset(addr, 0x00, size);
@@ -163,7 +150,7 @@ void scratch_audit(void)
 	uint8_t cum = 0;
 	for (uint8_t i = 0; i < NUM_SCRATCHPADS; ++i)
 	{
-		if (scratch_table.availability_mask & (1 << i)) ++cum;
+		if (scratch_table.availability & (1 << i)) ++cum;
 	}
 	printf("%d/%d scratchpads available\n", cum, NUM_SCRATCHPADS);
 }
