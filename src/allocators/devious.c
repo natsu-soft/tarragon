@@ -5,8 +5,6 @@
 #include <assert.h>
 #include "arena.h"
 
-#include <stdio.h>
-
 #define DEVIOUS_OVERHEAD 4096
 #define DEVIOUS0 8
 
@@ -66,9 +64,9 @@ arena_t* devious_sized_checkout(const int32_t size)
 void devious_checkin(arena_t* arena)
 {
 	// >:^)
-	const int64_t lmao = (uint8_t*)available - (uint8_t*)arena;
-	assert(INT32_MAX >= lmao && lmao >= INT32_MIN && "NO MORE DEVILRY! REPENT IN CHRIST!");
-	arena->size = (int32_t)(((lmao & 0xf000000000000000) >> 32) | (lmao & 0xefffffff));
+	const int64_t delta = (uint8_t*)available - (uint8_t*)arena;
+	assert(INT32_MAX >= delta && delta >= INT32_MIN && "NO MORE DEVILRY! REPENT IN CHRIST!");
+	arena->size = (int32_t)(((delta & 0xf000000000000000) >> 32) | (delta & 0xefffffff));
 	available = arena;
 }
 

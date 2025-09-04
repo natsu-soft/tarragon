@@ -65,7 +65,7 @@ struct arena_t* scratch_checkout_size(const int32_t size)
 }
 
 
-static void* table_peek(void)
+static arena_t* table_peek(void)
 {
 	for (int8_t i = 0; i < NUM_SCRATCHPADS; ++i)
 	{
