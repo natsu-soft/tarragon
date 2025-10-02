@@ -7,6 +7,7 @@
 #include "gdscript_ids.h"
 #include "../allocators/arena.h"
 #include "../allocators/scratch.h"
+#include "../allocators/workpad.h"
 #include "../macro_stack.h"
 STACK(i16, int16_t)
 STACK(id, gdscript_id_t)
@@ -505,16 +506,16 @@ int32_t gdscript_flex(arena_t* arena, token_table_t* table, const char* src, con
 	/* 	.allocation = shunt_scratch->allocation, */
 	/* 	.cap = n */
 	/* }; */
-	SCRATCH* expected_arena = scratch_checkout_size(n);
+	WORKPAD* expected_arena = workpad_checkout(n);
 	id_stack expected =
 	{
 		.allocation = expected_arena->allocation,
 		.cap = n
 	};
-	SCRATCH* depth_arena = scratch_checkout_size(2 * n);
+	/* WORKPAD* depth_arena = workpad_checkout(2 * n); */
 	i16_stack depths =
 	{
-		.allocation = depth_arena->allocation,
+		.allocation = scratch_alloc(2 * n),
 		.cap = n
 	};
 	i16_stack_push(&depths, 0);

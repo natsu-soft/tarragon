@@ -8,6 +8,7 @@
 /* NOTE: NOT DECREFING JSON STUFF BECAUSE IM BALLING */
 #include "allocators/arena.h"
 #include "allocators/scratch.h"
+#include "allocators/workpad.h"
 #include "logger.h"
 
 static rpc_t request_buffer;
@@ -19,8 +20,8 @@ static void parse_rpc (char* str, int len, rpc_t* rpc)
 {
 	/* LOG("parsing rpc"); */
 	json_t json = {0};
-	SCRATCH* scratch = scratch_checkout();
-	json_id_t res = json_parse(&json, scratch, str, len);
+	WORKPAD* workpad = workpad_checkout(0);
+	json_id_t res = json_parse(&json, workpad, str, len);
 	/* if ((res & JSON_SUCCESS) != JSON_SUCCESS) */
 	if (res ^ (JSON_SUCCESS | JSON_OBJECT))
 	{

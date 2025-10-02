@@ -16,7 +16,7 @@
 	X(INTEGER = 0x08) \
 	X(FLOAT) /* 0x09 */ \
 	X(STRING) /* 0x0a */ \
-	X(NULL) /* 0x0n */ \
+	X(NULL) /* 0x0b */ \
 	X(TRUE)  /* 0x0c */ \
 	X(FALSE) /* 0x0d */
 

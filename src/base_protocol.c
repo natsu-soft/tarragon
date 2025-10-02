@@ -198,7 +198,7 @@ int base_protocol_test(int argc, char** argv)
 	len = bp_receive_nosleep(fp, &dest);
 	fclose(fp);
 	assertf(len == req_len, "decoded length: %d; expected: %d\n", len, req_len);
-	content = scratch_calloc(len + 1);
+	content = scratch_alloc(len + 1);
 	memcpy(content, dest, len);
 	content[len] = '\0';
 	printf("%s\n", content);

@@ -6,6 +6,7 @@
 #include "token.h"
 #include "../allocators/arena.h"
 #include "../allocators/scratch.h"
+#include "../allocators/workpad.h"
 #include "../macro_stack.h"
 STACK(i32, int32_t)
 #include "gdscript_ids.h"
@@ -354,7 +355,6 @@ static const int32_t shunt_vaniglia(int32_t* dest, gdscript_id_t* ids0, i32_stac
 	return swap;
 }
 
-// ONE SCRATCH CHECKOUT
 const int32_t gdscript_shunt(arena_t* arena, token_table_t* dest, const token_table_t* src, const int32_t n)
 {
 	dest->offsets = arena->allocation;
@@ -362,11 +362,10 @@ const int32_t gdscript_shunt(arena_t* arena, token_table_t* dest, const token_ta
 	dest->ids = dest->lens + n;
 	if (n > 0)
 	{
-		SCRATCH* scratch = scratch_checkout_size(n * sizeof(int32_t));
-		/* SCRATCH* indices_scratch = scratch_checkout_size(n * sizeof(int32_t)); */
+		void* buffer = scratch_alloc(n * sizeof(int32_t));
 		i32_stack stack =
 		{
-			.allocation = scratch->allocation,
+			.allocation = buffer,
 			.cap = n
 		};
 		// lmao look at this fookn aliasing LMAO
@@ -399,7 +398,7 @@ const int32_t gdscript_shunt(arena_t* arena, token_table_t* dest, const token_ta
 		const gdscript_id_t comma_delta = GDSCRIPT_EXTRA_COMMA - GDSCRIPT_COMMA;
 		id_stack pairs =
 		{
-			.allocation = scratch->allocation,
+			.allocation = buffer,
 			.cap = res
 		};
 		int32_t swap = 0;

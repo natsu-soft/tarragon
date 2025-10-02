@@ -19,12 +19,11 @@
 
 // FOR CLARITY'S SAKE
 typedef uint8_t bool;
-#define true 1
-#define false 0
+#define true 1 #define false 0
 
 static gdscript_id_t assignment_ids[NUM_ASSIGNMENT_OPERATORS] =
 {
-#define X(A) GDSCRIPT_##A,
+#define X(A) GDSCRIPT_##A;
 	GDSCRIPT_ASSIGNMENT_OPERATORS
 #undef X
 };

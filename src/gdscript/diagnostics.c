@@ -8,7 +8,7 @@ STACK(id, gdscript_id_t)
 #include "token.h"
 #include "../allocators/scratch.h"
 
-diagnostics_output_t diagnostics_out = 0x00;
+diagnostics_output_t diagnostics_out = 0x01;
 
 
 void diagnostic_note(const char* msg, const char* src, const int32_t src_len, const char* path, const int32_t offset, const int16_t len)

@@ -6,6 +6,7 @@
 #include <assert.h>
 #include "allocators/arena.h"
 #include "allocators/scratch.h"
+#include "allocators/workpad.h"
 #include "macro_stack.h"
 #include "benchmark.h"
 STACK(id, json_id_t)
@@ -174,10 +175,9 @@ void pj_allman(const json_t* json)
 static int32_t tokenize(int32_t* offsets, uint8_t* bitmasks, const char* src, const int32_t len)
 {
 	int32_t num_tokens = 0;
-	SCRATCH* scratch = scratch_checkout_size(len / 2 + 1);
 	id_stack stack =
 	{
-		.allocation = scratch->allocation,
+		.allocation = scratch_alloc(len / 2 + 1),
 		.cap = len / 2 + 1
 	};
 	for (int32_t i = 0; i < len; ++i)
@@ -452,12 +452,22 @@ json_id_t pj_float(float* dest, const json_t* json)
 	}
 }
 
+// GOLD
+void pj_mapc_array(json_func func, json_t* json)
+{
+	json_t value = { 0x00 };
+	while (pj_next_value(&value, json))
+	{
+		func(&value);
+	}
+}
+
 int perfect_json_test(int argc, char** argv)
 {
 	printf(" > testing perfect json tokenizing\n");
 	char* foo = "{\"lmao\":true,\"heck\":5.69,\"lol\":[0,-1.022,null,{\"bruh\":\"L, loser\"},false],\"OwO\":\"UwU\",\"guh\":\"\"}";
 	const int32_t foo_len = strlen(foo);
-	SCRATCH* json_arena = scratch_checkout();
+	WORKPAD* json_arena = workpad_checkout(1024);
 	json_t* json = alloca(sizeof *json);
 	printf("test json:\n%s\n", foo);
 	uint8_t p_res = pj_parse(json, json_arena, foo, foo_len);
@@ -485,6 +495,10 @@ int perfect_json_test(int argc, char** argv)
 		{
 			/* printf("offset: %d\n", json->offsets[json->index]); */
 			res = pj_next_value(&temp, json);
+			if (strncmp("lmao", key, k_len) == 0)
+			{
+				assert((res & 0x0f) == JSON_TRUE &&  "UR FUKT");
+			}
 			/* printf("offset: %d\n", json->offsets[json->index]); */
 			for (int32_t i = 0; i < k_len; ++i)
 			{
@@ -526,40 +540,4 @@ int perfect_json_test(int argc, char** argv)
 		}
 	}
 	return 1 - (p_res != JSON_ERROR);
-}
-
-// GOLD
-void pj_mapc_array(json_func func, json_t* json)
-{
-	json_t value = { 0x00 };
-	while (pj_next_value(&value, json))
-	{
-		func(&value);
-	}
-}
-
-static inline void pack_data(json_data_t* dest, json_t* json)
-{
-		switch (dest->id)
-		{
-		case JSON_TRUE:
-			dest->boolean = 1;
-			break;
-		case JSON_FALSE:
-			dest->boolean = 0;
-			break;
-		case JSON_INTEGER:
-			pj_int(&dest->integer, json);
-			break;
-		case JSON_FLOAT:
-			pj_float(&dest->floater, json);
-			break;
-		case JSON_STRING:
-			pj_str(&dest->str, &dest->len, json);
-			break;
-		case JSON_ARRAY: __attribute__((fallthrough));
-		case JSON_OBJECT:
-			dest->json = json;
-			break;
-		}
 }

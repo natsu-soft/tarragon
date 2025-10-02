@@ -4,9 +4,10 @@
 #include <stdint.h>
 #include <assert.h>
 #include <string.h>
-#include "map32.h"
+#include "hashmaps/map32.h"
 #include "allocators/arena.h"
 #include "allocators/scratch.h"
+#include "allocators/workpad.h"
 
 /******************************/
 /* START STACK IMPLEMENTAITON */
@@ -89,37 +90,25 @@ struct
 // what's the difference between strs & char? strs get hashed >:^)
 // types is disgusting.  It includes enums as well as
 #define STACKS \
-	X(str) \
 	X(enum) \
 	X(enum_val) \
 	X(func) \
 	X(param) \
 	X(class) \
-	X(opretor)
+	X(opretor) \
+	X(member)
 
-#define MAPS \
-	X(type, 2048)	 \
-	// NOTE: values that end in 0x1 are enums!
-
-void gdscript_builtin(void)
+void build_gdscript_api(void)
 {
 #define X(NAME) stack_t* NAME##_stack; stack_init(NAME##_stack, 4096);
 	STACKS
 #undef X
-#define X(NAME, N) SCRATCH* NAME##_scratch = scratch_checkout_size(N * 4 * 10);
-	MAPS
-#undef X
-#define X(NAME, N) \
-	map32_t* NAME##_map = alloca(sizeof *NAME##_map); \
-	NAME##_map->rkeys = NAME##_scratch->allocation; \
-	NAME##_map->values = NAME##_map->rkeys + N; \
-	NAME##_map->lens = NAME##_map->lens + N; \
-	NAME##_map->cap = N; \
-	NAME##_map->size = 0;
-	MAPS
-#undef X
-	int32_t last_class;
-#include "builtin_macros.h"
+	arena_t* type_workpad = workpad_checkout(2048 * 4 * 14);
+	// NOTE: values that end in 0x1 are enums!
+	map32_t* type_map = alloca(sizeof *type_map);
+	map32_init(type_map, 4 * 2048, type_workpad->allocation);
+	int32_t last_class = -1; // NOTE: THIS HAS TO BE -1 OR ELSE UTILITY FUNCTIONS ARE FUCKED
+	arena_t* str_arena;
 #include "builtin.gen"
 #define X(NAME) shrinkwrap_stack(NAME##_stack);
 	STACKS

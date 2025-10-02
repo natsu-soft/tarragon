@@ -1,18 +1,16 @@
 # NOTE: for release build use gcc & mold at -O2
 CC := clang -std=gnu99
 ifeq ($(OS),Windows_NT)
-	# CC := clang -std=gnu99
 	RE := rg
 else
-	# CC := gcc -std=gnu99
 	RE := grep
 endif
-CFLAGS := -Wall -Wextra -Wno-int-conversion -fpermissive -fdiagnostics-show-option -ggdb -O0
+CFLAGS := -Wall -Wextra -Wno-int-conversion -fpermissive -fdiagnostics-show-option -ggdb -O2
 # CFLAGS := -Wall -Wextra -Wno-int-conversion -fpermissive -fdiagnostics-show-option -O2
 LIBS :=
 LDFLAGS := -fuse-ld=lld -flto -static
 MAINS := src/tarragon.c src/tests.c src/builtin_generator.c
-IGNORE := src/gdscript/gdscript_ast.c src/gdscript/gdscript_tokenizer.c src/logger.c src/builtin.c
+IGNORE := src/gdscript/gdscript_ast.c src/gdscript/gdscript_tokenizer.c src/logger.c src/builtin.c src/allocators/devious.c
 ALL_SRC := $(wildcard src/*.c)
 ALL_SRC += $(wildcard src/*/*.c)
 SRC := $(filter-out $(IGNORE), $(filter-out $(MAINS), $(ALL_SRC)))
@@ -23,10 +21,13 @@ HEX_OBJS := obj/supported_godot.o
 JSON_OBJS :=  obj/default_config.o
 ALL_OBJ := $(patsubst src/%.c,obj/%.o,$(ALL_SRC))
 OBJ += $(HEX_OBJS) $(JSON_OBJS)
+GODOT := godot
 
-.PHONY: default dependencies clean clean-dep clean-emacs clean-all dep_dirs obj_dirs lsp-test test test2 test/% test_gen
+.PHONY: default dependencies clean clean-dep clean-emacs clean-alllsp-test test test2 test/% test_gen ci/cd
 
 default: tarragon
+
+ci/cd: tests tarragon
 
 test/%:
 	cat src/$*.c | sed 's/$*_test/main/' | $(CC) $(CFLAGS) -o test_$(patsubst %.c,%,$*) -Isrc -x c -
@@ -35,30 +36,32 @@ test/%:
 
 tarragon: obj/tarragon.o obj/builtin.o $(OBJ)
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS) $(LDFLAGS)
-	file $@
+
+obj/builtin.o: src/builtin.c src/builtin.gen | dep_dirs
+	$(CC) $(CFLAGS) -o $@ $<
+
+src/builtin.gen: builtin-generator extension_api.json
+	${CURDIR}/$<
+
+builtin-generator: obj/builtin_generator.o $(OBJ)
+	$(CC) $(CFLAGS) -o $@ $^ $(LIBS) $(LDFLAGS)
+
+extension_api.json:
+	$(GODOT) --dump-extension-api-with-docs
 
 tests: obj/tests.o $(OBJ)
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS) $(LDFLAGS)
 
-# test: tests
-# 	${CURDIR}/$<
-
-test: builtin-generator
+test: tests
 	${CURDIR}/$<
+
+# test: builtin-generator
+# 	${CURDIR}/$<
 
 obj/%.o: src/%.c dep/%.d | obj_dirs
 	$(CC) $(CFLAGS) -c $< -o $@ $(LIBS)
 
 dependencies: $(DEP)
-
-builtin-generator: obj/builtin_generator.o $(OBJ)
-	$(CC) $(CFLAGS) -o $@ $^ $(LIBS) $(LDFLAGS)
-
-src/builtin.gen: builtin-generator extension_api.json 
-	${CURDIR}/$<
-
-obj/builtin.o: src/builtin.c src/builtin.gen | dep_dirs
-	$(CC) $(CFLAGS) -o $@ $<
 
 dep/%.d: src/%.c | dep_dirs
 	$(CC) -MM -MP -MT obj/$*.o -MF $@ $< $(LIBS)
@@ -84,12 +87,13 @@ dep_dirs:
 	@mkdir -p dep/
 	@mkdir -p dep/gdscript
 	@mkdir -p dep/allocators
+	@mkdir -p dep/hashmaps
 
 obj_dirs:
 	@mkdir -p obj/
 	@mkdir -p obj/gdscript
 	@mkdir -p obj/allocators
-	@mkdir -p obj/gen
+	@mkdir -p obj/hashmaps
 
 clean:
 	rm -rf *.o obj/*.o *.exe tarragon
@@ -118,5 +122,5 @@ test2: tests
 	@rm -f ../../bruh ../../tarragon_config.json test_stuff/rpc_encode file_sys.gz
 	@echo "CLEANED: temporary testing files"
 
-lsp-test: tarragon
-	@echo TODO w/ SBCL
+lsp-test: tarragoen
+	@cho TODO w/ SBCL

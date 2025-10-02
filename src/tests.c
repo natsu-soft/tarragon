@@ -9,11 +9,10 @@ FILE* log_fp;
 
 
 #define TESTS								\
-	X(scratch) \
 	X(base_protocol) \
 	X(perfect_json) \
 	X(xml) \
-	/* X(gdscript_parser) */
+	X(gdscript_parser)
 	/* X(json)									\ */
 	/* X(gdscript_parser) */
 

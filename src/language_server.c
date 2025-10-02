@@ -12,6 +12,7 @@
 #include "logger.h"
 #include "allocators/arena.h"
 #include "allocators/scratch.h"
+#include "allocators/workpad.h"
 #include "json.h"
 
 #define KILOBYTE 1024
@@ -69,7 +70,7 @@ void log_client(char* message)
 static void handle_initialize(FILE* out, const rpc_t* rpc)
 {
 	PLAIN_LOG(" > handle_initialize()");
-	SCRATCH* scratch = scratch_checkout();
+	arena_t* scratch = scratch_arena(0);
 	#define JS_ARENA scratch
 	JSON_RPC(
 		JS_MEMBER_MACRO(result, JS_OBJECT(
@@ -162,7 +163,7 @@ int ls_listen(FILE* in, FILE* out)
 	/* for(uint32_t i = 0; i < 10; ++i) */
 	for(/* LOL */ ; /* LMAO */ ; /* EVEN */ )
 	{
-		scratch_checkin_all();
+		workpad_checkin_all();
 		/* LOG("processing %d of 10", i); */
 		char* client_json;
 		fflush(in);

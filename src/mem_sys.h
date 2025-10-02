@@ -6,7 +6,7 @@
 #include <stdint.h>
 
 #if _WIN32
-typedef void* handle_t; // jfc microsoft, a HANDLE
+typedef void* ms_handle_t; // jfc microsoft, a HANDLE
 #else
 typedef int ms_handle_t; // a filedesc for *NIX systems
 #endif

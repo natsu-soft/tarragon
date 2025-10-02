@@ -90,6 +90,12 @@ void arena_free(arena_t* arena, const int32_t bytes)
 	}
 }
 
+void arena_free_all(arena_t* arena)
+{
+	arena->size = 0;
+}
+
+
 void* arena_pop(arena_t* arena, const int32_t bytes)
 {
 	assert(arena->size >= bytes);

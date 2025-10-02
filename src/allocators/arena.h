@@ -26,6 +26,8 @@ void arena_align2(arena_t* arena, const int32_t alignment);
 
 void arena_free(arena_t* arena, const int32_t bytes);
 
+void arena_free_all(arena_t* arena);
+
 // for stack-like behavior
 void* arena_pop(arena_t* arena, const int32_t bytes);
 

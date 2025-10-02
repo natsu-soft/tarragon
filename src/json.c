@@ -8,6 +8,7 @@
 #include "token.h"
 #include "allocators/arena.h"
 #include "allocators/scratch.h"
+#include "allocators/workpad.h"
 
 
 static void make_token(arena_t *token_arena, arena_t *id_arena, const char *src,  const uint32_t pos, const uint32_t len, const uint32_t line, const uint32_t col);
@@ -161,7 +162,7 @@ static uint32_t tokenize(token_t** tokens, json_id_t** ids, arena_t* arena, cons
 	uint32_t col = 1;
 	uint32_t pos = 0;
 	arena->size = 0;
-	SCRATCH* id_arena = scratch_checkout();
+	arena_t* id_arena = scratch_arena(0);
 	for (int i = 0; i < n; ++i)
 	{
 		char c = src[i];
@@ -680,7 +681,7 @@ int json_test(int argc, char** argv)
 {
 	printf(" > testing json tokenizing\n");
 	char* foo = "{\"lmao\":true,\"lol\":[0,-1.022,null,{\"bruh\":\"L, loser\"},false],\"OwO\":\"UwU\"}";
-	SCRATCH* dest = scratch_checkout();
+	WORKPAD* dest = workpad_checkout(1024);
 	#define JS_ARENA dest
 	JS_OBJECT(
 		JS_MEMBER(lmao, true, COMMA)
@@ -697,7 +698,7 @@ int json_test(int argc, char** argv)
 	assert(strncmp(foo, bar, strlen(dest)) == 0);
 	printf("foo: %s\n", foo);
 	printf("bar: %s\n", bar);
-	SCRATCH* json_arena = scratch_checkout();
+	WORKPAD* json_arena = workpad_checkout(1024);
 	json_t json = {0};
 	json_id_t p_res = json_parse(&json, json_arena, bar, dest->size);
 	printf("parse_result: %s\n", p_res & JSON_SUCCESS ? "SUCCESS!" : "error");
@@ -709,8 +710,7 @@ int json_test(int argc, char** argv)
 			uint32_t k_len;
 			json_t tmp = {0};
 			while ((p_res = json_next_key(&json, &key, &k_len)) & JSON_KEY)
-			{
-				p_res = json_next_value(&json, &tmp);
+			{p_res = json_next_value(&json, &tmp);
 				char* key_str = alloca(k_len + 1);
 				memcpy(key_str, key, k_len);
 				key_str[k_len] = '\0';

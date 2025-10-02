@@ -1,5 +1,6 @@
 #include "gdscript_parser.h"
 #include <stdio.h>
+#include <assert.h>
 #include "gdscript_ids.h"
 #include "token.h"
 #include <stdlib.h>
@@ -9,11 +10,12 @@
 #include "gdscript_shunt.h"
 #include "../benchmark.h"
 #include "../file_sys.h"
+#include "../allocators/arena.h"
 #include "../allocators/scratch.h"
+#include "../allocators/workpad.h"
 #include "string.h"
 #include "../mem_sys.h"
 /* #include "token.h" */
-#include "../allocators/arena.h"
 
 
 
@@ -214,27 +216,29 @@ void print_clarity(const char* src, const int32_t* offsets, const int16_t* lens,
 
 int gdscript_parser_test(int argc, char** argv)
 {
-	arena_t* flex_arena = scratch_checkout();
-	/* arena_init(&arena, 22000); */
-	token_table_t table = {0};
+	workpad_checkin_all();
 	int src_len = 0;
-	/* char* src = fs_read("ShuntTest.gd", &src_len); */
 	char* src = fs_read("RewindAbility.gd", &src_len);
+	arena_t* flex_arena = workpad_checkout(8 * src_len + 4096);
+	printf("src_len: %d\n", src_len);
+	printf("flex size: %d, flex_cap: %d\n", flex_arena->size, flex_arena->cap);
+	assert(flex_arena->size == 0 && flex_arena->cap >= 8 * src_len + 4096 && "OOPSIES!");
+	token_table_t table = {0};
 	int32_t num_tokens;
-	arena_grow(flex_arena, 8 * src_len + 4096);
 	MICROTIME(num_tokens = gdscript_lex(flex_arena, &table, src, src_len);)
+	arena_free_all(flex_arena);
 	MICROTIME(num_tokens = gdscript_flex(flex_arena, &table, src, src_len);)
 	printf("tokens: %d, src size: %d, token_size: %d, max size: %d\n", num_tokens, src_len, num_tokens * 7, 8 * src_len + 4096);
 	/* print_ids(src, table.offsets, table.lens, table.ids, table.num_tokens); */
 	MICROTIME(num_tokens = diagnostics_pre_analysis(&table, src_len, "RewindAbility.gd");)
-	arena_t* shunt_arena = scratch_checkout_size(7 * num_tokens);
+	arena_t* shunt_arena = workpad_checkout(7 * num_tokens);
 	/* print_allman(src, table.offsets, table.lens, table.ids, table.num_tokens); */
 	token_table_t shunt_table = {};
 	MICROTIME(num_tokens = gdscript_shunt(shunt_arena, &shunt_table, &table, num_tokens);)
-	scratch_checkin(flex_arena);
 	printf("tokens: %d, src size: %d, token_size: %d, max size: %d\n", num_tokens, src_len, num_tokens * 7, 8 * src_len + 4096);
 	MICROTIME(num_tokens = diagnostics_pre_analysis(&shunt_table, src_len, "RewindAbility.gd");)
 	printf("tokens: %d, src size: %d, token_size: %d, max size: %d\n", num_tokens, src_len, num_tokens * 7, 8 * src_len + 4096);
 	print_allman(src, shunt_table.offsets, shunt_table.lens, shunt_table.ids, num_tokens);
+	workpad_checkin_all();
 	return 0;
 }

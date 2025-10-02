@@ -9,6 +9,7 @@
 #include "gdscript_ids.h"
 #include "../allocators/arena.h"
 #include "../allocators/scratch.h"
+#include "../allocators/workpad.h"
 #include "../macro_stack.h"
 
 #define STRING_ENDERS							\
@@ -558,8 +559,22 @@ int32_t gdscript_lex(arena_t* arena, token_table_t* table, const char* src, cons
 	int32_t offset = 0;
 	int32_t pos = 0;
 	arena->size = 0;
-	SCRATCH* len_arena = scratch_checkout_size(n * sizeof *table->lens);
-	SCRATCH* id_arena = scratch_checkout_size(n * sizeof *table->ids);
+	arena_t* len_arena = alloca(2 * sizeof *len_arena);
+	arena_t* id_arena = len_arena + 1;
+	int16_t* lens = scratch_alloc(n * (sizeof *table->lens + sizeof(gdscript_id_t)));
+	*len_arena = (arena_t)
+	{
+		.allocation = lens,
+		.cap = n * sizeof *table->lens
+	};
+	*id_arena = (arena_t)
+	{
+		.allocation = lens + n,
+		.cap = n * sizeof(gdscript_id_t)
+	};
+	/* arena_t* len_arena = SCRATCH_ARENA(n * sizeof *table->lens, 0); */
+	/* WORKPAD* id_arena = workpad_checkout(n * sizeof(gdscript_id_t)); */
+	/* arena_t* id_arena = SCRATCH_ARENA(n * sizeof(gdscript_id_t), 1); */
 	/* arena_t* expected_arena = scratch_checkout_size(n * sizeof(gdscript_id_t)); */
 	// TODO: rip-off Carbon.  Just insert missing things appropriately
 	/* stack_t* expected_stack = alloca(sizeof *expected_stack); */
@@ -765,7 +780,7 @@ static void lws_to_scopes(arena_t* offset_arena, arena_t* len_arena, arena_t* id
 	#define IDS ((gdscript_id_t*)id_arena->allocation)
 	int32_t lws0 = 0;
 	int32_t n = *num_tokens;
-	SCRATCH* depth_arena = scratch_checkout_size(128 * sizeof lws0); // if this isn't enough the user deserves to segfault
+	arena_t* depth_arena = scratch_arena(128 * sizeof lws0); // if this isn't enough the user deserves to segfault
 	const gdscript_id_t scope_start = GDSCRIPT_SCOPE_START;
 	const gdscript_id_t scope_end = GDSCRIPT_SCOPE_END;
 	int32_t* d;
@@ -1011,11 +1026,10 @@ static void lint_pairs(arena_t* offset_arena, arena_t* len_arena, arena_t* id_ar
 	#define OFFSETS ((int32_t*)offset_arena->allocation)
 	#define LENS ((int16_t*)len_arena->allocation)
 	#define IDS ((gdscript_id_t*)id_arena->allocation)
-	SCRATCH* scratch = scratch_checkout_size(4096);
 	id_stack* stack = alloca(sizeof *stack);
 	*stack = (id_stack)
 	{
-		.allocation = scratch->allocation,
+		.allocation = scratch_alloc(4096),
 		.cap = 1024
 	};
 	int32_t n = *num_tokens;

@@ -5,10 +5,12 @@
 #include <assert.h>
 #include "arena.h"
 
+
 #define DEVIOUS_OVERHEAD 4096
 #define DEVIOUS0 8
 
 static arena_t* available;
+
 
 __attribute__((constructor))
 void absolutely_devious(void)
@@ -45,6 +47,15 @@ arena_t* devious_checkout(void)
 	return res;
 }
 
+void devious_checkin(arena_t* arena)
+{
+	// >:^)
+	const int64_t delta = (uint8_t*)available - (uint8_t*)arena;
+	assert(INT32_MAX >= delta && delta >= INT32_MIN && "NO MORE DEVILRY! REPENT IN CHRIST!");
+	arena->size = (int32_t)(((delta & 0x8000000000000000) >> 32) | (delta & 0x7fffffff));
+	available = arena;
+}
+
 arena_t* devious_sized_checkout(const int32_t size)
 {
 	if (!available)
@@ -59,15 +70,6 @@ arena_t* devious_sized_checkout(const int32_t size)
 		arena_grow(res, size);
 	}
 	return res;
-}
-
-void devious_checkin(arena_t* arena)
-{
-	// >:^)
-	const int64_t delta = (uint8_t*)available - (uint8_t*)arena;
-	assert(INT32_MAX >= delta && delta >= INT32_MIN && "NO MORE DEVILRY! REPENT IN CHRIST!");
-	arena->size = (int32_t)(((delta & 0xf000000000000000) >> 32) | (delta & 0xefffffff));
-	available = arena;
 }
 
 void* devious_alloc(const int32_t size)
