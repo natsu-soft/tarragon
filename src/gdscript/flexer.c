@@ -16,25 +16,75 @@ STACK(id, gdscript_id_t)
 #define false 0
 typedef int8_t bool_t;
 
+typedef struct id_map_t
+{
+	char** keys;
+	gdscript_id_t* values;
+	int8_t* lens;
+	int16_t cap;
+} id_map_t;
 
-/* typedef enum __attribute__((packed)) lex_state_t */
-/* { */
-/* 	LEX_NONE = 0x00, */
-/* 	LEX_LWS, */
-/* 	LEX_FUNC_SIG, */
-/* 	LEX_PARAMS, */
-/* 	LEX_ARGS, */
-/* 	LEX_VARIABLE, */
-/* 	LEX_CONTROL, */
-/* 	LEX_BODY, */
-/* 	LEX_GROUP, */
-/* 	LEX_DICT, */
-/* 	LEX_ARRAY, */
-/* 	LEX_SUBCLASS, */
-/* 	LEX_EXPRESSION */
-/* } lex_state_t; */
-/* STACK(state, lex_state_t) */
+// its lite its fast it'll do.
+static inline int32_t djb2(const char* str, const int16_t len)
+{
+	uint32_t hash = 5381;
+	for (int16_t i = 0; i < len; ++i)
+	{
+		hash += ((hash << 5) + hash) + str[i];
+	}
+	return hash;
+}
 
+static void map_cache(id_map_t* map, const char* key, const int16_t len, const gdscript_id_t value)
+{
+	const int16_t cap = map->cap;
+	const uint16_t cap_mask = cap - 1;
+	const int16_t index = djb2(key, len) & cap_mask;
+	int16_t* lens = map->lens;
+	for (int16_t i = 0; i < cap; ++i)
+	{
+		const int16_t j = (index + i) & cap_mask;
+		if (lens[j] == 0)
+		{
+			map->keys[j] = key;
+			map->lens[j] = len;
+			map->values[j] = value;
+			return;
+		}
+	}
+}
+
+static gdscript_id_t map_fetch(id_map_t* map, const char* key, const int16_t len)
+{
+	const int16_t cap = map->cap;
+	const uint16_t cap_mask = cap - 1;
+	const int16_t index = djb2(key, len) & cap_mask;
+	int16_t* lens = map->lens;
+	char** keys = map->keys;
+	for (int16_t i = 0; i < cap; ++i)
+	{
+		const int16_t j = (index + i) & cap_mask;
+		const int32_t l = lens[j];
+		if (len ==l && strncmp(key, keys[j], len) == 0)
+		{
+			return map->values[j];
+		}
+		else if (l == 0)
+		{
+			return GDSCRIPT_NONE;
+		}
+	}
+	return GDSCRIPT_NONE;
+}
+
+static id_map_t graph_map = {0};
+static id_map_t keyword_map = {0};
+
+static struct
+{
+	gdscript_id_t* ids;
+	int16_t num;
+} unary_triggers = {0};
 
 static struct {
 	char** graphs;
@@ -61,9 +111,71 @@ static struct {
 	X(SCOPE_END) \
 	X(EXTRA_COMMA)
 
-
 /* #define BESPOKE_DELIM_CHARS \ */
 /* 	X('@') */
+
+/* __attribute__((constructor)) */
+static void alt_init(void)
+{
+	// str&id arena
+	// graph map & keyword map
+	// unary triggers (use str arena)
+	int32_t size = 0;
+	int32_t id_offset = 0;
+#define X(ID, STR, LEN) size += LEN; id_offset += LEN;
+	// graphs -- 256
+	GDSCRIPT_STRUCTURE
+	GDSCRIPT_OPERATORS
+	// keywords -- 512
+	GDSCRIPT_KEYWORDS
+	GDSCRIPT_LITERALS
+	GDSCRIPT_ANNOTATIONS
+#undef X
+#define X(ID,...) ++size; ++unary_triggers.num;
+	UNARY_TRIGGERS
+#undef X
+	arena_t arena = {0};
+	arena_init(&arena, size);
+	char** keys = malloc (10 * (256 + 512));
+	gdscript_id_t* values = keys + (256 + 512);
+	int8_t* lens = values + (256 + 512);
+	graph_map = (id_map_t)
+	{
+		.keys = keys,
+		.values = values,
+		.lens = lens,
+		.cap = 256
+	};
+	keyword_map = (id_map_t)
+	{
+		.keys = keys + 256,
+		.values = values + 256,
+		.lens = lens + 256,
+		.cap = 512
+	};
+	char* str;
+#define X(ID, STR, LEN) \
+	str = arena_alloc(&arena, LEN); \
+	memcpy(str, STR, LEN); \
+	map_cache(&graph_map, str, LEN, GDSCRIPT_##ID);
+	GDSCRIPT_STRUCTURE
+	GDSCRIPT_OPERATORS
+#undef X
+#define X(ID, STR, LEN) \
+	str = arena_alloc(&arena, LEN); \
+	memcpy(str, STR, LEN); \
+	map_cache(&keyword_map, str, LEN, GDSCRIPT_##ID);
+	GDSCRIPT_KEYWORDS
+	GDSCRIPT_LITERALS
+	GDSCRIPT_ANNOTATIONS
+#undef X
+	unary_triggers.ids = &arena.allocation + arena.size;
+#define X(ID,...) \
+	arena.allocation[arena.size++] = GDSCRIPT_##ID;
+	UNARY_TRIGGERS
+#undef X
+	// sometimes ya just gotta ball
+}
 
 __attribute__((constructor))
 static void init_flexer(void)
@@ -136,29 +248,6 @@ static void init_flexer(void)
 	flex_table.num_keywords = num_keywords;
 	flex_table.unary_triggers = unary_triggers;
 	flex_table.num_unary_triggers = num_unary_triggers;
-	/* for (int32_t j = 0; j < num_graphs; ++j) */
-	/* { */
-	/* 	printf("\n> "); */
-	/* 	const char* str = graphs[j]; */
-	/* 	const int16_t len = graph_lens[j]; */
-	/* 	for (int32_t k = 0; k < len; ++k) */
-	/* 	{ */
-	/* 		printf("%c", str[k]); */
-	/* 	} */
-	/* 	printf(", %d", len); */
-	/* } */
-	/* for (int32_t j = 0; j < num_keywords; ++j) */
-	/* { */
-	/* 	printf("\n> "); */
-	/* 	const char* str = keywords[j]; */
-	/* 	const int16_t len = keyword_lens[j]; */
-	/* 	for (int32_t k = 0; k < len; ++k) */
-	/* 	{ */
-	/* 		printf("%c", str[k]); */
-	/* 	} */
-	/* 	printf(", %d", len); */
-	/* } */
-	/* fflush(stdout); */
 }
 
 static const gdscript_id_t missing(const gdscript_id_t id)
@@ -178,6 +267,7 @@ static const gdscript_id_t missing(const gdscript_id_t id)
 }
 
 
+// return id & id if it matches a known graph/keyword
 static const gdscript_id_t tokenize(const char* src, const int32_t i0, const int32_t n, int16_t* const out_len)
 {
 	const char* token = src + i0;
@@ -186,6 +276,7 @@ static const gdscript_id_t tokenize(const char* src, const int32_t i0, const int
 	char** graphs = flex_table.graphs;
 	const int16_t* len_graphs = flex_table.graph_lens;
 	const int32_t num_graphs = flex_table.num_graphs;
+	// check for graphs
 	if (('&' <= c && c <= '/') || (':' <= c && c <= '?') || ('[' <= c && c <= '^') || ('{' <= c && c <= '~') || c == '!' || c == '"' || c == '#')
 	{
 		for (int32_t i = 0; i < num_graphs; ++i)
@@ -197,7 +288,17 @@ static const gdscript_id_t tokenize(const char* src, const int32_t i0, const int
 				return flex_table.graph_ids[i];
 			}
 		}
+		/* for (int8_t l = max_len > 3 ? 3 : max_len; l >= 0; --l) */
+		/* { */
+		/* 	const gdscript_id_t res = map_fetch(&graph_map, token, l); */
+		/* 	if (res != GDSCRIPT_NONE) */
+		/* 	{ */
+		/* 		*out_len = l; */
+		/* 		return res; */
+		/* 	} */
+		/* } */
 	}
+	// find where to break the token
 	int32_t i = i0 + 1;
 	bool_t break_flag = false;
 	for (; i < n; ++i)
@@ -208,18 +309,16 @@ static const gdscript_id_t tokenize(const char* src, const int32_t i0, const int
 			i -= break_flag;
 			break;
 		}
-		for (int32_t j = 0; j < num_graphs; ++j)
+		else if (('&' <= c && c <= '/') || (':' <= c && c <= '?') || ('[' <= c && c <= '^') || ('{' <= c && c <= '~') || c == '!' || c == '"' || c == '#')
 		{
-			const int32_t len = len_graphs[j];
-			if (c == *graphs[j])
-			{
-					break_flag = true;
-					break;
-			}
+			break_flag = true;
+			break;
 		}
 	}
+	// check for keywords
 	const int16_t len = i - i0;
 	*out_len = len;
+	/* return map_fetch(&keyword_map, token, len) || GDSCRIPT_IDENTIFIER; */
 	char** keywords = flex_table.keywords;
 	const int16_t* len_keywords = flex_table.keyword_lens;
 	const int32_t num_keywords = flex_table.num_keywords;
@@ -230,6 +329,7 @@ static const gdscript_id_t tokenize(const char* src, const int32_t i0, const int
 			return flex_table.keyword_ids[i];
 		}
 	}
+	// o.w. return identifier
 	return GDSCRIPT_IDENTIFIER;
 }
 
@@ -506,16 +606,17 @@ int32_t gdscript_flex(arena_t* arena, token_table_t* table, const char* src, con
 	/* 	.allocation = shunt_scratch->allocation, */
 	/* 	.cap = n */
 	/* }; */
-	WORKPAD* expected_arena = workpad_checkout(n);
+	/* WORKPAD* expected_arena = workpad_checkout(n); */
+	gdscript_id_t* id_buffer = scratch_alloc(3 * n);
 	id_stack expected =
 	{
-		.allocation = expected_arena->allocation,
+		.allocation = id_buffer,
 		.cap = n
 	};
 	/* WORKPAD* depth_arena = workpad_checkout(2 * n); */
 	i16_stack depths =
 	{
-		.allocation = scratch_alloc(2 * n),
+		.allocation = id_buffer + n,
 		.cap = n
 	};
 	i16_stack_push(&depths, 0);
@@ -756,10 +857,12 @@ int32_t gdscript_flex(arena_t* arena, token_table_t* table, const char* src, con
 					else if (id == GDSCRIPT_OP_SUM || id == GDSCRIPT_OP_DIFFERENCE)
 					{
 						const int16_t N = flex_table.num_unary_triggers;
-						const gdscript_id_t* unary_triggers = flex_table.unary_triggers;
+						const gdscript_id_t* trigger_ids = flex_table.unary_triggers;
+						/* const int16_t N = unary_triggers.num; */
+						/* const gdscript_id_t* unary_trigger_ids = unary_triggers.ids; */
 						for (int16_t j = 0; j < N; ++j)
 						{
-							if (id1 == unary_triggers[j])
+							if (id1 == trigger_ids[j])
 							{
 								id = id == GDSCRIPT_OP_SUM ? GDSCRIPT_OP_IDENTITY : GDSCRIPT_OP_NEGATION;
 								break;

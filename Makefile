@@ -5,8 +5,9 @@ ifeq ($(OS),Windows_NT)
 else
 	RE := grep
 endif
-CFLAGS := -Wall -Wextra -Wno-int-conversion -fpermissive -fdiagnostics-show-option -ggdb -O2
+CFLAGS := -Wall -Wextra -Wno-int-conversion -fpermissive -fdiagnostics-show-option -ggdb -O0
 # CFLAGS := -Wall -Wextra -Wno-int-conversion -fpermissive -fdiagnostics-show-option -O2
+GODOT :=
 LIBS :=
 LDFLAGS := -fuse-ld=lld -flto -static
 MAINS := src/tarragon.c src/tests.c src/builtin_generator.c
@@ -46,8 +47,8 @@ src/builtin.gen: builtin-generator extension_api.json
 builtin-generator: obj/builtin_generator.o $(OBJ)
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS) $(LDFLAGS)
 
-extension_api.json:
-	$(GODOT) --dump-extension-api-with-docs
+# extension_api.json:
+# 	$(GODOT) --dump-extension-api-with-docs
 
 tests: obj/tests.o $(OBJ)
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS) $(LDFLAGS)
