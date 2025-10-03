@@ -5,7 +5,7 @@ ifeq ($(OS),Windows_NT)
 else
 	RE := grep
 endif
-CFLAGS := -Wall -Wextra -Wno-int-conversion -fpermissive -fdiagnostics-show-option -ggdb -O0
+CFLAGS := -Wall -Wextra -Wno-int-conversion -fpermissive -fdiagnostics-show-option -ggdb -O2
 # CFLAGS := -Wall -Wextra -Wno-int-conversion -fpermissive -fdiagnostics-show-option -O2
 GODOT :=
 LIBS :=
