@@ -11,6 +11,7 @@ tarragon.json
 tarragon
 unit-tests
 builtin-generator
+extension_api.json
 test-json-parser
 jansson-test
 *.log
