@@ -353,6 +353,7 @@ uint8_t pj_next_key(char** key, int32_t* key_len, json_t* json)
 		}
 	}
 	/* printf("END!\n"); */
+	*key = NULL;
 	json->index = n - 1;
 	return JSON_ERROR;
 }
@@ -412,6 +413,7 @@ json_id_t pj_str(char** str, int32_t* len, const json_t* json)
 	}
 	else
 	{
+		*str = NULL;
 		return JSON_ERROR;
 	}
 }
@@ -455,11 +457,110 @@ json_id_t pj_float(float* dest, const json_t* json)
 // GOLD
 void pj_mapc_array(json_func func, json_t* json)
 {
+	/* printf("mapc: %d/%d\n", json->index, json->num_tokens); */
+	assert((json->bitmasks[0] & 0x0f) == JSON_ARRAY && "pj_mapc_array argument json is not an array!");
 	json_t value = { 0x00 };
 	while (pj_next_value(&value, json))
 	{
 		func(&value);
 	}
+}
+
+int32_t pj_array_size(json_t* json)
+{
+	assert((json->bitmasks[0] & 0x0f) == JSON_ARRAY && "pj_mapc_array argument json is not an array!");
+	json_t value = { 0x00 };
+	int32_t res = 0;
+	while (pj_next_value(&value, json))
+	{
+		++res;
+	}
+	return res;
+}
+
+json_t pj_find_key(char* key, json_t* json)
+{
+	json_t res = {0};
+	char* str;
+	int32_t len;
+	while(pj_next_key(&str, &len, json))
+	{
+		if (strncmp(str, key, len) == 0)
+		{
+			pj_next_value(&res, json);
+			return res;
+		}
+	}
+	json->index = 0;
+	return res;
+}
+
+
+
+uint8_t pj_next_pair(char** key, int32_t* key_len, json_t* value, json_t* json)
+{
+	/* const uint8_t res = pj_next_key(key, key_len, json); */
+	/* if (res) */
+	/* { */
+	/* 	pj_next_value(value, json); */
+	/* } */
+	/* return res; */
+	int32_t depth = 0;
+	json->index += json->index == 0;
+	/* printf("next_key(): index0: %d, ", json->index); */
+	const int32_t n = json->num_tokens;
+	for (int32_t i = json->index; i < n; ++i)
+	{
+		const uint8_t bitmask = json->bitmasks[i];
+		depth += (bitmask & 0x0f) == JSON_OBJECT_START || (bitmask & 0x0f) == JSON_ARRAY_START;
+		depth -= (bitmask & 0x0f) == JSON_OBJECT_END || (bitmask & 0x0f) == JSON_ARRAY_END;
+		/* printf("d: %d, ", depth); */
+		if (bitmask & JSON_KEY && depth == 0)
+		{
+			*key = json->src + json->offsets[i];
+			*key_len = token_len(json, i);
+			uint8_t bitmask;
+			for (++i; i < n; ++i)
+			{
+				bitmask = json->bitmasks[i];
+				if (bitmask & JSON_VALUE)
+				{
+					value->src = json->src;
+					value->offsets = json->offsets + i;
+					value->bitmasks = json->bitmasks + i;
+					value->index = 0;
+					break;
+				}
+			}
+			if (!((bitmask & 0x0f) == JSON_OBJECT_START || (bitmask & 0x0f) == JSON_ARRAY_START))
+			{
+				value->num_tokens = 1;
+			}
+			else
+			{
+				depth = 1;
+				const json_id_t closing_pair = (bitmask & 0x0f) + 1;
+				const int32_t i0 = i;
+				for (++i; i < json->num_tokens; ++i)
+				{
+					const uint8_t id = json->bitmasks[i] & 0x0f;
+					depth += id == JSON_OBJECT_START || id == JSON_ARRAY_START;
+					depth -= id == JSON_OBJECT_END || id == JSON_ARRAY_END;
+					if (id == closing_pair && depth == 0)
+					{
+						value->num_tokens = i - i0 + 1;
+						break;
+					}
+				}
+			}
+			json->index = i + 1;
+			return bitmask;
+		}
+	}
+	*key = NULL;
+	*value = (json_t){0};
+	json->index = n - 1;
+	return JSON_ERROR;
 }
 
 int perfect_json_test(int argc, char** argv)

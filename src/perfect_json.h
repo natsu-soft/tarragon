@@ -73,6 +73,7 @@ typedef struct arena_t arena_t;
 
 
 // jfc u idiot child create a hashmap.
+// but y tho?
 
 void pj_allman(const json_t* json);
 
@@ -90,5 +91,13 @@ json_id_t pj_float(float* dest, const json_t* json);
 
 // GOLD!
 void pj_mapc_array(json_func func, json_t* json);
+
+// SOLID!
+int32_t pj_array_size(json_t* json);
+
+json_t pj_find_key(char* key, json_t* json);
+
+// SILVER!
+uint8_t pj_next_pair(char** key, int32_t* key_len, json_t* value, json_t* json);
 
 #endif /* End PERFECT_JSON_H */

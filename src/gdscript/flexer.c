@@ -7,8 +7,8 @@
 #include "gdscript_ids.h"
 #include "../allocators/arena.h"
 #include "../allocators/scratch.h"
-#include "../allocators/workpad.h"
 #include "../macro_stack.h"
+#include "../hashmaps/gid_map.h"
 
 STACK(i16, int16_t)
 STACK(id, gdscript_id_t)
@@ -29,93 +29,11 @@ typedef int8_t bool_t;
 	X(SCOPE_END) \
 	X(EXTRA_COMMA)
 
-
 #define USE_HASHMAPS
 
 #ifdef USE_HASHMAPS
-typedef struct id_map_t
-{
-	char** keys;
-	int16_t* lens;
-	gdscript_id_t* values;
-	int16_t cap;
-} id_map_t;
-
-// it's lite, it's fast; it'll do.
-static inline int32_t djb2(const char* str, const int16_t len)
-{
-	int32_t hash = 5381;
-	for (int16_t i = 0; i < len; ++i)
-	{
-		hash += ((hash << 5) + hash) + str[i];
-	}
-	return hash;
-}
-
-static void map_cache(id_map_t* map, const char* key, const int16_t len, const gdscript_id_t value)
-{
-	const int16_t cap = map->cap;
-	const uint16_t cap_mask = cap - 1;
-	const int16_t index = djb2(key, len) & cap_mask;
-	int16_t* lens = map->lens;
-	for (int16_t i = 0; i < cap; ++i)
-	{
-		const int16_t j = (index + i) & cap_mask;
-		if (lens[j] == 0)
-		{
-			char* temp =
-			map->keys[j] = key;
-			lens[j] = len;
-			map->values[j] = value;
-			return;
-		}
-	}
-}
-
-static gdscript_id_t map_fetch(id_map_t* map, const char* key, const int16_t len)
-{
-	const int16_t cap = map->cap;
-	const uint16_t cap_mask = cap - 1;
-	const int16_t index = djb2(key, len) & cap_mask;
-	int16_t* lens = map->lens;
-	char** keys = map->keys;
-	for (int16_t i = 0; i < cap; ++i)
-	{
-		const int16_t j = (index + i) & cap_mask;
-		const int32_t l = lens[j];
-		if (len == l && strncmp(key, keys[j], len) == 0)
-		{
-			return map->values[j];
-		}
-		else if (l == 0)
-		{
-			return GDSCRIPT_NONE;
-		}
-	}
-	return GDSCRIPT_NONE;
-}
-
-static void map_print(const id_map_t* map)
-{
-	uint16_t cap_mask = map->cap - 1;
-	printf("mask: %#x\n", cap_mask);
-	for (int16_t i = 0; i < map->cap; ++i)
-	{
-		const int16_t len = map->lens[i];
-		if (map->lens[i] > 0)
-		{
-			char* str = scratch_alloc(len + 1);
-			memcpy(str, map->keys[i], len);
-			str[len] = '\0';
-			const int32_t key = djb2(str, len);
-			printf("(%d, %#04x): %s\n", i, map->values[i], str);
-			printf("\t%x & %x => %d\n", key, cap_mask, key & cap_mask);
-		}
-	}
-}
-
-static id_map_t graph_map = {0};
-static id_map_t keyword_map = {0};
+static gid_map_t graph_map = {0};
+static gid_map_t keyword_map = {0};
 
 static struct
 {
@@ -142,42 +60,25 @@ static void hashmap_init(void)
 #define X(ID,...) ++size; ++unary_triggers.num;
 	UNARY_TRIGGERS
 #undef X
-	char** keys = malloc (512 * (sizeof(char**) + sizeof(gdscript_id_t) + 2) + size);
-	int16_t* lens = keys + 512;
-	gdscript_id_t* values = lens + 512;
-	memset(lens, 0x00, 1024);
-	graph_map = (id_map_t)
-	{
-		.keys = keys,
-		.lens = lens,
-		.values = values,
-		.cap = 256
-	};
-	keyword_map = (id_map_t)
-	{
-		.keys = keys + 256,
-		.lens = lens + 256,
-		.values = values + 256,
-		.cap = 256
-	};
+	uint8_t* buffer = malloc (512 * (sizeof(size_t) + sizeof(gdscript_id_t) + 1) + size);
+	/* int8_t* lens = keys + 512; */
+	/* gdscript_id_t* values = lens + 512; */
+	/* memset(lens, 0x00, 512); */
+	gid_map_init(&graph_map, buffer, 256);
+	gid_map_init(&keyword_map, buffer + 256 * (sizeof(size_t) + sizeof(gdscript_id_t) + 1), 256);
 	// damnboi
 	arena_t arena =
 	{
-		.allocation = values + 512,
+		.allocation = buffer + 512 * 10,
 		.cap = size
 	};
-	char* str;
 #define X(ID, STR, LEN) \
-	str = arena_alloc(&arena, LEN); \
-	memcpy(str, STR, LEN); \
-	map_cache(&graph_map, str, LEN, GDSCRIPT_##ID);
+	gid_map_cache(&graph_map, arena_push(&arena, STR, LEN), LEN, GDSCRIPT_##ID);
 	GDSCRIPT_STRUCTURE
 	GDSCRIPT_OPERATORS
 #undef X
 #define X(ID, STR, LEN) \
-	str = arena_alloc(&arena, LEN); \
-	memcpy(str, STR, LEN); \
-	map_cache(&keyword_map, str, LEN, GDSCRIPT_##ID);
+	gid_map_cache(&keyword_map, arena_push(&arena, STR, LEN), LEN, GDSCRIPT_##ID);
 	GDSCRIPT_KEYWORDS
 	GDSCRIPT_LITERALS
 	GDSCRIPT_ANNOTATIONS
@@ -191,28 +92,29 @@ static void hashmap_init(void)
 	UNARY_TRIGGERS
 #undef X
 	// sometimes ya just gotta ball
-	/* DESPERATION TESTING
-#define X(ID, STR, LEN) \
-	if (GDSCRIPT_##ID != GDSCRIPT_NESTED_COLON && \
-		GDSCRIPT_##ID != GDSCRIPT_OP_TYPE && \
-		GDSCRIPT_##ID != GDSCRIPT_OP_IDENTITY && \
-		GDSCRIPT_##ID != GDSCRIPT_OP_NEGATION \
-	)										\
-	{ \
-		printf("graph_map testing: " #STR " \n" ); \
-		assert(GDSCRIPT_##ID == map_fetch(&graph_map, STR, LEN)); \
-	}
-	GDSCRIPT_STRUCTURE
-	GDSCRIPT_OPERATORS
-#undef X
-#define X(ID, STR, LEN) \
-	printf("keyword_map testing: " #STR " \n" ); \
-	assert(GDSCRIPT_##ID == map_fetch(&keyword_map, STR, LEN));
-	GDSCRIPT_KEYWORDS
-	GDSCRIPT_LITERALS
-	GDSCRIPT_ANNOTATIONS
-	#undef X
-	*/
+	/* DESPERATION TESTING */
+/* #define X(ID, STR, LEN) \ */
+/* 	if (GDSCRIPT_##ID != GDSCRIPT_NESTED_COLON && \ */
+/* 		GDSCRIPT_##ID != GDSCRIPT_OP_TYPE && \ */
+/* 		GDSCRIPT_##ID != GDSCRIPT_OP_IDENTITY && \ */
+/* 		GDSCRIPT_##ID != GDSCRIPT_OP_NEGATION \ */
+/* 	)										\ */
+/* 	{ \ */
+/* 		printf("graph_map testing: " #STR ". Expected result: GDSCRIPT_%s\n", #ID ); \ */
+/* 		const gdscript_id_t res = gid_map_fetch(&graph_map, STR, LEN); \ */
+/* 		printf("%x vs %x\n", res, GDSCRIPT_##ID); \ */
+/* 		assert(GDSCRIPT_##ID == res);			\ */
+/* 	} */
+/* 	GDSCRIPT_STRUCTURE */
+/* 	GDSCRIPT_OPERATORS */
+/* #undef X */
+/* #define X(ID, STR, LEN) \ */
+/* 	printf("keyword_map testing: " #STR " \n" ); \ */
+/* 	assert(GDSCRIPT_##ID == gid_map_fetch(&keyword_map, STR, LEN)); */
+/* 	GDSCRIPT_KEYWORDS */
+/* 	GDSCRIPT_LITERALS */
+/* 	GDSCRIPT_ANNOTATIONS */
+/* 	#undef X */
 }
 #else
 
@@ -333,7 +235,7 @@ static const gdscript_id_t tokenize(const char* src, const int32_t i0, const int
 	{
 		for (int8_t l = max_len > 3 ? 3 : max_len; l > 0; --l)
 		{
-			const gdscript_id_t res = map_fetch(&graph_map, token, l);
+			const gdscript_id_t res = gid_map_fetch(&graph_map, token, l);
 			if (res != GDSCRIPT_NONE)
 			{
 				*out_len = l;
@@ -360,18 +262,12 @@ static const gdscript_id_t tokenize(const char* src, const int32_t i0, const int
 	#endif
 	// find where to break the token
 	int32_t i = i0 + 1;
-	bool_t break_flag = false;
 	for (; i < n; ++i)
 	{
 		const int32_t c = src[i];
-		if (c == ' ' || c == '\n' || c == '\t' || break_flag)
+		if (c == ' ' || c == '\n' || c == '\t' ||
+		('&' <= c && c <= '/') || (':' <= c && c <= '?') || ('[' <= c && c <= '^') || ('{' <= c && c <= '~') || c == '!' || c == '"' || c == '#')
 		{
-			i -= break_flag;
-			break;
-		}
-		else if (('&' <= c && c <= '/') || (':' <= c && c <= '?') || ('[' <= c && c <= '^') || ('{' <= c && c <= '~') || c == '!' || c == '"' || c == '#')
-		{
-			break_flag = true;
 			break;
 		}
 	}
@@ -380,7 +276,7 @@ static const gdscript_id_t tokenize(const char* src, const int32_t i0, const int
 	*out_len = len;
 	#ifdef USE_HASHMAPS
 
-	const gdscript_id_t res = map_fetch(&keyword_map, token, len);
+	const gdscript_id_t res = gid_map_fetch(&keyword_map, token, len);
 	return res != GDSCRIPT_NONE ? res : GDSCRIPT_IDENTIFIER;
 	#else
 	char** keywords = flex_table.keywords;

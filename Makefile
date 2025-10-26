@@ -1,17 +1,19 @@
 # NOTE: for release build use gcc & mold at -O2
 CC := clang -std=gnu99
+# CC := gcc -std=gnu99
 ifeq ($(OS),Windows_NT)
 	RE := rg
 else
 	RE := grep
 endif
-CFLAGS := -Wall -Wextra -Wno-int-conversion -fpermissive -fdiagnostics-show-option -ggdb -O2
+CFLAGS := -Wall -Wextra -Wno-int-conversion -fpermissive -fdiagnostics-show-option -ggdb -O0
 # CFLAGS := -Wall -Wextra -Wno-int-conversion -fpermissive -fdiagnostics-show-option -O2
 GODOT :=
 LIBS :=
 LDFLAGS := -fuse-ld=lld -flto -static
+# LDFLAGS := -fuse-ld=mold -flto -static
 MAINS := src/tarragon.c src/tests.c src/builtin_generator.c
-IGNORE := src/gdscript/gdscript_ast.c src/gdscript/gdscript_tokenizer.c src/logger.c src/builtin.c src/allocators/devious.c
+IGNORE := src/gdscript/gdscript_ast.c src/gdscript/gdscript_tokenizer.c src/logger.c src/builtin.c src/allocators/devious.c src/fml.c src/api_generator.c src/godot_api.c
 ALL_SRC := $(wildcard src/*.c)
 ALL_SRC += $(wildcard src/*/*.c)
 SRC := $(filter-out $(IGNORE), $(filter-out $(MAINS), $(ALL_SRC)))
@@ -22,7 +24,6 @@ HEX_OBJS := obj/supported_godot.o
 JSON_OBJS :=  obj/default_config.o
 ALL_OBJ := $(patsubst src/%.c,obj/%.o,$(ALL_SRC))
 OBJ += $(HEX_OBJS) $(JSON_OBJS)
-GODOT := godot
 
 .PHONY: default dependencies clean clean-dep clean-emacs clean-alllsp-test test test2 test/% test_gen ci/cd
 
@@ -35,29 +36,54 @@ test/%:
 	${CURDIR}/test_$*
 	@echo "TESTED: src/$*.c"
 
-tarragon: obj/tarragon.o obj/builtin.o $(OBJ)
+tarragon: obj/tarragon.o $(OBJ)
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS) $(LDFLAGS)
 
-obj/builtin.o: src/builtin.c src/builtin.gen | dep_dirs
-	$(CC) $(CFLAGS) -o $@ $<
+# obj/builtin.o: src/builtin.c src/builtin.gen obj/allocators/arena.o obj/hashmaps/ptr_map.o obj/hashmaps/op_map.o | dep_dirs
+# 	$(CC) $(CFLAGS) -o $@ $< obj/allocators/arena.o obj/hashmaps/ptr_map.o obj/hashmaps/op_map.o
 
 src/builtin.gen: builtin-generator extension_api.json
 	${CURDIR}/$<
 
-builtin-generator: obj/builtin_generator.o $(OBJ)
+builtin-generator: obj/builtin_generator.o obj/mem_sys.o obj/allocators/arena.o obj/allocators/scratch.o obj/allocators/workpad.o obj/gdscript/hashmaps.o obj/hashmaps/gid_map.o obj/perfect_json.o
+	$(CC) $(CFLAGS) -o $@ $^
+
+api-generator: obj/api_generator.o obj/mem_sys.o obj/allocators/arena.o obj/allocators/scratch.o obj/allocators/workpad.o obj/gdscript/hashmaps.o obj/hashmaps/api_map.o obj/perfect_json.o obj/hashmaps/gid_map.o;
+	$(CC) $(CFLAGS) -o $@ $^
+
+extension_api.json:
+	$(GODOT) --dump-extension-api-with-docs
+
+tests: obj/tests.o $(OBJ) obj/godot_api.o
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS) $(LDFLAGS)
 
-# extension_api.json:
-# 	$(GODOT) --dump-extension-api-with-docs
-
-tests: obj/tests.o $(OBJ)
+fml: obj/fml.o obj/allocators/arena.o obj/hashmaps/gid_map.o
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS) $(LDFLAGS)
 
-test: tests
+%.h: ;
+%.c: ;
+
+# test: fml
+# 	${CURDIR}/$<
+
+test: tests extension_api.json
 	${CURDIR}/$<
 
-# test: builtin-generator
+# test: api-generator
 # 	${CURDIR}/$<
+
+src/godot_api.gen: api-generator extension_api.json
+	${CURDIR}/$<
+
+obj/builtin_generator.o: src/builtin_generator.c src/api_structs.h | dep_dirs
+	$(CC) $(CFLAGS) -o $@ -c $<
+
+# obj/builtin.o: src/builtin.c src/builtin.gen obj/allocators/arena.o obj/hashmaps/ptr_map.o obj/hashmaps/op_map.o | dep_dirs
+obj/builtin.o: src/builtin.c src/builtin.gen | dep_dirs
+	$(CC) $(CFLAGS) -o $@ -c $<
+
+obj/godot_api.o: src/godot_api.c src/godot_api.gen | dep_dirs
+	$(CC) $(CFLAGS) -o $@ -c $<
 
 obj/%.o: src/%.c dep/%.d | obj_dirs
 	$(CC) $(CFLAGS) -c $< -o $@ $(LIBS)

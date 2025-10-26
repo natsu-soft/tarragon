@@ -84,6 +84,7 @@
 	X(IN,		  "in",				2) \
 	X(AS,		  "as",				2) \
 	X(NOT,		  "not",				3) \
+	X(XOR,		  "xor",				3) \
 	X(OP_POWER,					    "**",			2) \
 	X(OP_PRODUCT,				    "*",			1) \
 	X(OP_SUM,					    "+",			1) \
@@ -165,6 +166,7 @@
 	X(OR,		  "or",				2) \
 	X(AND,		  "and",				3) \
 	X(NOT,		"not",				3) \
+	X(XOR,		"xor",				3) \
 	X(EXTENDS,	  "extends",		7) \
 	X(SELF,		  "self",			4) \
 	X(SUPER,	  "super",			5) \
@@ -178,7 +180,8 @@
 	X(AWAIT,	  "await",			5) \
 	X(YIELD,	  "yield",		 	5) \
 	X(ASSERT,	  "assert",		 	6) \
-	X(VOID,		  "void",		 	4)
+	X(VOID,		  "void",		 	4) \
+	X(EMIT,		  "emit",		 	4)
 	/* X(GET,		  "get",		 	3) \ */
 	/* X(SET,		  "set",		 	3) \ */
 
@@ -268,6 +271,5 @@ typedef enum __attribute__((packed)) gdscript_id_t
 	#undef X
 	GDSCRIPT_TOTAL_NUM
 } gdscript_id_t;
-
 
 #endif /* End GDSCRIPT_IDS_H */

@@ -20,15 +20,16 @@ extern char supported_godot[];
 
 void print_usage(void)
 {
-	printf("tarragon blahblahblah GDScript LSP that uses standard IO instead of ports\n\n");
-	printf("Usage\n\n");
-	printf("  tarragon [options]\n\n");
-	printf("If launched without any options, tarragon searches for 'tarragon.json' upwards in\n");
-	printf("the file hierarchy, parses it for configuration, then acts as a Language Server.\n\n");
-	printf("Options\n");
-	printf("  -h                 = Prints usage information.\n");
-	printf("  -v                 = Prints tarragon version.\n");
-	printf("  -s                 = Prints supported Godot version.\n");
+	printf("tarragon blahblahblah GDScript LSP that uses standard IO instead of ports\n"
+		   "Made in U.S.A.\n"
+		   "Usage\n\n"
+		   "  tarragon [options]\n\n"
+		   "If launched without any options, tarragon searches for 'tarragon.json' upwards in\n"
+		   "the file hierarchy, parses it for configuration, then acts as a Language Server.\n\n"
+		   "Options\n"
+		   "  -h                 = Prints usage information.\n"
+		   "  -v                 = Prints tarragon version.\n"
+		   "  -s                 = Prints supported Godot version.\n");
 	/* printf("  -g                 = Prints supported Godot version.\n"); */
 }
 

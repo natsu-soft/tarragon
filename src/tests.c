@@ -12,7 +12,8 @@ FILE* log_fp;
 	X(base_protocol) \
 	X(perfect_json) \
 	X(xml) \
-	X(gdscript_parser)
+	X(gdscript_parser) \
+	X(godot_api)
 	/* X(json)									\ */
 	/* X(gdscript_parser) */
 

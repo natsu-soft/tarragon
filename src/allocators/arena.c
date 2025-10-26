@@ -2,7 +2,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include "../error_macros.h"
-#include "../logger.h"
+/* #include "../logger.h" */
 
 #define REALLOC_OVERHEAD 4096
 
@@ -25,7 +25,7 @@ void arena_grow(arena_t* arena, const int32_t new_size)
 void* arena_alloc(arena_t* arena, const int32_t bytes)
 {
 	/* LOG("allocating %zu from %zu", bytes, arena-> cap - arena->size); */
-	fassertf(log_fp, arena->size + bytes <= arena->cap, "ARENA OVERFLOW!");
+	/* fassertf(log_fp, arena->size + bytes <= arena->cap, "ARENA OVERFLOW!"); */
 	if (arena->size + bytes > arena->cap)
 	{
 		return NULL;
@@ -55,15 +55,16 @@ void* arena_calloc(arena_t* arena, const int32_t bytes)
 	return res;
 }
 
-void* arena_alloc_aligned(arena_t* arena, const int32_t bytes, const int32_t alignment)
+void* arena_alloc_aligned(arena_t* arena, const int32_t bytes, const size_t alignment)
 {
 	// assert alignment is a power of 2 BECAUSE OTHERWISE THIS JUST DONT WORK
 	assert((alignment & (alignment - 1)) == 0);
-	const int32_t arena_addr = (int32_t)arena->allocation + arena->size;
-	const int32_t mod = arena_addr % (alignment - 1);
+	const size_t arena_addr = (size_t)arena->allocation + arena->size;
+	const size_t mod = arena_addr & (alignment - 1);
+	const int32_t padding = mod > 0 ? alignment - mod : 0;
 	assert(arena->size + bytes + mod <= arena->cap);
-	void* addr = arena->allocation + arena->size + mod;
-	arena->size += mod + bytes;
+	void* addr = arena->allocation + arena->size + padding;
+	arena->size += bytes + padding;
 	return addr;
 }
 
@@ -103,14 +104,14 @@ void* arena_pop(arena_t* arena, const int32_t bytes)
 	return arena->allocation + arena->size;
 }
 
-void arena_push(arena_t* arena, const void* src, const int32_t bytes)
+void* arena_push(arena_t* arena, const void* src, const int32_t bytes)
 {
 	assert(arena->cap >= arena->size + bytes);
-	const char* str = src;
 	void* dest = arena->allocation + arena->size;
-	assert(dest != NULL && dest + bytes != NULL && "wtf?");
+	/* printf("arena_push: %x from %x\n", dest, arena); */
 	memcpy(dest, src, bytes);
 	arena->size += bytes;
+	return dest;
 }
 
 void arena_dynamic_push(arena_t* arena, const void* src, const int32_t bytes)
