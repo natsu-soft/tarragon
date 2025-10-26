@@ -61,7 +61,6 @@ fml: obj/fml.o obj/allocators/arena.o obj/hashmaps/gid_map.o
 	$(CC) $(CFLAGS) -o $@ $^ $(LIBS) $(LDFLAGS)
 
 %.h: ;
-%.c: ;
 
 # test: fml
 # 	${CURDIR}/$<
