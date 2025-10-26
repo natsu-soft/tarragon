@@ -95,10 +95,10 @@ dep/%.d: src/%.c | dep_dirs
 
 include $(wildcard dep/*.d)
 
-obj/supported_godot.o: extension_api.json
-	@jq -r '.header.version_full_name' $< > supported_godot
-	xxd -i supported_godot | $(CC) $(CFLAGS) -xc -c -o $@ -
-	@rm supported_godot
+# obj/supported_godot.o: extension_api.json
+# 	@jq -r '.header.version_full_name' $< > supported_godot
+# 	xxd -i supported_godot | $(CC) $(CFLAGS) -xc -c -o $@ -
+# 	@rm supported_godot
 
 # extesnion_api.json:;
 
