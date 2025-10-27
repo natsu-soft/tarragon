@@ -53,7 +53,7 @@ int ms_munmap(void* addr, size_t len)
 void* ms_map_entire_file(const char* filename, int32_t* out_len, ms_handle_t* out_handle)
 {
 #ifdef _WIN32
-	assert(0 && "LMAO IMPLEMENT ms_map_entire_fil() on Wangblows\n");
+	assert(0 && "LMAO IMPLEMENT ms_map_entire_file() on Wangblows\n");
 	return NULL;
 #else
 	/* int filedesc = open(filename, O_RDWR | O_CREAT | O_APPEND, 0400 | 0200); */
@@ -65,6 +65,23 @@ void* ms_map_entire_file(const char* filename, int32_t* out_len, ms_handle_t* ou
 	return mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_SHARED, filedesc, 0);
 #endif
 }
+
+void* ms_read_file(const char* filename, int32_t* out_len, ms_handle_t* out_handle)
+{
+#ifdef _WIN32
+	assert(0 && "LMAO IMPLEMENT ms_read_file() on Wangblows\n");
+	return NULL;
+#else
+	/* int filedesc = open(filename, O_RDWR | O_CREAT | O_APPEND, 0400 | 0200); */
+	int filedesc = open(filename, O_RDWR, 0400 | 0200);
+	assertf(filedesc != -1, "failed to get filedesc in ms_map_file_into_arena().  Check the perms!\n");
+	const int32_t len = lseek(filedesc, 0, SEEK_END);
+	*out_len = len;
+	*out_handle = filedesc;
+	return mmap(NULL, len, PROT_READ, MAP_SHARED, filedesc, 0);
+#endif
+}
+
 
 void* ms_map_file(const char* filename, size_t len, ms_handle_t* out_handle)
 {

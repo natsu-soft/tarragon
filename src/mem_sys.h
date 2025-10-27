@@ -28,6 +28,8 @@ int ms_munmap(void* addr, size_t len);
 
 void* ms_map_entire_file(const char* filename, int32_t* out_len, ms_handle_t* out_handle);
 
+void* ms_read_file(const char* filename, int32_t* out_len, ms_handle_t* out_handle);
+
 void* ms_map_file(const char* filename, size_t len, ms_handle_t* out_handle);
 
 int ms_munmap_file(void* addr, size_t len, ms_handle_t handle);
