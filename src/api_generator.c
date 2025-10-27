@@ -14,39 +14,97 @@
 #include "gdscript/hashmaps.h"
 #include "relative_ptrs.h"
 
+/* #define VERBOSE_FETCH */
+
+#ifdef VERBOSE_FETCH
+	#define FETCH_PRINT(MSG, ...) printf(MSG, ##__VA_ARGS__)
+#else
+	#define FETCH_PRINT(...)
+#endif
+
 #define PASSERT(A, MSG, ...) if (!(A)) { printf(MSG, ##__VA_ARGS__); fflush(stdout); assert(A); }
 
 #define SCRUB_STR(STR, LEN)												\
-	if (len == 18 && strncmp("enum::Variant.Type", str, 18) == 0)		\
+	if (STR[LEN - 1] != '*')											\
 	{																	\
-		str = "Variant";												\
-		len = 7;														\
+		for (int32_t __i = LEN - 1; __i >= 0; --__i)					\
+		{																\
+			if (STR[__i] == ':')										\
+			{															\
+				STR += __i + 1;											\
+				LEN -= __i + 1;											\
+				break;													\
+			}															\
+		}																\
+		/* else */ if (LEN == 12 && strncmp("Variant.Type", STR, 12) == 0) \
+		{																\
+			STR = "Variant";											\
+			LEN = 7;													\
+		}																\
+		else if (LEN == 16 && strncmp("Variant.Operator", STR, 16) == 0) \
+		{																\
+			STR = "Variant:Operator";									\
+			LEN = 16;													\
+		}																\
+		else if (LEN == 0)												\
+		{																\
+			STR = "Dictionary";											\
+			LEN = 10;													\
+		}																\
+		for (int32_t __i = 0; __i < LEN; ++__i)							\
+		{																\
+			if (STR[__i] == ',')										\
+			{															\
+				LEN = __i;												\
+				break;													\
+			}															\
+		}																\
 	}																	\
-	else if (len == 22 && strncmp("enum::Variant.Operator", str, 22) == 0) \
+	else																\
 	{																	\
-		str = "Variant:Operator";										\
-		len = 16;														\
-	}																	\
-	else if (len == 12 && strncmp("Variant.Type", str, 12) == 0) \
-	{																	\
-		str = "Variant";												\
-		len = 7;														\
-	}																	\
-	else if (len == 16 && strncmp("Variant.Operator", str, 16) == 0) \
-	{																	\
-		str = "Variant:Operator";										\
-		len = 16;														\
-	}																	\
-	else if (len > 6 && strncmp("enum::", str, 6) == 0)					\
-	{																	\
-		str += 6;														\
-		len += 6;														\
-	}																	\
-	else if (len > 10 && strncmp("bitfield::", str, 10) == 0)			\
-	{																	\
-		str += 10;														\
-		len += 10;														\
+		if (LEN > 6 && strncmp("const ", STR, 6) == 0)					\
+		{																\
+			STR += 6;													\
+			LEN -= 6;													\
+		}																\
+		if (LEN > 6 && strncmp("uint8_t", STR, 6) == 0)					\
+		{																\
+			STR = "C Buffer";											\
+			LEN = 8;													\
+		}																\
+		else															\
+		{																\
+			STR = "C Pointer";											\
+			LEN = 9;													\
+		}																\
 	}
+
+
+	/* Else if (LEN == 22 && STRncmp("enum::Variant.Operator", STR, 22) == 0) \ */
+	/* {																	\ */
+	/* 	STR = "Variant:Operator";										\ */
+	/* 	LEN = 16;														\ */
+	/* }																	\ */
+	/* if (LEN == 18 && STRncmp("enum::Variant.Type", STR, 18) == 0)		\ */
+	/* {																	\ */
+	/* 	STR = "Variant";												\ */
+	/* 	LEN = 7;														\ */
+	/* }																	\ */
+	/* else if (LEN > 12 && STRncmp("typedarray::", STR, 12) == 0)			\ */
+	/* {																	\ */
+	/* 	STR += 12;														\ */
+	/* 	LEN -= 12;														\ */
+	/* }																	\ */
+	/* else if (LEN > 10 && STRncmp("bitfield::", STR, 10) == 0)			\ */
+	/* {																	\ */
+	/* 	STR += 10;														\ */
+	/* 	LEN -= 10;														\ */
+	/* }																	\ */
+	/* else if (LEN > 6 && STRncmp("enum::", STR, 6) == 0)					\ */
+	/* {																	\ */
+	/* 	STR += 6;														\ */
+	/* 	LEN -= 6;														\ */
+	/* }																	\ */
 
 #ifdef _WIN32
 typedef struct _iobuf FILE;
@@ -90,7 +148,8 @@ static int32_t hashmap_size(int32_t num_entries)
 		X(enum_value, enum_values)				\
 		X(constant, constants)					\
 		X(signal, signals)						\
-		X(member, members)
+		X(member, members)						\
+		X(native_struct, native_structs)
 
 #define X(A, B) A##_t* B = NULL;
 	NUMBERS
@@ -110,15 +169,16 @@ static const fetch_res_t api_fetch(char* key, int16_t len)
 	if (key[0] != ' ')
 	{
 		int32_t i0 = 0;
+		FETCH_PRINT("fetch: ");
+		char* temp = alloca(len + 1);
 		for (int32_t i = i0; i < len; ++i)
 		{
 			if (key[i] != '.') { continue; }
 			else
 			{
 				diff_ptr_t diff_ptr = api_map_fetch(map, key + i0, i - i0);
-				char* temp = alloca(len + 1);
 				cpystr(temp, key + i0, i - i0);
-				/* printf("%s -> ", temp); */
+				FETCH_PRINT("%s -> ", temp);
 				PASSERT((diff_ptr.delta & 0x7) == API_CLASS, "'%s' should have fetched a class!\n", temp);
 				diff_ptr.delta &= ~0x7;
 				map = abs_diff(&diff_ptr, classes);
@@ -126,21 +186,51 @@ static const fetch_res_t api_fetch(char* key, int16_t len)
 			}
 		}
 		/* char* temp = alloca(len + 1); */
-		/* cpystr(temp, key + i0, len - i0); */
-		/* printf("%s\n", temp); */
-		/* fflush(stdout); */
+		cpystr(temp, key + i0, len - i0);
+		FETCH_PRINT("%s (%d:", temp, len - i0);
 		res.diff_ptr = api_map_fetch(map, key + i0, len - i0);
 		res.tag = res.diff_ptr.delta & 0x07;
 		res.diff_ptr.delta &= ~0x07;
 		switch(res.tag)
 		{
-		case API_MEMBER: res.ptr = abs_diff(&res.diff_ptr, members); break;
-		case API_ENUM: res.ptr = abs_diff(&res.diff_ptr, enums); break;
-		case API_FUNC: res.ptr = abs_diff(&res.diff_ptr, funcs); break;
-		case API_CLASS: res.ptr = abs_diff(&res.diff_ptr, classes); break;
-		case API_SIGNAL: res.ptr = abs_diff(&res.diff_ptr, signals); break;
-		case API_CONSTANT: res.ptr = abs_diff(&res.diff_ptr, constants); break;
+		case API_MEMBER:
+			res.ptr = abs_diff(&res.diff_ptr, members);
+			FETCH_PRINT("member)\n");
+			break;
+		case API_ENUM:
+			res.ptr = abs_diff(&res.diff_ptr, enums);
+			FETCH_PRINT("enum)\n");
+			break;
+		case API_FUNC:
+			res.ptr = abs_diff(&res.diff_ptr, funcs);
+			FETCH_PRINT("function)\n");
+			break;
+		case API_CLASS:
+			res.ptr = abs_diff(&res.diff_ptr, classes);
+			FETCH_PRINT("class)\n");
+			break;
+		case API_SIGNAL:
+			res.ptr = abs_diff(&res.diff_ptr, signals);
+			FETCH_PRINT("signal)\n");
+			break;
+		case API_CONSTANT:
+			res.ptr = abs_diff(&res.diff_ptr, constants);
+			FETCH_PRINT("constant)\n");
+			break;
+		case API_NATIVE_STRUCT:
+			res.ptr = abs_diff(&res.diff_ptr, native_structs);
+			FETCH_PRINT("struct)\n");
+			break;
+		default:
+			FETCH_PRINT("ERR) -- DELTA: %#x\n", res.diff_ptr.delta);
+			#ifdef VERBOSE_FETCH
+			fflush(stdout);
+			assert(0);
+			#else
+			assert(0 && "catastrophic fetch error -- enable VERBOSE_FETCH");
+			#endif
 		}
+		fflush(stdout);
 	}
 	else
 	{
@@ -212,20 +302,22 @@ static void accumulate_class_cache(json_t* json)
 	}
 }
 
-class_t* hot_class;
-diff_ptr_t hot_diff;
+static class_t* hot_class = NULL;
+static diff_ptr_t hot_diff = {0};
+
+static void hot_append_scratch(char** dest, int32_t* total_len, char* str, int32_t len)
+{
+	const int32_t name_len = hot_class->name_len;
+	*total_len = name_len + len + 1;
+	*dest = scratch_alloc(*total_len + 1);
+	memcpy(*dest, abs_self(&hot_class->name_selfptr), name_len);
+	(*dest)[name_len] = '.';
+	cpystr(*dest + name_len + 1, str, len);
+}
 
 /* PHASE ONE */
 
-static void p1_enums(json_t* json);
 static void p1_enum_values(json_t* json);
-static void p1_funcs(json_t* json);
-static void p1_params(json_t* json);
-static void p1_classes(json_t* json);
-static void p1_operators(json_t* json);
-static void p1_constants(json_t* json);
-static void p1_members(json_t* json);
-static void p1_signals(json_t* json);
 
 static void p1_enums(json_t* json)
 {
@@ -265,6 +357,8 @@ static void p1_enum_values(json_t* json)
 		}
 	}
 }
+
+static void p1_params(json_t* json);
 
 static void p1_funcs(json_t* json)
 {
@@ -308,6 +402,11 @@ static void p1_params(json_t* json)
 		}
 	}
 }
+
+static void p1_operators(json_t* json);
+static void p1_constants(json_t* json);
+static void p1_members(json_t* json);
+static void p1_signals(json_t* json);
 
 static void p1_classes(json_t* json)
 {
@@ -438,7 +537,6 @@ static void p1_signals(json_t* json)
 	char* str;
 	int32_t len;
 	json_t dest = {0};
-	++num_signals;
 	uint8_t flags;
 	while((flags = pj_next_pair(&str, &len, &dest, json)))
 	{
@@ -452,6 +550,29 @@ static void p1_signals(json_t* json)
 			pj_mapc_array(p1_params, &dest);
 		}
 	}
+	++num_signals;
+}
+
+static void p1_native_structs(json_t* json)
+{
+	char* str;
+	int32_t len;
+	json_t dest = {0};
+	uint8_t flags;
+	while((flags = pj_next_pair(&str, &len, &dest, json)))
+	{
+		if (strncmp("name", str, len) == 0 /* || strncmp("description", str, len) == 0 */)
+		{
+			pj_str(&str, &len, &dest);
+			str_size += len;
+		}
+		else if (strncmp("format", str, len) == 0)
+		{
+			pj_str(&str, &len, &dest);
+			str_size += len + 1;
+		}
+	}
+	++num_native_structs;
 }
 
 /* PHASE DEUCE */
@@ -505,18 +626,11 @@ static void p3_global_enums(json_t* json)
 		if (strncmp("name", str, len) == 0)
 		{
 			pj_str(&str, &len, &dest);
-			if (strncmp("Variant.Type", str, len) == 0)
-			{
-				str = "Variant";
-				len = 7;
-			}
-			else if (strncmp("Variant.Operator", str, len) == 0)
-			{
-				str = "Variant:Operator";
-			}
+			SCRUB_STR(str, len);
 			char* name = arena_push(&str_arena, str, len);
 			diff_ptr_t* dptr = api_map_cache(api_map, name, len, diff_relate(e, enums));
 			dptr->delta |= API_ENUM;
+			assert(api_fetch(str, len).ptr == e);
 		}
 		else if (strncmp("values", str, len) == 0)
 		{
@@ -541,12 +655,15 @@ static void p3_global_funcs(json_t* json)
 			char* name = arena_push(&str_arena, str, len);
 			diff_ptr_t* dtr = api_map_cache(api_map, name, len, diff_relate(func, funcs));
 			dtr->delta |= API_FUNC;
+			self_relate(&func->name_selfptr, name);
+			func->name_len = len;
 		}
 		else if (strncmp("arguments", str, len) == 0)
 		{
-			num_params = 0;
-			pj_mapc_array(accumulate_params, &dest);
-			func->num_params = num_params;
+			func->num_params = pj_array_size(&dest);
+			/* num_params = 0; */
+			/* pj_mapc_array(accumulate_params, &dest); */
+			/* func->num_params = num_params; */
 		}
 	}
 	++num_funcs;
@@ -576,10 +693,14 @@ static void p3_classes(json_t* json)
 			diff_ptr_t* dtr = api_map_cache(api_map, name, len, diff_relate(class, classes));
 			dtr->delta |= API_CLASS;
 			/* char* temp = scratch_alloc(len + 1); */
+
 			/* cpystr(temp, str, len); */
 			self_relate(&class->name_selfptr, name);
 			/* printf("p3-class[%d]: %s +%x: %x(%x) -> %#x\n", num_classes, temp, class->name_selfptr.delta, dtr->delta, dtr->delta & 0x7, class); */
 			class->name_len = len;
+			assert(api_fetch(str, len).ptr == class);
+			assert(api_fetch(str, len).diff_ptr.delta == dtr->delta);
+			assert(api_fetch(str, len).tag == API_CLASS);
 		}
 		else if (strncmp("enums", str, len) == 0)
 		{
@@ -653,12 +774,15 @@ static void p3_funcs(json_t* json)
 			char* name = arena_push(&str_arena, str, len);
 			diff_ptr_t* dtr = api_map_cache(hot_class, name, len, diff_relate(func, funcs));
 			dtr->delta |= API_FUNC;
+			self_relate(&func->name_selfptr, name);
+			func->name_len = len;
 		}
 		else if (strncmp("arguments", str, len) == 0)
 		{
-			num_params = 0;
-			pj_mapc_array(accumulate_params, &dest);
-			func->num_params = num_params;
+			func->num_params = pj_array_size(&dest);
+			/* num_params = 0; */
+			/* pj_mapc_array(accumulate_params, &dest); */
+			/* func->num_params = num_params; */
 		}
 	}
 	++num_funcs;
@@ -675,9 +799,10 @@ static void p3_constructors(json_t* json)
 	{
 		if (strncmp("arguments", str, len) == 0)
 		{
-			num_params = 0;
-			pj_mapc_array(accumulate_params, &dest);
-			func->num_params = num_params;
+			func->num_params = pj_array_size(&dest);
+			/* num_params = 0; */
+			/* pj_mapc_array(accumulate_params, &dest); */
+			/* func->num_params = num_params; */
 		}
 	}
 	++num_funcs;
@@ -746,6 +871,34 @@ static void p3_signals(json_t* json)
 		}
 	}
 	++num_signals;
+}
+
+static void p3_native_structs(json_t* json)
+{
+	char* str;
+	int32_t len;
+	json_t dest = {0};
+	uint8_t flags;
+	native_struct_t* native = native_structs + num_native_structs;
+	while((flags = pj_next_pair(&str, &len, &dest, json)))
+	{
+		if (strncmp("name", str, len) == 0)
+		{
+			pj_str(&str, &len, &dest);
+			char* name = arena_push(&str_arena, str, len);
+			diff_ptr_t* dtr = api_map_cache(api_map, name, len, diff_relate(native, native_structs));
+			dtr->delta |= API_NATIVE_STRUCT;
+			assert(api_fetch(name, len).ptr == native);
+		}
+		else if (strncmp("format", str, len) == 0)
+		{
+			pj_str(&str, &len, &dest);
+			char* fmt = arena_alloc(&str_arena, len + 1);
+			cpystr(fmt, str, len);
+			self_relate(&native->format, fmt);
+		}
+	}
+	++num_native_structs;
 }
 
 
@@ -836,6 +989,8 @@ static void p4_funcs(json_t* json)
 			dest = pj_find_key("type", &dest);
 			pj_str(&str, &len, &dest);
 			SCRUB_STR(str, len)
+			/* char* temp = scratch_alloc(len + 1); */
+			/* cpystr(temp, str, len); */
 			func->return_type = api_fetch(str, len).diff_ptr;
 		}
 		else if (strncmp("arguments", str, len) == 0)
@@ -1289,6 +1444,10 @@ static void audit_params(json_t* json)
 }
 
 static void audit_methods(json_t* json);
+static void audit_constructors(json_t* json);
+static void audit_members(json_t* json);
+static void audit_enums(json_t* json);
+static void audit_signals(json_t* json);
 
 static void audit_classes(json_t* json)
 {
@@ -1323,23 +1482,23 @@ static void audit_classes(json_t* json)
 		}
 		else if (strncmp("constructors", str, len) == 0)
 		{
-			/* pj_mapc_array(p4_constructors, &dest); */
+			pj_mapc_array(audit_constructors, &dest);
 		}
 		else if (strncmp("members", str, len) == 0 || strncmp("properties", str, len) == 0)
 		{
-			/* pj_mapc_array(p4_members, &dest); */
+			pj_mapc_array(audit_members, &dest);
 		}
 		else if(strncmp("constants", str, len) == 0)
 		{
-			/* pj_mapc_array(p4_constants, &dest); */
+			/* pj_mapc_array(audit_constants, &dest); */
 		}
 		else if(strncmp("enums", str, len) == 0)
 		{
-			/* pj_mapc_array(p4_enums, &dest); */
+			pj_mapc_array(audit_enums, &dest);
 		}
 		else if(strncmp("signals", str, len) == 0)
 		{
-			/* pj_mapc_array(p4_signals, &dest); */
+			pj_mapc_array(audit_signals, &dest);
 		}
 		else if (strncmp("is_keyed", str, len) == 0)
 		{
@@ -1360,6 +1519,7 @@ static void audit_classes(json_t* json)
 	++num_classes;
 }
 
+// TODO: SHITS FUCKED, YO.
 static void audit_methods(json_t* json)
 {
 	char* str;
@@ -1371,32 +1531,39 @@ static void audit_methods(json_t* json)
 	{
 		if (strncmp("name", str, len) == 0)
 		{
-			pj_str(&str, &len, &dest);
-			const int32_t total_len = hot_class->name_len + len + 1;
-			char* temp = scratch_alloc(total_len + 2);
-			memcpy(temp, abs_self(&hot_class->name_selfptr), hot_class->name_len);
-			temp[hot_class->name_len] = '.';
-			cpystr(temp + hot_class->name_len + 1, str, len);
-			const fetch_res_t res = api_fetch(temp, total_len);
-			printf("auditing: %s\n", temp);
-			PASSERT(res.tag == API_FUNC, "key: '%s', tag: %x, ptr: %#x\n", temp, res.tag, res.ptr);
+			/* pj_str(&str, &len, &dest); */
+			/* const int32_t total_len = hot_class->name_len + len + 1; */
+			/* char* temp = scratch_alloc(total_len + 2); */
+			/* memcpy(temp, abs_self(&hot_class->name_selfptr), hot_class->name_len); */
+			/* temp[hot_class->name_len] = '.'; */
+			/* cpystr(temp + hot_class->name_len + 1, str, len); */
+			/* const fetch_res_t res = api_fetch(temp, total_len); */
+			/* printf("auditing: %s\n", temp); */
+			/* if(!(func->name_len == len && strncmp(abs_self(&func->name_selfptr), str, len) == 0)) */
+			/* { */
+			/* 	temp = scratch_alloc(func->name_len + 1); */
+			/* 	cpystr(temp, abs_self(&func->name_selfptr), func->name_len); */
+			/* 	PASSERT(0, "audit_methods(): NAME_MISMATCH CACHED NAME: '%s'\n", temp); */
+			/* } */
+			/* assert(api_map_fetch(hot_class, str, len).delta == api_map_fetch(api_map, temp, total_len).delta); */
+			/* PASSERT(res.tag == API_FUNC, "key: '%s', tag: %x, ptr: %#x\n", temp, res.tag, res.ptr); */
 		}
 		else if (strncmp("return_type", str, len) == 0)
 		{
-			pj_str(&str, &len, &dest);
-			pj_allman(&dest);
-			SCRUB_STR(str, len)
-			fflush(stdout);
-			const fetch_res_t res = api_fetch(str, len);
-			PASSERT(res.tag != API_NONE, "bad fetch: %#x: %x\n", res.ptr, res.tag);
-			PASSERT(func->return_type.delta == res.diff_ptr.delta, "%#x != %#x\n", func->return_type.delta, res.diff_ptr.delta);
-		}
-		else if (strncmp("return_value", str, len) == 0)
-		{
-			dest = pj_find_key("type", &dest);
-			pj_str(&str, &len, &dest);
-			SCRUB_STR(str, len)
-			assert(func->return_type.delta == api_fetch(str, len).diff_ptr.delta);
+		/* 	pj_str(&str, &len, &dest); */
+		/* 	pj_allman(&dest); */
+		/* 	SCRUB_STR(str, len) */
+		/* 	fflush(stdout); */
+		/* 	const fetch_res_t res = api_fetch(str, len); */
+		/* 	PASSERT(res.tag != API_NONE, "bad fetch: %#x: %x\n", res.ptr, res.tag); */
+		/* 	PASSERT(func->return_type.delta == res.diff_ptr.delta, "%#x != %#x\n", func->return_type.delta, res.diff_ptr.delta); */
+		/* } */
+		/* else if (strncmp("return_value", str, len) == 0) */
+		/* { */
+		/* 	dest = pj_find_key("type", &dest); */
+		/* 	pj_str(&str, &len, &dest); */
+		/* 	SCRUB_STR(str, len) */
+		/* 	assert(func->return_type.delta == api_fetch(str, len).diff_ptr.delta); */
 		}
 		else if (strncmp("arguments", str, len) == 0)
 		{
@@ -1427,6 +1594,92 @@ static void audit_methods(json_t* json)
 }
 
 
+// GOOD
+static void audit_constructors(json_t* json)
+{
+	assert(funcs[num_funcs].return_type.delta == hot_diff.delta);
+	json_t dest = pj_find_key("arguments", json);
+	if (dest.num_tokens > 0 && (dest.bitmasks[0] & 0x0f) == JSON_ARRAY)
+	{
+		pj_mapc_array(audit_params, &dest);
+	}
+	++num_funcs;
+}
+
+// SOLID
+static void audit_members(json_t* json)
+{
+	char* str;
+	int32_t len;
+	json_t dest = {0};
+	uint8_t flags;
+	member_t* member = members +  num_members;
+	while((flags = pj_next_pair(&str, &len, &dest, json)))
+	{
+		if (strncmp("name", str, len) == 0)
+		{
+			pj_str(&str, &len, &dest);
+			const int32_t total_len = hot_class->name_len + len + 1;
+			char* temp = scratch_alloc(total_len + 1);
+			memcpy(temp, abs_self(&hot_class->name_selfptr), hot_class->name_len);
+			temp[hot_class->name_len] = '.';
+			cpystr(temp + hot_class->name_len + 1, str, len);
+			PASSERT(member == api_fetch(temp, total_len).ptr, "MEMBER MISMATCH: '%s'\n", temp);
+		}
+		else if (strncmp("type", str, len) == 0)
+		{
+			pj_str(&str, &len, &dest);
+			SCRUB_STR(str, len)
+			assert(member->type.delta == api_fetch(str, len).diff_ptr.delta);
+		}
+	}
+	++num_members;
+}
+
+
+static void audit_enums(json_t* json)
+{
+	char* str;
+	int32_t len;
+	json_t dest = {0};
+	uint8_t flags;
+	enum_t* e = enums + num_enums;
+	while((flags = pj_next_pair(&str, &len, &dest, json)))
+	{
+		if (strncmp("name", str, len) == 0)
+		{
+			pj_str(&str, &len, &dest);
+			char* temp;
+			int32_t total_len;
+			hot_append_scratch(&temp, &total_len, str, len);
+			assert(e == api_fetch(temp, total_len).ptr);
+			/* TODO */
+		}
+		else if (strncmp("values", str, len) == 0)
+		{
+			pj_mapc_array(audit_enum_values, &dest);
+		}
+		else if (strncmp("is_bitfield", str, len) == 0)
+		{
+			const uint8_t mask = (flags & 0x0f) == JSON_TRUE ? 0xff : 0x00;
+			assert(e->is_bitfield == mask);
+		}
+	}
+	++num_enums;
+}
+
+// GOOD
+static void audit_signals(json_t* json)
+{
+	json_t dest = pj_find_key("arguments", json);
+	if (dest.num_tokens > 0 && (dest.bitmasks[0] & 0x0f) == JSON_ARRAY)
+	{
+		pj_mapc_array(audit_params, &dest);
+	}
+	++num_signals;
+}
+
+
 #endif
 
 
@@ -1439,7 +1692,7 @@ int main(int argc, char** argv)
 	printf("sizeof(api_map_t): %d\n\n", sizeof(api_map_t));
 	ms_handle_t handle;
 	int32_t json_len;
-	char* json_str = ms_map_entire_file("./extension_api.json", &json_len, &handle);
+	char* json_str = ms_read_file("./extension_api.json", &json_len, &handle);
 	arena_t* parse_arena = workpad_checkout(0);
 	json_t json = { 0x00 };
 	if (pj_parse(&json, parse_arena, json_str, json_len) ^ JSON_OBJECT)
@@ -1490,6 +1743,7 @@ int main(int argc, char** argv)
 		fprintf(file, "void print_supported_version(void) { printf(\"Supported verison: %d.%d.%d\\n\"); }\n", major, minor, patch);
 	}
 	// PHASE ONE: API SIZE WITHOUT HASHMAPS
+
 	while ((flags = pj_next_pair(&key, &len, &dest, &json)))
 	{
 		if (strncmp("global_enums", key, len) == 0)
@@ -1503,6 +1757,17 @@ int main(int argc, char** argv)
 		else if (strncmp("builtin_classes", key, len) == 0 || strncmp("classes", key, len) == 0)
 		{
 			pj_mapc_array(p1_classes, &dest);
+		}
+		else if (strncmp("native_structures", key, len) == 0)
+		{
+			pj_mapc_array(p1_native_structs, &dest);
+			num_native_structs += 2; // NOTE: I just add in TWO of my own BESPOKE native struct to handle all pointer types 
+			// C-Pointer for ALL pointers
+			// C-Buffer for buffers
+			str_size += strlen("C Pointer");
+			str_size += strlen("void*") + 1;
+			str_size += strlen("C Buffer");
+			str_size += strlen("uint8_t*") + 1;
 		}
 	}
 #define X(A, B) sizeof(A##_t) * num_##B +
@@ -1525,7 +1790,7 @@ int main(int argc, char** argv)
 		}
 	}
 	const int32_t map_scale = sizeof(self_ptr_t) + sizeof(diff_ptr_t) + sizeof(int16_t);
-	const int32_t base_map_entries = hashmap_size(num_operators + num_enums + num_classes);
+	const int32_t base_map_entries = hashmap_size(num_operators + num_enums + num_classes + num_native_structs);
 	map_entries = base_map_entries;
 	json.index = body_idx;
 	while ((flags = pj_next_pair(&key, &len, &dest, &json)))
@@ -1599,22 +1864,38 @@ int main(int argc, char** argv)
 		{
 			pj_mapc_array(p3_classes, &dest);
 		}
+		else if (strncmp("native_structures", key, len) == 0)
+		{
+			pj_mapc_array(p3_native_structs, &dest);
+			// add in C Pointer & C Buffer
+			native_struct_t* native = native_structs + num_native_structs;
+			char* str = arena_push(&str_arena, "C Pointer", 9);
+			diff_ptr_t* dtr = api_map_cache(api_map, str, 9, diff_relate(native, native_structs));
+			dtr->delta |= API_NATIVE_STRUCT;
+			str = arena_push(&str_arena, "void*", 6);
+			self_relate(&native->format, str);
+			native++;
+			str = arena_push(&str_arena, "C Buffer", 8);
+			dtr = api_map_cache(api_map, str, 8, diff_relate(native, native_structs));
+			dtr->delta |= API_NATIVE_STRUCT;
+			str = arena_push(&str_arena, "uint8_t*", 9);
+			self_relate(&native->format, str);
+		}
 	}
 
-/* #define DO_NOT_AUDIT */
-#ifndef DO_NOT_AUDIT
-	api_map_audit(api_map);
-	for (int32_t i = 0; i < cache_classes; ++i)
-	{
-		char* name = abs_self(&classes[i].name_selfptr);
-		const int32_t len = classes[i].name_len;
-		char* temp = scratch_alloc(len + 1);
-		cpystr(temp, name, len);
-		fflush(stdout);
-		api_map_audit(classes + i);
-	}
-	printf("OK: SIMPLE AUDIT\n");
-#endif
+/* #ifndef DO_NOT_AUDIT */
+/* 	api_map_audit(api_map); */
+/* 	for (int32_t i = 0; i < cache_classes; ++i) */
+/* 	{ */
+/* 		char* name = abs_self(&classes[i].name_selfptr); */
+/* 		const int32_t len = classes[i].name_len; */
+/* 		char* temp = scratch_alloc(len + 1); */
+/* 		cpystr(temp, name, len); */
+/* 		fflush(stdout); */
+/* 		api_map_audit(classes + i); */
+/* 	} */
+/* 	printf("OK: SIMPLE AUDIT\n"); */
+/* #endif */
 
 	/* PHASE 4: EVERYTHING ELSE */
 
