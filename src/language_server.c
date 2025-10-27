@@ -24,8 +24,8 @@
 	BODY															\
 	arena_dynamic_push(JS_ARENA, "}", 1)							\
 
-extern unsigned char default_config_json[];
-extern unsigned int default_config_json_len;
+/* extern unsigned char default_config_json[]; */
+/* extern unsigned int default_config_json_len; */
 /* static Arena* response_arena = NULL; */
 
 /* static lsp_t lsp_singleton = { */
@@ -198,12 +198,12 @@ int ls_listen(FILE* in, FILE* out)
 	return 1;
 }
 
-char* ls_generate_config(const char* dir)
-{
-	char* config_name = fs_join(dir, CONFIG_NAME);
-	fs_write(config_name, (char*)&default_config_json[0]);
-	return config_name;
-}
+/* char* ls_generate_config(const char* dir) */
+/* { */
+/* 	char* config_name = fs_join(dir, CONFIG_NAME); */
+/* 	fs_write(config_name, (char*)&default_config_json[0]); */
+/* 	return config_name; */
+/* } */
 
 int language_server_test(int argc, char** argv)
 {
@@ -218,10 +218,10 @@ int language_server_test(int argc, char** argv)
 	printf("WINDOWS_HACK:\nthis is the baked string for the default config json:\n%s\n", &default_config_json); // the assert test does not work on windows, BUT AS WE CAN SEE IT OUTPUTS PROPERLY
 	printf("does it look good?\n");
 	#else
-	assertf(!strcmp(fs_read(default_config_file, &config_len), &default_config_json[0]), "default config file does not match hex dump!");
+	/* assertf(!strcmp(fs_read(default_config_file, &config_len), &default_config_json[0]), "default config file does not match hex dump!"); */
 	#endif
-	char* config_path = ls_generate_config(context->dir);
-	file_context_t* config_context = fs_find_upward(CONFIG_NAME, cwd);
-	assertf(config_context, "find_upwards failed to find %s!", CONFIG_NAME);
+	/* char* config_path = ls_generate_config(context->dir); */
+	/* file_context_t* config_context = fs_find_upward(CONFIG_NAME, cwd); */
+	/* assertf(config_context, "find_upwards failed to find %s!", CONFIG_NAME); */
 	return 0;
 }

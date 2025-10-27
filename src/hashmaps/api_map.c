@@ -279,6 +279,10 @@ void api_map_audit(const api_map_t* map)
 			memcpy(temp, abs_self(keys + i), len);
 			temp[len] = '\0';
 			const diff_ptr_t expected = values[i];
+			/* if (temp[0] != ' ') */
+			/* { */
+			/* 	printf("self-audit: %s -> %#x\n", temp, expected.delta); */
+			/* } */
 			PASSERT(expected.delta != 0, "%d: '%s' should have a non-zero entry!\n", i, temp);
 			const diff_ptr_t actual = api_map_fetch(map, temp, len);
 			PASSERT(expected.delta == actual.delta, "%d: self-audit of '%s' (len: %d) failed! Expected: %#x(%d), fetched: %#x!\n", i, temp, len, expected.delta, expected.delta & 0x7, actual.delta);

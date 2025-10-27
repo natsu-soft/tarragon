@@ -6,6 +6,7 @@
 #include <time.h>
 #include "file_sys.h"
 #include "error_macros.h"
+#include "godot_api.h"
 #include "language_server.h"
 /* #include "tests.h" */
 #define LOG_FILE_HERE
@@ -16,7 +17,7 @@ FILE* log_fp;
 
 #define CONFIG_JSON "tarragon.json"
 
-extern char supported_godot[];
+/* extern char supported_godot[]; */
 
 void print_usage(void)
 {
@@ -38,10 +39,10 @@ void print_version(void)
 	printf("0.0.0-LMAO\n");
 }
 
-void print_supported_godot(void)
-{
-	printf("%s", &supported_godot[0]);
-}
+/* void print_supported_godot(void) */
+/* { */
+/* 	printf("%s", &supported_godot[0]); */
+/* } */
 
 int generate_tarragon_json(char* dest, char* ext_api_path)
 {
@@ -87,7 +88,7 @@ int main(int argc, char** argv) {
 			print_usage();
 			return 0;
 		case 's':
-			print_supported_godot();
+			print_supported_version();
 			return 0;
 		case ':':
 			log_error("Unrecognized option: %s", argv[optind - 1]);

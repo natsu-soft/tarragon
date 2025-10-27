@@ -8,7 +8,7 @@
 struct api_fetch_res
 {
 	void* ptr;
-	api_tags_t tag;
+	api_tag_t tag;
 };
 
 struct api_fetch_res api_fetch(char* key, int16_t len);
