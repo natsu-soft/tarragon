@@ -9,7 +9,7 @@ endif
 CFLAGS := -Wall -Wextra -Wno-int-conversion -fpermissive -fdiagnostics-show-option -ggdb -O0
 # CFLAGS := -Wall -Wextra -Wno-int-conversion -fpermissive -fdiagnostics-show-option -O2
 GODOT :=
-LIBS :=
+-include godot.mine
 LDFLAGS := -fuse-ld=lld -flto -static
 # LDFLAGS := -fuse-ld=mold -flto -static
 MAINS := src/tarragon.c src/tests.c src/builtin_generator.c
@@ -19,25 +19,18 @@ ALL_SRC += $(wildcard src/*/*.c)
 SRC := $(filter-out $(IGNORE), $(filter-out $(MAINS), $(ALL_SRC)))
 DEP := $(patsubst src/%.c,dep/%.d,$(SRC))
 OBJ := $(patsubst src/%.c,obj/%.o,$(SRC))
-HEX_OBJS := obj/supported_godot.o
-# API_OBJS := obj/api/global_constants.o obj/api/global_enums.o obj/api/utility_functions.o obj/api/builtin_classes.o obj/api/classes.o obj/api/singletons.o obj/api/native_structures.o
-JSON_OBJS :=  obj/default_config.o
 ALL_OBJ := $(patsubst src/%.c,obj/%.o,$(ALL_SRC))
-OBJ += $(HEX_OBJS) $(JSON_OBJS)
+# HEX_OBJS := obj/supported_godot.o
+# API_OBJS := obj/api/global_constants.o obj/api/global_enums.o obj/api/utility_functions.o obj/api/builtin_classes.o obj/api/classes.o obj/api/singletons.o obj/api/native_structures.o
+# JSON_OBJS :=  obj/default_config.o
+# OBJ += $(HEX_OBJS) $(JSON_OBJS)
 
-.PHONY: default dependencies clean clean-dep clean-emacs clean-alllsp-test test test2 test/% test_gen ci/cd
+.PHONY: default dependencies clean clean-dep clean-emacs clean-all lsp-test test test2
 
 default: tarragon
 
-ci/cd: tests tarragon
-
-test/%:
-	cat src/$*.c | sed 's/$*_test/main/' | $(CC) $(CFLAGS) -o test_$(patsubst %.c,%,$*) -Isrc -x c -
-	${CURDIR}/test_$*
-	@echo "TESTED: src/$*.c"
-
 tarragon: obj/tarragon.o $(OBJ)
-	$(CC) $(CFLAGS) -o $@ $^ $(LIBS) $(LDFLAGS)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 # obj/builtin.o: src/builtin.c src/builtin.gen obj/allocators/arena.o obj/hashmaps/ptr_map.o obj/hashmaps/op_map.o | dep_dirs
 # 	$(CC) $(CFLAGS) -o $@ $< obj/allocators/arena.o obj/hashmaps/ptr_map.o obj/hashmaps/op_map.o
@@ -55,10 +48,7 @@ extension_api.json:
 	$(GODOT) --dump-extension-api-with-docs
 
 tests: obj/tests.o $(OBJ) obj/godot_api.o
-	$(CC) $(CFLAGS) -o $@ $^ $(LIBS) $(LDFLAGS)
-
-fml: obj/fml.o obj/allocators/arena.o obj/hashmaps/gid_map.o
-	$(CC) $(CFLAGS) -o $@ $^ $(LIBS) $(LDFLAGS)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 %.h: ;
 
@@ -74,25 +64,24 @@ test: tests extension_api.json
 src/godot_api.gen: api-generator extension_api.json
 	${CURDIR}/$<
 
-obj/builtin_generator.o: src/builtin_generator.c src/api_structs.h | dep_dirs
+obj/builtin_generator.o: src/builtin_generator.c src/api_structs.h dep/builtin_generator.d | dep_dirs
 	$(CC) $(CFLAGS) -o $@ -c $<
 
-# obj/builtin.o: src/builtin.c src/builtin.gen obj/allocators/arena.o obj/hashmaps/ptr_map.o obj/hashmaps/op_map.o | dep_dirs
 obj/builtin.o: src/builtin.c src/builtin.gen | dep_dirs
 	$(CC) $(CFLAGS) -o $@ -c $<
 
-obj/godot_api.o: src/godot_api.c src/godot_api.gen | dep_dirs
+obj/godot_api.o: src/godot_api.c src/godot_api.gen dep/godot_api.d | dep_dirs
 	$(CC) $(CFLAGS) -o $@ -c $<
 
 obj/%.o: src/%.c dep/%.d | obj_dirs
-	$(CC) $(CFLAGS) -c $< -o $@ $(LIBS)
+	$(CC) $(CFLAGS) -c $< -o $@
 
 dependencies: $(DEP)
 
 dep/%.d: src/%.c | dep_dirs
-	$(CC) -MM -MP -MT obj/$*.o -MF $@ $< $(LIBS)
+	$(CC) -MM -MP -MT obj/$*.o -MF $@ $<
 
-include $(wildcard dep/*.d)
+-include $(wildcard dep/*.d)
 
 # obj/supported_godot.o: extension_api.json
 # 	@jq -r '.header.version_full_name' $< > supported_godot
@@ -148,5 +137,5 @@ test2: tests
 	@rm -f ../../bruh ../../tarragon_config.json test_stuff/rpc_encode file_sys.gz
 	@echo "CLEANED: temporary testing files"
 
-lsp-test: tarragoen
-	@cho TODO w/ SBCL
+lsp-test: tarragon
+	@echo TODO w/ SBCL

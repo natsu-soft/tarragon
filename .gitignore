@@ -4,6 +4,7 @@
 *.s
 *.exe
 *.gen
+*.mine
 .cache
 .sconsign.dblite
 compile_commands.json
