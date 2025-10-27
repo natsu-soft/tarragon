@@ -36,7 +36,8 @@ typedef enum api_tag_t
 	/* API_TYPE, // types have operators */
 	API_CLASS, // classes do not!
 	API_SIGNAL,
-	API_CONSTANT
+	API_CONSTANT,
+	API_NATIVE_STRUCT
 } api_tag_t;
 
 typedef enum class_flags_t
@@ -73,8 +74,10 @@ typedef struct enum_value_t
 
 typedef struct func_t
 {
+	self_ptr_t name_selfptr;
 	self_ptr_t params;
 	diff_ptr_t return_type; // tagged to discriminate between enums & classes (lets you quickly determine what the base addr is)
+	int32_t name_len;
 	int32_t __padding;
 	int16_t num_params;
 	uint8_t bitflags;
@@ -118,5 +121,13 @@ typedef struct signal_t
 	self_ptr_t params;
 	int16_t num_params;
 } signal_t;
+
+
+// wtf I actually need this shit?
+typedef struct native_struct_t
+{
+	self_ptr_t format; // null  terminated string
+	int32_t __padding;
+} native_struct_t;
 
 #endif /* End API_STRUCTS_H */
