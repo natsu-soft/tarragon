@@ -5,13 +5,7 @@
 #include "relative_ptrs.h"
 #include "api_structs.h"
 
-struct api_fetch_res
-{
-	void* ptr;
-	api_tag_t tag;
-};
-
-struct api_fetch_res api_fetch(char* key, int16_t len);
+const fetch_res_t api_fetch(char* key, int16_t len);
 
 void print_supported_version(void);
 

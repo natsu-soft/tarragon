@@ -21,7 +21,10 @@ typedef struct arena_t arena_t;
 void api_map_back(api_map_t* map, arena_t* backing_arena, const int32_t cap);
 diff_ptr_t* api_map_cache(api_map_t* map, const char* key, const int32_t len,  const diff_ptr_t diff_ptr);
 diff_ptr_t api_map_fetch(const api_map_t* map, const char* key, const int32_t len);
-void api_map_audit(const api_map_t* map);
+void api_map_audit(const api_map_t* map, const uint8_t print_addrs);
+
+void api_map_dump_keys(char*** keys, int16_t** lens, int32_t* count, arena_t* arena, const api_map_t* map);
+
 
 const uint64_t api_map_hash(const uint8_t* str, const int32_t len);
 

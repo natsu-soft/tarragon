@@ -263,7 +263,7 @@ const uint64_t api_map_hash(const uint8_t* str, const int32_t len)
 }
 
 
-void api_map_audit(const api_map_t* map)
+void api_map_audit(const api_map_t* map, const uint8_t print_addrs)
 {
 	const int32_t cap = map->cap;
 	self_ptr_t* keys = abs_self(&map->keys_selfptrs);
@@ -276,13 +276,19 @@ void api_map_audit(const api_map_t* map)
 		{
 
 			char* temp = alloca(len + 1);
-			memcpy(temp, abs_self(keys + i), len);
-			temp[len] = '\0';
 			const diff_ptr_t expected = values[i];
 			/* if (temp[0] != ' ') */
 			/* { */
 			/* 	printf("self-audit: %s -> %#x\n", temp, expected.delta); */
 			/* } */
+			if (print_addrs)
+			{
+				const int32_t delta = keys[i].delta;
+				printf("%#x + %#x -> %#x(%#x:%d)\n", keys + i, delta, ((size_t)keys) + i + delta, expected.delta, expected.delta & 0x7);
+				fflush(stdout);
+			}
+			memcpy(temp, abs_self(keys + i), len);
+			temp[len] = '\0';
 			PASSERT(expected.delta != 0, "%d: '%s' should have a non-zero entry!\n", i, temp);
 			const diff_ptr_t actual = api_map_fetch(map, temp, len);
 			PASSERT(expected.delta == actual.delta, "%d: self-audit of '%s' (len: %d) failed! Expected: %#x(%d), fetched: %#x!\n", i, temp, len, expected.delta, expected.delta & 0x7, actual.delta);
@@ -292,5 +298,33 @@ void api_map_audit(const api_map_t* map)
 		/* { */
 		/* 	printf("EMPTY: %d\n", i); */
 		/* } */
+	}
+}
+
+
+void api_map_dump_keys(char*** keys, int16_t** lens, int32_t* count, arena_t* arena, const api_map_t* map)
+{
+	arena->size = 0;
+	*count = map->size;
+	int32_t key_len = 0;
+	int16_t* all_lens = abs_self(&map->lens_i16);
+	for (int32_t i = 0; i < map->cap; ++i)
+	{
+		key_len += all_lens[i];
+	}
+	const int32_t req_size = *count * (sizeof *keys + sizeof *lens) + key_len;
+	arena_grow(arena, req_size);
+	*keys = arena_alloc(arena, *count * sizeof **keys);
+	*lens = arena_alloc(arena, *count * sizeof **lens);
+	self_ptr_t* key_selfptrs = abs_self(&map->keys_selfptrs);
+	int32_t idx = 0;
+	for (int32_t i = 0; i < map->cap; ++i)
+	{
+		if (all_lens[i] > 0)
+		{
+			(*keys)[idx] = arena_push(arena, abs_self(key_selfptrs + i), all_lens[i]);
+			(*lens)[idx] = all_lens[i];
+			++idx;
+		}
 	}
 }

@@ -40,6 +40,13 @@ typedef enum api_tag_t
 	API_NATIVE_STRUCT
 } api_tag_t;
 
+typedef struct fetch_res_t
+{
+	void* ptr;
+	diff_ptr_t diff_ptr;
+	api_tag_t tag;
+} fetch_res_t;
+
 typedef enum class_flags_t
 {
 	CLASS_NO_FLAGS = 0x00,
