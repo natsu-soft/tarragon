@@ -23,4 +23,14 @@
 		printf("[LONGTIME] "#BODY " %zu seconds\n", delta_s); \
 	}
 
+#define CLOCKTIME(BODY) \
+	{ \
+		size_t t0 = time(NULL); \
+		const clock_t c0 = clock(); \
+		do { BODY } while(0); \
+		const clock_t c1 = clock(); \
+		const double elapsed = (double)(c1 - c0) / CLOCKS_PER_SEC;	\
+		printf("[CLOCKTIME] "#BODY " %f seconds\n", elapsed); \
+	}
+
 #endif /* End BENCHMARK_H */
