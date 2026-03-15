@@ -7,13 +7,10 @@
 #include "allocators/scratch.h"
 #include "allocators/workpad.h"
 #include "hashmaps/api_map.h"
+#include "godot_api.gen.h"
 
 
 #define PASSERT(A, MSG, ...) if (!(A)) { fprintf(stderr, MSG, ##__VA_ARGS__); assert(A); }
-
-#include "godot_api.gen"
-
-static const api_map_t* api_map = api_binary;
 
 #define VERBOSE_FETCH
 #ifdef VERBOSE_FETCH
@@ -119,6 +116,12 @@ const fetch_res_t api_fetch(char* key, int16_t len)
 int godot_api_test(int argc, char** argv)
 {
 	printf("testing api!\n");
+	assert(api_map != NULL && "api_map is NULL!\n");
+	printf("api_map is not NULL!\n");
+	printf("api_binary: %0x\n", api_binary);
+	printf("api_map: %0x\n", api_map);
+	printf("api_size: %d\n", api_size);
+	fflush(stdout);
 	const uint64_t fresh_hash = api_map_hash(api_map, api_size);
 	PASSERT((api_hash ^ fresh_hash) == 0x00, "hash mismatch! %#x != %#x\n", api_hash, fresh_hash);
 	assert(api_hash == api_map_hash(api_map, api_size));

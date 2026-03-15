@@ -1,39 +1,48 @@
 # NOTE: for release build use gcc & mold at -O2
-CC := clang -std=gnu99
-# CC := gcc -std=gnu99
+# CC := clang
+CC := gcc
 ifeq ($(OS),Windows_NT)
 	RE := rg
 else
 	RE := grep
 endif
-CFLAGS := -Wall -Wextra -Wno-int-conversion -fpermissive -fdiagnostics-show-option -ggdb -O0
-# CFLAGS := -Wall -Wextra -Wno-int-conversion -fpermissive -fdiagnostics-show-option -O2
+# CFLAGS := -Wall -Wextra -Wno-int-conversion -fpermissive -fdiagnostics-show-option -ggdb -O0
+CFLAGS := -std=gnu99 -Wall -Wextra -Wno-int-conversion -fpermissive -fdiagnostics-show-option -ggdb -O2
 GODOT :=
+
 -include godot.mine
-LDFLAGS := -fuse-ld=lld -flto -static
-# LDFLAGS := -fuse-ld=mold -flto -static
-MAINS := src/tarragon.c src/tests.c src/builtin_generator.c
-IGNORE := src/gdscript/gdscript_ast.c src/gdscript/gdscript_tokenizer.c src/logger.c src/builtin.c src/allocators/devious.c src/fml.c src/api_generator.c src/godot_api.c
+
+#LDFLAGS := -flto -static
+LDFLAGS := -fuse-ld=mold -flto -static
+MAINS := src/tarragon.c src/tests.c src/builtin_generator.c src/massive_test.c
+IGNORE := src/gdscript/gdscript_ast.c src/gdscript/gdscript_tokenizer.c src/logger.c src/builtin.c src/allocators/devious.c src/fml.c src/api_generator.c src/godot_api.c src/massive_script_writer.c
 ALL_SRC := $(wildcard src/*.c)
 ALL_SRC += $(wildcard src/*/*.c)
 SRC := $(filter-out $(IGNORE), $(filter-out $(MAINS), $(ALL_SRC)))
 DEP := $(patsubst src/%.c,dep/%.d,$(SRC))
 OBJ := $(patsubst src/%.c,obj/%.o,$(SRC))
 ALL_OBJ := $(patsubst src/%.c,obj/%.o,$(ALL_SRC))
-# HEX_OBJS := obj/supported_godot.o
-# API_OBJS := obj/api/global_constants.o obj/api/global_enums.o obj/api/utility_functions.o obj/api/builtin_classes.o obj/api/classes.o obj/api/singletons.o obj/api/native_structures.o
-# JSON_OBJS :=  obj/default_config.o
-# OBJ += $(HEX_OBJS) $(JSON_OBJS)
 
-.PHONY: default dependencies clean clean-dep clean-emacs clean-all lsp-test test test2
+SRC_DIRS := src/ $(wildcard src/*/)
+OBJ_DIRS := $(patsubst src/%,obj/%,$(SRC_DIRS))
+DEP_DIRS := $(patsubst src/%,dep/%,$(SRC_DIRS))
+
+.PHONY: default dependencies clean clean-dep clean-emacs clean-all lsp-test test test2 massive-test unity-tarragon
 
 default: tarragon
 
-tarragon: obj/tarragon.o $(OBJ)
+%.includes:
+	echo -n "$(shell echo -n '$*' | tr '[:lower:]' '[:upper:]')_INCLUDES=" > $@
+	echo -n "$(shell parallel-includes -j8 $(CC) src/$*.c)" >> $@
+
+TARRAGON_INCLUDES:=
+include tarragon.includes
+
+tarragon: $(patsubst obj/%.o, src/%.c, $(filter %.c, $(TARRAGON_INCLUDES))) | tarragon.includes
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
-# obj/builtin.o: src/builtin.c src/builtin.gen obj/allocators/arena.o obj/hashmaps/ptr_map.o obj/hashmaps/op_map.o | dep_dirs
-# 	$(CC) $(CFLAGS) -o $@ $< obj/allocators/arena.o obj/hashmaps/ptr_map.o obj/hashmaps/op_map.o
+unity-tarragon:  $(filter %.c, $(TARRAGON_INCLUDES)) | tarragon.includes
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 src/builtin.gen: builtin-generator extension_api.json
 	${CURDIR}/$<
@@ -52,36 +61,35 @@ tests: obj/tests.o $(OBJ) obj/godot_api.o
 
 %.h: ;
 
-# test: fml
-# 	${CURDIR}/$<
-
 test: tests extension_api.json
 	${CURDIR}/$<
 
-# test: api-generator
-# 	${CURDIR}/$<
 
-src/godot_api.gen: api-generator extension_api.json
+src/godot_api.gen.c: api-generator extension_api.json
 	${CURDIR}/$<
 
-obj/builtin_generator.o: src/builtin_generator.c src/api_structs.h dep/builtin_generator.d | dep_dirs
+obj/builtin_generator.o: src/builtin_generator.c src/api_structs.h dep/builtin_generator.d | $(DEP_DIRS)
 	$(CC) $(CFLAGS) -o $@ -c $<
 
-obj/builtin.o: src/builtin.c src/builtin.gen | dep_dirs
+obj/builtin.o: src/builtin.c src/builtin.gen | $(DEP_DIRS)
 	$(CC) $(CFLAGS) -o $@ -c $<
 
-obj/godot_api.o: src/godot_api.c src/godot_api.gen dep/godot_api.d | dep_dirs
+obj/godot_api.gen.o: src/godot_api.gen.c | $(OBJ_DIRS)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# NOTE: you're using objcopy WRONG!
+obj/godot_api.o: src/godot_api.c obj/godot_api.gen.o dep/godot_api.d | $(DEP_DIRS)
 	$(CC) $(CFLAGS) -o $@ -c $<
 
-obj/%.o: src/%.c dep/%.d | obj_dirs
+obj/%.o: src/%.c dep/%.d | $(OBJ_DIRS)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 dependencies: $(DEP)
 
-dep/%.d: src/%.c | dep_dirs
+dep/%.d: src/%.c | $(DEP_DIRS)
 	$(CC) -MM -MP -MT obj/$*.o -MF $@ $<
 
--include $(wildcard dep/*.d)
+-include $(wildcard dep/*.d) $(wildcard dep/**/*.d)
 
 # obj/supported_godot.o: extension_api.json
 # 	@jq -r '.header.version_full_name' $< > supported_godot
@@ -98,17 +106,8 @@ $(API_OBJS): obj/api/%.o: extension_api.json | obj_dirs
 	xxd -i $*.gz | $(CC) $(CFLAGS) -xc -c -o $@ -
 	rm $*.gz
 
-dep_dirs:
-	@mkdir -p dep/
-	@mkdir -p dep/gdscript
-	@mkdir -p dep/allocators
-	@mkdir -p dep/hashmaps
-
-obj_dirs:
-	@mkdir -p obj/
-	@mkdir -p obj/gdscript
-	@mkdir -p obj/allocators
-	@mkdir -p obj/hashmaps
+$(OBJ_DIRS) $(DEP_DIRS): %:
+	mkdir -p $@
 
 clean:
 	rm -rf *.o obj/*.o *.exe tarragon
@@ -139,3 +138,17 @@ test2: tests
 
 lsp-test: tarragon
 	@echo TODO w/ SBCL
+
+
+
+massive-script-writer: src/massive_script_writer.c
+	$(CC) $(CFLAGS) -o $@ $^
+
+Massive.gd: massive-script-writer
+	${CURDIR}/$<
+
+massive-tester: obj/massive_test.o obj/mem_sys.o obj/allocators/arena.o obj/gdscript/token.o obj/gdscript/flexer.o obj/gdscript/diagnostics.o obj/gdscript/gdscript_shunt.o obj/allocators/scratch.o obj/gdscript/hashmaps.o obj/hashmaps/gid_map.o obj/gdscript/print_diagnostics.o
+	$(CC) $(CFLAGS) -o $@ $^
+
+massive-test: massive-tester Massive.gd
+	${CURDIR}/$<
