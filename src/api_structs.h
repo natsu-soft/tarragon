@@ -1,3 +1,4 @@
+// NOTE: USED!!!
 #ifndef API_STRUCTS_H
 #define API_STRUCTS_H
 
@@ -8,7 +9,6 @@
 #include "hashmaps/api_map.h"
 
 /* NOTE: ALL STRUCTS MUST BE MOD 8 BYTES ALIGNED */
-
 
 /* NOTE: ON OPERATOR CACHING
  * operators are cached as the following string:
@@ -22,7 +22,6 @@
  */
 
 // NOTE: go ahead & null terminate descriptions.
-
 
 
 
@@ -122,13 +121,11 @@ typedef struct constant_t
 	self_ptr_t value; // null termianted string
 } constant_t;
 
-
 typedef struct signal_t
 {
 	self_ptr_t params;
 	int16_t num_params;
 } signal_t;
-
 
 // wtf I actually need this shit?
 typedef struct native_struct_t
