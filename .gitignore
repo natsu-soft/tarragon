@@ -4,6 +4,7 @@
 *.s
 *.exe
 *.gen
+*.gen.*
 *.mine
 .cache
 .sconsign.dblite
