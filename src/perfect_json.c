@@ -80,20 +80,16 @@ static void int_at(int32_t* dest, const json_t* json, const int32_t index)
 {
 	char* str = json->src + json->offsets[index];
 	int32_t len = token_len(json, index);
-	char* temp = alloca(len + 1);
-	memcpy(temp, str, len);
-	temp[len] = '\0';
-	*dest = atoi(temp);
+	char* endptr = str + len;
+	*dest = strtol(str, &endptr, 10);
 }
 
 static void float_at(float* dest, const json_t* json, const int32_t index)
 {
 	char* str = json->src + json->offsets[index];
 	int32_t len = token_len(json, index);
-	char* temp = alloca(len + 1);
-	memcpy(temp, str, len);
-	temp[len] = '\0';
-	*dest = atof(temp);
+	char* endptr = str + len;
+	*dest = strtof(str, &endptr);
 }
 
 void pj_allman(const json_t* json)
@@ -102,6 +98,7 @@ void pj_allman(const json_t* json)
 	for (int32_t i = 0; i < json->num_tokens; ++i)
 	{
 		const uint8_t bitmask = json->bitmasks[i];
+		// lol
 		for (int32_t d = 0; d < depth; ++d)
 		{
 			printf("  ");
@@ -111,12 +108,13 @@ void pj_allman(const json_t* json)
 			char* key;
 			int32_t len;
 			str_at(&key, &len, json, i);
-			printf("\"");
-			for (int32_t l = 0; l < len; ++l)
-			{
-				printf("%c", key[l]);
-			}
-			printf("\": " );
+			printf("\"%.*s\": ", len, key);
+			/* printf("\""); */
+			/* for (int32_t l = 0; l < len; ++l) */
+			/* { */
+			/* 	printf("%c", key[l]); */
+			/* } */
+			/* printf("\": " ); */
 		}
 		else if ((bitmask & 0x0f) >= JSON_INTEGER)
 		{
@@ -130,12 +128,7 @@ void pj_allman(const json_t* json)
 					char* str;
 					int32_t len;
 					str_at(&str, &len, json, i);
-					printf("\"");
-					for (int32_t l = 0; l < len; ++l)
-					{
-						printf("%c", str[l]);
-					}
-					printf("\"");
+					printf("\"%.*s\"", len, str);
 				}
 				break;
 			case JSON_INTEGER:
@@ -566,7 +559,7 @@ uint8_t pj_next_pair(char** key, int32_t* key_len, json_t* value, json_t* json)
 int perfect_json_test(int argc, char** argv)
 {
 	printf(" > testing perfect json tokenizing\n");
-	char* foo = "{\"lmao\":true,\"heck\":5.69,\"lol\":[0,-1.022,null,{\"bruh\":\"L, loser\"},false],\"OwO\":\"UwU\",\"guh\":\"\"}";
+	char* foo = "{\"lmao\":true,\"brother\":49,\"heck\":5.69,\"lol\":[0,22,-1.022,null,{\"bruh\":\"L, loser\"},false],\"OwO\":\"UwU\",\"guh\":\"\"}";
 	const int32_t foo_len = strlen(foo);
 	WORKPAD* json_arena = workpad_checkout(1024);
 	json_t* json = alloca(sizeof *json);
@@ -619,23 +612,30 @@ int perfect_json_test(int argc, char** argv)
 					char* str;
 					int32_t len;
 					pj_str(&str, &len, &temp);
-					printf("  string: \"");
-					for (int32_t i = 0; i < len; ++i)
-					{
-						printf("%c", str[i]);
-					}
-					printf("\"\n");
+					printf("  string: \"%.*s\"\n", len, str);
+					/* for (int32_t i = 0; i < len; ++i) */
+					/* { */
+					/* 	printf("%c", str[i]); */
+					/* } */
+					/* printf("\"\n"); */
 				}
 				break;
 			case JSON_FLOAT:
-				printf(" float\n");
+				{
+					float f;
+					pj_float(&f, &temp);
+					printf("  float: %f\n", f);
+				}
 				break;
 			case JSON_INTEGER:
-				printf(" integer\n");
+				{
+					int integer;
+					pj_int(&integer, &temp);
+					printf(" integer: %d\n", integer);
+				}
 				break;
 			case JSON_ARRAY:
-				{
-				}
+				printf("  array\n");
 				break;
 			}
 		}
