@@ -1,19 +1,26 @@
 #include "workpad.h"
 #include <stdlib.h>
-
+#include "arena.h"
 
 #define WORKPAD_OVERHEAD 4096
-#define WORKPAD0 8
+#define INIT_NUM_WORKPADS 8
 
-static workpad_t* available = NULL;
-static workpad_t* unavailable = NULL;
+// TODO: use a doubly-linked list with a special "head" node
+struct workpad
+{
+	arena_t arena;
+	struct workpad* next;
+};
+
+static struct workpad* available = NULL;
+static struct workpad* unavailable = NULL;
 
 __attribute__((constructor))
 static void workpad_init(void)
 {
-	available = calloc(WORKPAD0, sizeof *available);
+	available = calloc(INIT_NUM_WORKPADS, sizeof *available);
 	arena_init(available, WORKPAD_OVERHEAD);
-	for (int32_t i = 0; i < WORKPAD0 - 1; ++i)
+	for (int i = 0; i < INIT_NUM_WORKPADS - 1; ++i)
 	{
 		available[i].next = available + i + 1;
 	}
@@ -21,9 +28,9 @@ static void workpad_init(void)
 
 static void more_workpads(const int32_t size)
 {
-	available = calloc(WORKPAD0, sizeof *available);
+	available = calloc(INIT_NUM_WORKPADS, sizeof *available);
 	arena_init(available, size + WORKPAD_OVERHEAD);
-	for (int32_t i = 0; i < WORKPAD0 - 1; ++i)
+	for (int32_t i = 0; i < INIT_NUM_WORKPADS - 1; ++i)
 	{
 		available[i].next = available + i + 1;
 	}
@@ -39,23 +46,23 @@ arena_t* workpad_checkout(const int32_t size)
 	{
 		arena_grow(available, size);
 	}
-	workpad_t* res = available;
+	struct workpad* res = available;
+	available = available->next;
 	res->arena.size = 0;
-	available = res->next;
 	res->next = unavailable;
+	unavailable = res;
 	return res;
 }
-
-void workpad_checkin(workpad_t* workpad)
+void workpad_checkin(struct workpad* workpad)
 {
-	workpad_t** w;
-	for (w = &unavailable; *w; *w = (*w)->next)
+	for (struct workpad** w = &unavailable ; *w; *w = (*w)->next)
 	{
 		if (*w == workpad)
 		{
 			*w = workpad->next;
 			workpad->next = available;
 			available = workpad;
+			return;
 		}
 	}
 }
@@ -64,8 +71,9 @@ void workpad_checkin_all(void)
 {
 	if (unavailable)
 	{
-		workpad_t* w = unavailable;
-		for (/* LOL */; w->next; w = w->next)/* LMAO */;
+		struct workpad* w = unavailable;
+		for (/* LOL */; w->next; w = w->next)
+			/* LMAO */;
 		w->next = available;
 		available = unavailable;
 		unavailable = NULL;
