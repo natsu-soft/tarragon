@@ -71,9 +71,9 @@ void* arena_alloc_aligned(arena_t* arena, const int32_t bytes, const size_t alig
 void arena_align2(arena_t* arena, const int32_t alignment)
 {
 	assert((alignment & (alignment - 1)) == 0);
-	const int32_t addr = (int32_t)arena->allocation + arena->size;
-	const int32_t mod = addr % (alignment - 1);
-	arena->size += mod;
+	const size_t addr = (size_t)arena->allocation + arena->size;
+	const size_t mod = addr & (alignment - 1);
+	arena->size += mod > 0 ? alignment - mod : 0;
 }
 
 

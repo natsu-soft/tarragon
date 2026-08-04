@@ -37,14 +37,13 @@ typedef enum __attribute__((packed)) json_id_t
 #define JSON_OBJECT JSON_OBJECT_START
 #define JSON_ARRAY JSON_ARRAY_START
 
-typedef struct id_stack id_stack;
+/* typedef struct id_stack id_stack; */
 
 typedef struct json_t
 {
 	char* src;
 	int32_t* offsets;
-	uint8_t* bitmasks;
-	int32_t num_tokens;
+	uint8_t* bitmasks; int32_t num_tokens;
 	int32_t index;
 } json_t;
 
@@ -70,6 +69,7 @@ typedef void (*json_func)(json_t* json);
 
 
 typedef struct arena_t arena_t;
+typedef struct string string;
 
 
 // jfc u idiot child create a hashmap.
@@ -79,11 +79,11 @@ void pj_allman(const json_t* json);
 
 json_id_t pj_parse(json_t* json, arena_t* arena, const char* src, const int32_t len);
 
-uint8_t pj_next_key(char** key, int32_t* key_len, json_t* json);
+uint8_t pj_next_key(string* key, json_t* json);
 
 uint8_t pj_next_value(json_t* value, json_t* json); // for both objects AND arrays
 
-json_id_t pj_str(char** str, int32_t* len, const json_t* json);
+json_id_t pj_str(string* str, const json_t* json);
 
 json_id_t pj_int(int* dest, const json_t* json);
 
@@ -95,9 +95,35 @@ void pj_mapc_array(json_func func, json_t* json);
 // SOLID!
 int32_t pj_array_size(json_t* json);
 
-json_t pj_find_key(char* key, json_t* json);
+json_t pj_find_key(const string* query, json_t* json);
 
 // SILVER!
-uint8_t pj_next_pair(char** key, int32_t* key_len, json_t* value, json_t* json);
+uint8_t pj_next_pair(string* key, json_t* value, json_t* json);
+
+#define LIT(A) #A
+
+#define PJ_OBJ(...) \
+	putc('{', JSON_DEST); __VA_ARGS__; putc('}', JSON_DEST)
+
+#define PJ_MEMBER(KEY, VALUE) \
+	fprintf(JSON_DEST, #KEY ": "); VALUE; putc(',', JSON_DEST);
+
+#define PJ_LIT(VALUE) fprintf(JSON_DEST, #VALUE)
+#define PJ_CHAR(VALUE) putc(VALUE, JSON_DEST)
+#define PJ_STR(VALUE) fprintf(JSON_DEST, VALUE)
+#define PJ_INT(VALUE) fprintf(JSON_DEST,"%d", VALUE)
+#define PJ_FLOAT(VALUE) fprintf(JSON_DEST,"%f", VALUE)
+#define PJ_TRUE fprintf(JSON_DEST, "true")
+#define PJ_FALSE fprintf(JSON_DEST, "false")
+#define PJ_NULL fprintf(JSON_DEST, "null")
+
+#define PJ_LAST_MEMBER(KEY, VALUE)							 \
+	fprintf(JSON_DEST, #KEY ": "); VALUE;
+
+#define PJ_ARRAY(...) \
+	putc('[', JSON_DEST); __VA_ARGS__; putc(']', JSON_DEST)
+
+#define PJ_ITEM(A) A; putc(',', JSON_DEST)
+
 
 #endif /* End PERFECT_JSON_H */

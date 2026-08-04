@@ -9,7 +9,7 @@
 #include "allocators/arena.h"
 #include "allocators/scratch.h"
 #include "allocators/workpad.h"
-#include "gdscript/gdscript_ids.h"
+#include "gdscript/token_ids.h"
 #include "gdscript/hashmaps.h"
 #include "benchmark.h"
 #include "builtin.h"

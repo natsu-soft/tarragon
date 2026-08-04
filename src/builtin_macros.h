@@ -1,6 +1,8 @@
 #ifndef BUILTIN_MACROS_H
 #define BUILTIN_MACROS_H
 
+// TODO: delete this
+
 #define SUPPORTED_VERSION(NUM, VAL) builtin_api.supported_version.NUM = VAL;
 
 #define END }

@@ -2,10 +2,10 @@
 /* #include <stdlib.h> */
 #include <stdint.h>
 #include "print_diagnostics.h"
-#include "gdscript_ids.h"
+#include "token_ids.h"
 #include "../macro_stack.h"
-STACK(id, gdscript_id_t)
-#include "token.h"
+STACK(id, token_id_t)
+#include "tokens.h"
 #include "../allocators/scratch.h"
 
 diagnostics_output_t diagnostics_out = 0x01;
@@ -53,13 +53,13 @@ const int32_t diagnostics_pre_analysis(token_table_t* const table, const int32_t
 	const char* src =  table->src;
 	int32_t* offsets = table->offsets;
 	int16_t* lens = table->lens;
-	gdscript_id_t* ids = table->ids;
-	/* const gdscript_id_t not_delta = GDSCRIPT_OP_BOOL_NOT - GDSCRIPT_NOT; */
-	const gdscript_id_t missing_delta = GDSCRIPT_PAREN_CLOSE - GDSCRIPT_MISSING_PAREN_CLOSE;
+	token_id_t* ids = table->ids;
+	/* const token_id_t not_delta = GDSCRIPT_OP_BOOL_NOT - GDSCRIPT_NOT; */
+	const token_id_t missing_delta = GDSCRIPT_PAREN_CLOSE - GDSCRIPT_MISSING_PAREN_CLOSE;
 	int32_t swap = 0;
 	for (int32_t i = 0; i < num_tokens; ++i)
 	{
-		gdscript_id_t id = ids[i];
+		token_id_t id = ids[i];
 		if (id < GDSCRIPT_ERROR_THRESHOLD)
 		{
 			offsets[swap] = offsets[i];

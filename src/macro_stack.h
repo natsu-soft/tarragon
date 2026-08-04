@@ -5,35 +5,26 @@
 #include <assert.h>
 
 #define STACK(NAME, TYPE)	\
-typedef struct NAME##_stack \
+struct NAME##_stack \
 { \
-	TYPE* allocation; \
-	int32_t cap; \
-	int32_t size; \
-} NAME##_stack; \
+	TYPE* buffer; \
+	int cap; \
+	int size; \
+}; \
 \
-static void NAME##_stack_push(NAME##_stack* const stack, const TYPE value) \
+static inline void NAME##_stack_push(struct NAME##_stack* stack, const TYPE value) \
 { \
-	stack->allocation[stack->size++] = value; \
+	stack->buffer[stack->size++] = value; \
 } \
 \
-static const TYPE NAME##_stack_pop(NAME##_stack* const stack) \
+static inline TYPE NAME##_stack_pop(struct NAME##_stack* stack) \
 { \
-	return stack->allocation[--stack->size]; \
+	return stack->buffer[--stack->size]; \
 } \
 \
-static const TYPE NAME##_stack_peek(const NAME##_stack* stack) \
+static inline TYPE NAME##_stack_peek(struct NAME##_stack* stack) \
 { \
-	return stack->allocation[stack->size - 1]; \
+	return stack->buffer[stack->size - 1]; \
 } \
-static const int32_t NAME##_stack_has(const NAME##_stack* stack, const TYPE value) \
-{ \
-	const TYPE* items = stack->allocation; \
-	for (int32_t i = stack->size - 1; i >= 0; --i) \
-	{ \
-		if (items[i] == value) return i; \
-	} \
-	return -1; \
-}
 
 #endif /* End MACRO_STACK_H */

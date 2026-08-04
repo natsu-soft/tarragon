@@ -8,8 +8,9 @@
 #include "allocators/scratch.h"
 #include "allocators/workpad.h"
 #include "macro_stack.h"
-#include "benchmark.h"
 STACK(id, json_id_t)
+#include "benchmark.h"
+#include "strings.h"
 
 #define WHITESPACE			\
 	X(SPACE,			' ')	\
@@ -168,9 +169,9 @@ void pj_allman(const json_t* json)
 static int32_t tokenize(int32_t* offsets, uint8_t* bitmasks, const char* src, const int32_t len)
 {
 	int32_t num_tokens = 0;
-	id_stack stack =
+	struct id_stack stack =
 	{
-		.allocation = scratch_alloc(len / 2 + 1),
+		.buffer = scratch_alloc(len / 2 + 1),
 		.cap = len / 2 + 1
 	};
 	for (int32_t i = 0; i < len; ++i)
@@ -324,7 +325,7 @@ json_id_t pj_parse(json_t* json, arena_t* arena, const char* src, const int32_t 
 }
 
 // return the value of the key
-uint8_t pj_next_key(char** key, int32_t* key_len, json_t* json)
+uint8_t pj_next_key(string* key, json_t* json)
 {
 	int32_t depth = 0;
 	json->index += json->index == 0;
@@ -338,15 +339,14 @@ uint8_t pj_next_key(char** key, int32_t* key_len, json_t* json)
 		/* printf("d: %d, ", depth); */
 		if (bitmask & JSON_KEY && depth == 0)
 		{
-			*key = json->src + json->offsets[i];
-			*key_len = token_len(json, i);
+			*key = STRINGN(json->src + json->offsets[i], token_len(json, i));
 			json->index = i + 1;
 			/* printf("index1: %d\n", json->index); */
 			return json->bitmasks[i + 1];
 		}
 	}
 	/* printf("END!\n"); */
-	*key = NULL;
+	*key = (string){0};
 	json->index = n - 1;
 	return JSON_ERROR;
 }
@@ -395,18 +395,17 @@ uint8_t pj_next_value(json_t* value, json_t* json)
 	return JSON_ERROR;
 }
 
-json_id_t pj_str(char** str, int32_t* len, const json_t* json)
+json_id_t pj_str(string* str, const json_t* json)
 {
 	const int32_t i = json->index;
 	if ((json->bitmasks[i] & 0x0f) == JSON_STRING)
 	{
-		*str = json->src + json->offsets[i];
-		*len = token_len(json, i);
+		*str = STRINGN(json->src + json->offsets[i], token_len(json, i));
 		return JSON_STRING;
 	}
 	else
 	{
-		*str = NULL;
+		*str = (string){0x00};
 		return JSON_ERROR;
 	}
 }
@@ -471,14 +470,14 @@ int32_t pj_array_size(json_t* json)
 	return res;
 }
 
-json_t pj_find_key(char* key, json_t* json)
+json_t pj_find_key(const string* query, json_t* json)
 {
 	json_t res = {0};
-	char* str;
-	int32_t len;
-	while(pj_next_key(&str, &len, json))
+	string key;
+	const int32_t len = query->length;
+	while(pj_next_key(&key, json))
 	{
-		if (strncmp(str, key, len) == 0)
+		if (len == key.length && strncmp(key.chars, query->chars, len) == 0)
 		{
 			pj_next_value(&res, json);
 			return res;
@@ -490,7 +489,7 @@ json_t pj_find_key(char* key, json_t* json)
 
 
 
-uint8_t pj_next_pair(char** key, int32_t* key_len, json_t* value, json_t* json)
+uint8_t pj_next_pair(string* key, json_t* value, json_t* json)
 {
 	/* const uint8_t res = pj_next_key(key, key_len, json); */
 	/* if (res) */
@@ -510,8 +509,7 @@ uint8_t pj_next_pair(char** key, int32_t* key_len, json_t* value, json_t* json)
 		/* printf("d: %d, ", depth); */
 		if (bitmask & JSON_KEY && depth == 0)
 		{
-			*key = json->src + json->offsets[i];
-			*key_len = token_len(json, i);
+			*key = STRINGN(json->src + json->offsets[i], token_len(json, i));
 			uint8_t bitmask;
 			for (++i; i < n; ++i)
 			{
@@ -550,7 +548,7 @@ uint8_t pj_next_pair(char** key, int32_t* key_len, json_t* value, json_t* json)
 			return bitmask;
 		}
 	}
-	*key = NULL;
+	*key = (string){0};
 	*value = (json_t){0};
 	json->index = n - 1;
 	return JSON_ERROR;
@@ -581,24 +579,18 @@ int perfect_json_test(int argc, char** argv)
 	if (p_res)
 	{
 		int8_t res;
-		char * key;
-		int32_t k_len;
+		string key;
 		json_t temp = {0};
 		/* printf("offset: %d\n", json->offsets[json->index]); */
-		while ((res = pj_next_key(&key, &k_len, json)))
+		while ((res = pj_next_key(&key, json)))
 		{
 			/* printf("offset: %d\n", json->offsets[json->index]); */
 			res = pj_next_value(&temp, json);
-			if (strncmp("lmao", key, k_len) == 0)
+			if (strncmp("lmao", key.chars, key.length) == 0)
 			{
 				assert((res & 0x0f) == JSON_TRUE &&  "UR FUKT");
 			}
-			/* printf("offset: %d\n", json->offsets[json->index]); */
-			for (int32_t i = 0; i < k_len; ++i)
-			{
-				printf("%c", key[i]);
-			}
-			printf(": %#04x\n", res);
+			printf("%.*s: %#04x\n", key.length, key.chars, res);
 			switch (res & 0x0f)
 			{
 			case JSON_TRUE:
@@ -609,10 +601,9 @@ int perfect_json_test(int argc, char** argv)
 				break;
 			case JSON_STRING:
 				{
-					char* str;
-					int32_t len;
-					pj_str(&str, &len, &temp);
-					printf("  string: \"%.*s\"\n", len, str);
+					string str;
+					pj_str(&str, &temp);
+					printf("  string: \"%.*s\"\n", str.length, str.chars);
 					/* for (int32_t i = 0; i < len; ++i) */
 					/* { */
 					/* 	printf("%c", str[i]); */

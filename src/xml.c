@@ -200,7 +200,7 @@ static inline void print_line(const xml_t* xml)
 	for(int32_t i = xml->pos; i < n; ++i)
 	{
 		const char c = src[i];
-		printf("%c", c);
+		putchar(c);
 		if (c != '\n');
 		else
 		{
@@ -221,13 +221,8 @@ int xml_test(int argc, char** argv)
 	xml_t attr_xml;
 	xml_t nest_xml;
 	top_res = xml_next_elem(&elem, &len, &xml, &attr_xml, &nest_xml);
-	printf("first_elem: '");
-	for (int32_t i = 0; i < len; ++i)
-	{
-		printf("%c", elem[i]);
-	}
-	printf("'\n");
-	printf("xml len: %d, xml pos: %d\n", len, xml.len, xml.pos);
+	printf("first_elem: '%.*s'\n", len, elem);
+	printf("xml len: %d, xml pos: %d\n", xml.len, xml.pos);
 	printf("attribute len: %d, nested len: %d\n", attr_xml.len, nest_xml.len);
 	char* attr;
 	char* value;
@@ -235,29 +230,14 @@ int xml_test(int argc, char** argv)
 	int32_t v_len;
 	while (xml_next_attribute(&attr, &a_len, &value, &v_len, &attr_xml) & XML_SUCCESS)
 	{
-		printf("> ");
-		for (int32_t i = 0; i < a_len; ++i)
-		{
-			printf("%c", attr[i]);
-		}
-		printf(": ");
-		for (int32_t i = 0; i < v_len; ++i)
-		{
-			printf("%c", value[i]);
-		}
-		printf("\n");
+		printf("> %.*s: %.*s\n", a_len, attr, v_len, value);
 	}
 	printf("nested:\n");
 	xml_t discard = { 0 };
 	uint8_t res;
 	while ((res = xml_next_elem(&elem, &len, &nest_xml, &discard, &discard)) & XML_SUCCESS)
 	{
-		printf("> ");
-		for (int32_t i = 0; i < len; ++i)
-		{
-			printf("%c", elem[i]);
-		}
-		printf(": %s attributes; %s nested\n", res & XML_ATTRIBUTES ? "has" : "no", res & XML_HAS_NESTED ? "has" : "no");
+		printf("> %.*s: %s attributes; %s nested\n", len, elem, res & XML_ATTRIBUTES ? "has" : "no", res & XML_HAS_NESTED ? "has" : "no");
 	}
 	ms_munmap_file(xml_str, len, ms_handle);
 	return 1 - (top_res & XML_SUCCESS);

@@ -7,7 +7,8 @@ else
 	RE := grep
 endif
 # CFLAGS := -Wall -Wextra -Wno-int-conversion -fpermissive -fdiagnostics-show-option -ggdb -O0
-CFLAGS := -std=gnu99 -Wall -Wextra -Wno-int-conversion -fpermissive -fdiagnostics-show-option -ggdb -O2
+CFLAGS := -std=gnu11 -Wall -Wextra -Wno-int-conversion -fpermissive -fdiagnostics-show-option -ggdb -O0
+# CFLAGS := -std=gnu11 -Wall -Wextra -Wno-int-conversion -fpermissive -fdiagnostics-show-option -g0 -O2
 GODOT :=
 
 -include godot.mine
@@ -50,7 +51,7 @@ src/builtin.gen: builtin-generator extension_api.json
 builtin-generator: obj/builtin_generator.o obj/mem_sys.o obj/allocators/arena.o obj/allocators/scratch.o obj/allocators/workpad.o obj/gdscript/hashmaps.o obj/hashmaps/gid_map.o obj/perfect_json.o
 	$(CC) $(CFLAGS) -o $@ $^
 
-api-generator: obj/api_generator.o obj/mem_sys.o obj/allocators/arena.o obj/allocators/scratch.o obj/allocators/workpad.o obj/gdscript/hashmaps.o obj/hashmaps/api_map.o obj/perfect_json.o obj/hashmaps/gid_map.o;
+api-generator: obj/api_generator.o obj/mem_sys.o obj/allocators/arena.o obj/allocators/scratch.o obj/allocators/workpad.o obj/hashmaps/api_map.o obj/perfect_json.o obj/gdscript/token_ids.o obj/gdscript/token_id_map.o obj/api_structs.o obj/strings.o;
 	$(CC) $(CFLAGS) -o $@ $^
 
 extension_api.json:
@@ -61,6 +62,7 @@ tests: obj/tests.o $(OBJ) obj/godot_api.o
 
 %.h: ;
 
+# test: api-generator extension_api.json
 test: tests extension_api.json
 	${CURDIR}/$<
 
@@ -78,7 +80,7 @@ obj/godot_api.gen.o: src/godot_api.gen.c | $(OBJ_DIRS)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # NOTE: you're using objcopy WRONG!
-obj/godot_api.o: src/godot_api.c obj/godot_api.gen.o dep/godot_api.d | $(DEP_DIRS)
+obj/godot_api.o: src/godot_api.c src/godot_api.gen.h obj/godot_api.gen.o dep/godot_api.d | $(DEP_DIRS)
 	$(CC) $(CFLAGS) -o $@ -c $<
 
 obj/%.o: src/%.c dep/%.d | $(OBJ_DIRS)
@@ -110,7 +112,7 @@ $(OBJ_DIRS) $(DEP_DIRS): %:
 	mkdir -p $@
 
 clean:
-	rm -rf *.o obj/*.o *.exe tarragon
+	rm -rf *.o obj/ dep/ *.exe tarragon
 
 clean-dep:
 	rm -rf dep/*.d
@@ -138,7 +140,6 @@ test2: tests
 
 lsp-test: tarragon
 	@echo TODO w/ SBCL
-
 
 
 massive-script-writer: src/massive_script_writer.c

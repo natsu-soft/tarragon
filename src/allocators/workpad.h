@@ -12,6 +12,8 @@ typedef struct arena_t arena_t;
 
 arena_t* workpad_checkout(const int32_t size);
 
+void* workpad(const int32_t size);
+
 void workpad_checkin(struct workpad* workpad);
 
 void workpad_checkin_all(void);

@@ -2,31 +2,64 @@
 #define API_MAP_H
 
 #include <stdint.h>
-#include "../relative_ptrs.h"
-#include "../gdscript/gdscript_ids.h"
+#include "../strings.h"
 
+#ifdef _WIN32
+typedef struct _iobuf FILE;
+typedef unsigned long long size_t;
+#else
+typedef struct _IO_FILE FILE;
+typedef unsigned long size_t;
+#endif
+
+#ifndef IMPL_UNARY_KEY
+#define IMPL_UNARY_KEY							\
+	union unary_key								\
+	{											\
+		uint8_t bits[10];						\
+		struct __attribute__((packed))			\
+		{										\
+			char header;						\
+			token_id_t operator;				\
+			api_ptr_t operand;					\
+		};										\
+	};
+#endif/* End IMPL_UNARY_KEY */
+
+#ifndef IMPL_BINARY_KEY
+#define IMPL_BINARY_KEY							\
+	union binary_key							\
+	{											\
+		uint8_t bits[18];						\
+		struct __attribute__((packed))			\
+		{										\
+			char header;						\
+			token_id_t operator;				\
+			api_ptr_t lhs;						\
+			api_ptr_t rhs;						\
+		};										\
+	};
+#endif /* End IMPL_BINARY_KEY */
 
 typedef struct api_map_t
 {
-	self_ptr_t keys_selfptrs;
-	self_ptr_t values_diffptrs;
-	self_ptr_t lens_i16;
+	union api_ptr_t* values;
+	STRING_ARRAY(keys, lengths);
 	int32_t cap;
 	int32_t size;
 } api_map_t;
 
 typedef struct arena_t arena_t;
 
+void api_map_back(api_map_t* map, arena_t* backing_arena, int32_t cap);
+union api_ptr_t api_map_cache(api_map_t* map, const string* str,  const union api_ptr_t ptr);
+union api_ptr_t api_map_fetch(const api_map_t* map, const string* str);
+void api_map_audit(const api_map_t* map);
+/* void api_map_dump_keys(string_narray* dest, arena_t* arena, const api_map_t* map); */
+void api_map_make_serializable(api_map_t* map);
 
-void api_map_back(api_map_t* map, arena_t* backing_arena, const int32_t cap);
-diff_ptr_t* api_map_cache(api_map_t* map, const char* key, const int32_t len,  const diff_ptr_t diff_ptr);
-diff_ptr_t api_map_fetch(const api_map_t* map, const char* key, const int32_t len);
-void api_map_audit(const api_map_t* map, const uint8_t print_addrs);
 
-void api_map_dump_keys(char*** keys, int16_t** lens, int32_t* count, arena_t* arena, const api_map_t* map);
-
-
-const uint64_t api_map_hash(const uint8_t* str, const int32_t len);
-
+const uint64_t api_map_hash(const void* str, const int32_t len);
+void api_map_ppm(FILE* dest, const int cols, const api_map_t* map);
 
 #endif /* End API_MAP_H */

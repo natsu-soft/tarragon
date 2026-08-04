@@ -3,7 +3,7 @@
 #define BUILTIN_H
 
 #include <stdint.h>
-#include "gdscript/gdscript_ids.h"
+#include "gdscript/token_ids.h"
 #include "hashmaps/ptr_map.h"
 #include "hashmaps/op_map.h"
 

@@ -8,8 +8,6 @@
 #include "relative_ptrs.h"
 #include "hashmaps/api_map.h"
 
-/* NOTE: ALL STRUCTS MUST BE MOD 8 BYTES ALIGNED */
-
 /* NOTE: ON OPERATOR CACHING
  * operators are cached as the following string:
  * operator + diff_ptr_t of the lhs + diff_ptr_t of the rhs (for binary operators)
@@ -18,120 +16,171 @@
  * NOTE: relative pointers to types must ALWAYS be relatively offset
  * this lets you discriminate between enums & classes
  *
- * NOTE: FUNCTIONS CANT BE OVERLOADED IN GDSCRIPT
+ * NOTE: REJOICE! FUNCTIONS CAN NOT BE OVERLOADED IN GDSCRIPT!
  */
 
 // NOTE: go ahead & null terminate descriptions.
 
 
+#define API_TAGS									\
+	X(CLASS, class, classes)						\
+	X(FUNC, func, funcs)							\
+	X(PARAM, param, params)							\
+	X(ENUM_VALUE, enum_value, enum_values)			\
+	X(CONSTANT, constant, constants)				\
+	X(ENUM, enumerator, enumerators)				\
+	X(SIGNAL, signal, signals)						\
+	X(NATIVE_STRUCT, native_struct, native_structs) \
+	X(MEMBER, member, members)
 
-// 0x7, king
-typedef enum api_tag_t
+enum __attribute__((packed)) api_tag
 {
 	API_NONE = 0x00,
-	API_MEMBER, // NOTE: atm members are just 4bytes so you HAVE to put them first for the tags to work
-	API_ENUM,
-	API_FUNC,
-	/* API_TYPE, // types have operators */
-	API_CLASS, // classes do not!
-	API_SIGNAL,
-	API_CONSTANT,
-	API_NATIVE_STRUCT
-} api_tag_t;
+#define X(TAG, ...) API_##TAG,
+API_TAGS
+#undef X
+	API_VOID_RETURN
+};
 
-typedef struct fetch_res_t
+enum __attribute__((packed)) api_metadata
 {
-	void* ptr;
-	diff_ptr_t diff_ptr;
-	api_tag_t tag;
-} fetch_res_t;
+	GODOT_API	= 0x10,
+	METAFLAG_CAP = 0xf0,
+};
 
-typedef enum class_flags_t
+#define X(_, NAME, ...) typedef struct NAME##_t NAME##_t;
+API_TAGS
+#undef X
+
+/* // NOTE: if tag is none ptr should be null */
+/* typedef struct api_ptr_t */
+/* { */
+/* 	union */
+/* 	{ */
+/* 		void* ptr; // for lazy access */
+/* #define X(_, NAME, __) struct NAME##_t* NAME; */
+/* API_TAGS */
+/* #undef X */
+/* 	}; */
+/* 	enum api_tag tag; */
+/* } api_ptr_t; */
+
+// NOTE: this is cool and I _WILL_ use it >:^)
+// usually 48-bits are _actually_ used for pointers, machines with > 256TB of memory use 57 bits
+typedef union api_ptr_t
+{
+	struct
+	{
+		// see: https://lwn.net/Articles/717293/
+		unsigned long dont_touch : 32;
+		unsigned int probably_dont_touch: 25;
+		enum api_tag tag : 4;
+		enum api_metadata metadata: 3;
+	};
+	uint64_t bits;
+	int64_t number;
+	void* ptr;
+	#define X(_, NAME, __) struct NAME##_t* NAME;
+	API_TAGS
+	#undef X
+} api_ptr_t;
+
+api_ptr_t tag_api_ptr(void* ptr, enum api_tag tag);
+api_ptr_t flag_api_ptr(void* ptr,  uint8_t bitflags);
+enum api_tag api_tag(const api_ptr_t api_ptr);
+enum api_metadata api_metadata(const api_ptr_t api_ptr);
+void* api_ptr(const api_ptr_t api_ptr);
+#ifndef TAG_PTR
+#define TAG_PTR(PTR, TAG) (void*)((size_t)PTR | ((size_t)TAG << 48))
+#endif
+#ifndef UNTAG
+#define UNTAG(PTR) (void*)((~0x7fff000000000000) & PTR)
+#endif
+#ifndef API_ERR
+#define API_ERR(PTR) (0x4000000000000000 & PTR)
+#endif
+
+enum gdscript_class_flags
 {
 	CLASS_NO_FLAGS = 0x00,
 	CLASS_IS_KEYED = 0x01,
 	CLASS_IS_INSTANTIABLE = 0x02,
 	CLASS_HAS_DESTRUCTOR = 0x04,
 	CLASS_IS_SINGLETON = 0x08
-} class_flags_t;
+};
 
-typedef enum func_flags_t
+enum gdscript_func_flags
 {
 	FUNC_NO_FLAGS = 0x00,
 	FUNC_CONST = 0x01,
 	FUNC_VARIADIC = 0x02,
 	FUNC_STATIC = 0x04,
 	FUNC_VIRTUAL = 0x08,
-} func_flags_t;
+};
 
-typedef struct enum_t
+typedef struct enumerator_t
 {
-	self_ptr_t values;
-	int16_t num_values;
+	enum_value_t* values;
+	int32_t num_values;
 	uint8_t is_bitfield;
 } enum_t;
 
-
 typedef struct enum_value_t
 {
-	self_ptr_t name; // NOTE: NULL TERMINATED
+	string name;
 	int32_t value;
 } enum_value_t;
 
 typedef struct func_t
 {
-	self_ptr_t name_selfptr;
-	self_ptr_t params;
-	diff_ptr_t return_type; // tagged to discriminate between enums & classes (lets you quickly determine what the base addr is)
-	int32_t name_len;
-	int32_t __padding;
-	int16_t num_params;
+	string name; // NOTE: I shouldn't need this
+	param_t* params;
+	api_ptr_t return_type;
+	int32_t num_params;
 	uint8_t bitflags;
 } func_t;
 
 typedef struct param_t
 {
-	self_ptr_t name;
-	diff_ptr_t type;
-	self_ptr_t default_value;
-	int32_t __padding;
+	string name;
+	string default_value;
+	api_ptr_t type;
 } param_t;
 
 typedef struct class_t
 {
 	api_map_t class_map; // hello, pointer-based polymorphism
-	self_ptr_t constructors;
-	diff_ptr_t inherits;
-	// tbqh these just make debugging easier
-	self_ptr_t name_selfptr;
-	int32_t name_len;
+	func_t* constructors;
+	class_t* inherits;
+	// NOTE: you don't NEED this but it just makes debugging easier
+	string name;
 	int16_t num_constructors;
 	uint8_t bitflags;
 } class_t;
 
+// MORE ptr based polymorphism
 typedef struct member_t
 {
-	diff_ptr_t type; // tagged
-	int32_t __padding;
+	api_ptr_t type;
 } member_t;
 
+// oh fyggggg
 typedef struct constant_t
 {
-	diff_ptr_t type;
-	self_ptr_t value; // null termianted string
+	api_ptr_t type;
+	string value;
 } constant_t;
 
 typedef struct signal_t
 {
-	self_ptr_t params;
-	int16_t num_params;
+	param_t* params;
+	int32_t num_params;
 } signal_t;
 
 // wtf I actually need this shit?
 typedef struct native_struct_t
 {
-	self_ptr_t format; // null  terminated string
-	int32_t __padding;
+	string format;
 } native_struct_t;
 
 #endif /* End API_STRUCTS_H */

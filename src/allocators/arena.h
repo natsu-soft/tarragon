@@ -3,13 +3,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
-
-typedef struct arena_t
-{
-	uint8_t* allocation;
-	int32_t cap;
-	int32_t size;
-} arena_t;
+#include "arena_types.h"
 
 void arena_init(arena_t* arena, const int32_t bytes);
 

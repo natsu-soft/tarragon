@@ -20,13 +20,13 @@ void op_map_init(op_map_t* map, uint8_t* allocation, const int16_t cap)
 	map->size = 0;
 }
 
-void op_map_cache(op_map_t* map, const gdscript_id_t key, const void* value)
+void op_map_cache(op_map_t* map, const token_id_t key, const void* value)
 {
 	const int16_t cap = map->cap;
 	assert(map->size <= cap && "pointer map out of space.");
 	const uint16_t cap_mask = cap - 1;
 	const int16_t index = hash(key);
-	gdscript_id_t* keys = map->keys;
+	token_id_t* keys = map->keys;
 	for (int16_t i = 0; i < cap; ++i)
 	{
 		const int16_t j = (index + i) & cap_mask;
@@ -40,12 +40,12 @@ void op_map_cache(op_map_t* map, const gdscript_id_t key, const void* value)
 	}
 }
 
-void* op_map_fetch(op_map_t* map, const gdscript_id_t key)
+void* op_map_fetch(op_map_t* map, const token_id_t key)
 {
 	const int16_t cap = map->cap;
 	const uint16_t cap_mask = cap - 1;
 	const int16_t index = hash(key);
-	gdscript_id_t* keys = map->keys;
+	token_id_t* keys = map->keys;
 	for (int16_t i = 0; i < cap; ++i)
 	{
 		const int16_t j = (index + i) & cap_mask;

@@ -12,22 +12,28 @@ enum
 	RPC_INTERNAL_ERROR = -32603,
 };
 
+#define RPC_METHODS \
+	X(INITIALIZE, initialize) \
+	X(INITIALIZED, initialized) \
+	X(SHUTDOWN, shutdown) \
+	X(EXIT, exit) \
+	X(UNKNOWN, unknown)
 
-typedef enum method_t
+
+
+enum rpc_method
 {
-	NO_METHOD = 0x00,
-	INITIALIZE,
-	INITIALIZED,
-	SHUTDOWN,
-	EXIT,
-	UNKNOWN,
-} method_t;
+	NO_RPC_METHOD = 0x00,
+#define X(A, ...) RPC_##A,
+	RPC_METHODS
+#undef X
+};
 
 
 typedef struct rpc_t
 {
 	char id[16]; // MASSIVE
-	method_t method;
+	enum rpc_method method;
 	union
 	{
 		// initialize
@@ -38,6 +44,8 @@ typedef struct rpc_t
 	} params; // I imagine this could easily get bigger than id EVENTUALLY
 } rpc_t;
 
+
+#warning wtf are these?
 void rpc_init(void);
 
 void rpc_deinit(void);

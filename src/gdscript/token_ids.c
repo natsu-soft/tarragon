@@ -1,15 +1,17 @@
-#include "hashmaps.h"
+#include "token_ids.h"
 #include <stdlib.h>
+#include <stdio.h>
 #include "../allocators/arena.h"
+#include "token_id_map.h"
 
 #define BUILTIN_MAPPED_OPERATORS \
-	X(IS,		  "is",				2) \
-	X(IN,		  "in",				2) \
-	X(AS,		  "as",				2) \
-	X(NOT,		  "not",				3) \
-	X(OR,		  "or",				2) \
-	X(AND,		  "and",				3) \
-	X(XOR,		  "xor",				3) \
+	X(OP_IS,		  "is",				2) \
+	X(OP_IN,		  "in",				2) \
+	X(OP_AS,		  "as",				2) \
+	X(OP_NOT,		  "not",				3) \
+	X(OP_OR,		  "or",				2) \
+	X(OP_AND,		  "and",				3) \
+	X(OP_XOR,		  "xor",				3) \
 	X(OP_POWER,					    "**",			2) \
 	X(OP_PRODUCT,				    "*",			1) \
 	X(OP_SUM,					    "+",			1) \
@@ -32,7 +34,7 @@
 	X(OP_BITWISE_NOT,	 "~",	1)	\
 	X(OP_BOOL_NOT,		 "!",	1)
 
-static gid_map_t builtin_ops = {0};
+static token_id_map_t builtin_ops = {0};
 
 __attribute__((constructor))
 static void hashmaps_init(void)
@@ -42,15 +44,15 @@ static void hashmaps_init(void)
 		BUILTIN_MAPPED_OPERATORS
 		#undef X
 		uint8_t* buffer = malloc(128 * 10 + str_size);
-		gid_map_init(&builtin_ops, buffer, 128);
+		token_id_map_init(&builtin_ops, buffer, 128);
 		arena_t str_arena = { .allocation = buffer + 128 * 10, .cap = str_size};
-		#define X(ID, STR, LEN) gid_map_cache(&builtin_ops, arena_push(&str_arena, STR, LEN), LEN, GDSCRIPT_##ID);
+		#define X(ID, STR, LEN) token_id_map_cache(&builtin_ops, arena_push(&str_arena, STR, LEN), LEN, GDSCRIPT_##ID);
 		BUILTIN_MAPPED_OPERATORS
 		#undef X
 		/* gid_map_print(&builtin_ops); */
 }
 
-gdscript_id_t builtin_operators(const char* key, const int8_t len)
+token_id_t builtin_operators(const char* key, const int8_t len)
 {
-	return gid_map_fetch(&builtin_ops, key, len);
+	return token_id_map_fetch(&builtin_ops, key, len);
 }

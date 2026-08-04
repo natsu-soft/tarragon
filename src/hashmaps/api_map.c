@@ -5,6 +5,13 @@
 #include <string.h>
 #include <stdio.h>
 #include "../allocators/arena.h"
+#include "../api_structs.h"
+#include "../strings.h"
+#include "../gdscript/token_ids.h"
+IMPL_UNARY_KEY
+IMPL_BINARY_KEY
+
+uint8_t api_map_cache_quiet = 1;
 
 #define HASH_SEED 0xa85b0010
 
@@ -149,182 +156,217 @@ static inline int32_t djb2(const char* str, const int16_t len)
 void api_map_back(api_map_t* map, arena_t* backing_arena, const int32_t cap)
 {
 	assert(cap && (cap & (cap - 1)) == 0);
-	map->cap = cap;
-	const self_ptr_t* keys = arena_alloc(backing_arena, cap * sizeof *keys);
-	const diff_ptr_t* values = arena_alloc(backing_arena, cap * sizeof *values);
-	const int16_t* lens = arena_calloc(backing_arena, cap * sizeof *lens);
-	self_relate(&map->keys_selfptrs, keys);
-	self_relate(&map->values_diffptrs, values);
-	self_relate(&map->lens_i16, lens);
+	api_ptr_t* values = arena_calloc(backing_arena, cap * sizeof *values);
+	char** keys = arena_alloc(backing_arena, cap * sizeof *keys);
+	int32_t* lens = arena_calloc(backing_arena, cap * sizeof *lens);
+	map->values = values;
+	map->keys = keys;
+	map->lengths = lens;
 	map->size = 0;
+	map->cap = cap;
 }
 
-diff_ptr_t* api_map_cache(api_map_t* map, const char* key, const int32_t len,  const diff_ptr_t diff_ptr)
+api_ptr_t api_map_cache(api_map_t* map, const string* str, const api_ptr_t ptr)
 {
 	const int32_t cap = map->cap;
 	assert(map->size <= cap && "index map out of space.");
 	const uint32_t cap_mask = cap - 1;
 	/* const int32_t index = murmur3(key, len, (size_t)map) & cap_mask; */
-	const int32_t index = murmur3(key, len, HASH_SEED) & cap_mask;
-	const self_ptr_t* keys = abs_self(&map->keys_selfptrs);
+	const int32_t index = murmur3(str->chars, str->length, HASH_SEED) & cap_mask;
+	/* const self_ptr_t* keys = abs_self(&map->keys_selfptrs); */
 	/* const int32_t index = djb2(key, len); */
-	int16_t* lens = abs_self(&map->lens_i16);
+	int32_t* lens = map->lengths;
 	for (int32_t i = 0; i < cap; ++i)
 	{
 		const int32_t j = (index + i) & cap_mask;
 		if (lens[j] == 0)
 		{
-			self_relate((self_ptr_t*)abs_self(&map->keys_selfptrs) + j, key);
-			/* self_relate((self_t*)abs_self(&map->values_diffptrs) + j, value); */
-			diff_ptr_t* diff_ptrs = abs_self(&map->values_diffptrs);
-			memcpy(diff_ptrs + j, &diff_ptr, sizeof diff_ptr);
-			lens[j] = len;
+			map->keys[j] = str->chars;
+			lens[j] = str->length;
+			map->values[j] = ptr;
+			/* printf("cached: %d@'%.*s' -> %#018lx\n", j, str->length, str->value, ptr); */
 			map->size++;
-			/* char* temp = alloca(len + 1); */
-			/* memcpy(temp, key, len); */
-			/* temp[len] = '\0'; */
-			/* PASSERT(offset == api_map_fetch(map, key, len).delta, "failed in-place audit of '%s'\n", temp); */
-			/* printf("cached:%d: '%s': %d\n", j, temp, offset); */
-			return diff_ptrs + j;
+			return ptr;
 		}
-/* 		else if (lens[j] == len && strncmp(key, abs_self(keys + j), len) == 0) */
-/* 		{ */
-/* 			diff_ptr_t* offsets = abs_self(&map->values_diffptrs); */
-/* 			char* temp = alloca(len + 1); */
-/* 			memcpy(temp, key, len); */
-/* 			temp[len] = '\0'; */
-/* 			fprintf(stderr, "\nKEY: '%s'", temp); */
-/* 			fprintf(stderr, "\nORIGINAL -> %#x(%d)", offsets[j].delta, offsets[j].delta & 0x7); */
-/* 			fprintf(stderr, "\nNEW      -> %#x(%d)\n", offset, offset & 0x7); */
-/* 			if (key[0] == ' ') */
-/* 			{ */
-/* 				fprintf(stderr, "key hex:\n\t"); */
-/* 				for (int32_t l = 0; l < len; ++l) */
-/* 				{ */
-/* 					fprintf(stderr, " %#x", *(uint8_t*)(key + l)); */
-/* 				} */
-/* 				fprintf(stderr, "\noperator code:\n"); */
-/* 				switch ((gdscript_id_t)key[1]) */
-/* 				{ */
-/* #define X(ID, ...) case GDSCRIPT_##ID: fprintf(stderr, "\t" #ID); break; */
-/* 					GDSCRIPT_BUILTIN_TOKENS */
-/* #undef X */
-/* 				} */
-/* 				const int32_t lhs = *(int32_t*)(key + 2); */
-/* 				fprintf(stderr, " %#x(%d)", lhs, lhs & 0x7); */
-/* 				if (len == 10) */
-/* 				{ */
-/* 					const int32_t rhs = *(int32_t*)(key + 6); */
-/* 					fprintf(stderr, " %#x(%d)", rhs, rhs & 0x7); */
-/* 				} */
-/* 			} */
-/* 			fprintf(stderr, "\n"); */
-/* 			fflush(stderr); */
-/* 			assert(0); */
-/* 		} */
 	}
-	return NULL;
+	return (api_ptr_t){ 0x00 };
 }
 
-diff_ptr_t api_map_fetch(const api_map_t* map, const char* key, const int32_t len)
+api_ptr_t api_map_fetch(const api_map_t* map, const string* str)
 {
 	const int32_t cap = map->cap;
 	const uint32_t cap_mask = cap - 1;
+	const char* key = str->chars;
+	const int32_t len = str->length;
 	const int32_t index = murmur3(key, len, HASH_SEED) & cap_mask;
-	/* const int32_t index = djb2(key, len); */
-	int16_t* lens = abs_self(&map->lens_i16);
-	self_ptr_t* keys = abs_self(&map->keys_selfptrs);
+	int32_t* lens = map->lengths;
+	char** keys = map->keys;
 	for (int32_t i = 0; i < cap; ++i)
 	{
 		const int32_t j = (index + i) & cap_mask;
 		const int16_t l = lens[j];
 		/* if (l == len && strncmp(key, abs_self(keys + j), len) == 0) */
 		/* { */
-		if (l == len && strncmp(key, abs_self(keys + j), len) == 0)
+		if (l == len && strncmp(key, keys[j], len) == 0)
 		{
-			diff_ptr_t* values = abs_self(&map->values_diffptrs);
-			return values[j];
+			return map->values[j];
 		}
 		else if (l == 0)
 		{
 			break;
 		}
 	}
-	/* char* temp = alloca(len + 1); */
-	/* memcpy(temp, key, len); */
-	/* temp[len] = '\0'; */
-	/* printf("  failed to find a value for '%s'!\n", temp); */
-	return (diff_ptr_t){ 0 };
+	return (api_ptr_t){ 0 };
 }
 
-const uint64_t api_map_hash(const uint8_t* str, const int32_t len)
+const uint64_t api_map_hash(const void* str, const int32_t len)
 {
 	return murmur3(str, len, HASH_SEED);
 }
 
 
-void api_map_audit(const api_map_t* map, const uint8_t print_addrs)
+// just print out the keys & addresses, bro
+void api_map_audit(const api_map_t* map)
 {
-	const int32_t cap = map->cap;
-	self_ptr_t* keys = abs_self(&map->keys_selfptrs);
-	diff_ptr_t* values = abs_self(&map->values_diffptrs);
-	int16_t* lens = abs_self(&map->lens_i16);
-	for (int32_t i = 0; i < cap; ++i)
+	for (int i = 0; i < map->cap; ++i)
 	{
-		const int16_t len = lens[i];
+		const int len = map->lengths[i];
 		if (len > 0)
 		{
-
-			char* temp = alloca(len + 1);
-			const diff_ptr_t expected = values[i];
-			/* if (temp[0] != ' ') */
-			/* { */
-			/* 	printf("self-audit: %s -> %#x\n", temp, expected.delta); */
-			/* } */
-			if (print_addrs)
+			char* key = map->keys[i];
+			const api_ptr_t value = map->values[i];
+			enum api_tag payload_tag = api_tag(map->values[i]);
+			string str;
+			if (key[0] != ' ')
 			{
-				const int32_t delta = keys[i].delta;
-				printf("%#x + %#x -> %#x(%#x:%d)\n", keys + i, delta, ((size_t)keys) + i + delta, expected.delta, expected.delta & 0x7);
-				fflush(stdout);
+				switch (payload_tag)
+				{
+#define X(A,...) \
+					case API_##A: \
+						printf("%d: '%.*s' -> " #A "@%016lx\n", i, len, key, api_ptr(value)); \
+					break;
+					API_TAGS
+#undef X
+				}
 			}
-			memcpy(temp, abs_self(keys + i), len);
-			temp[len] = '\0';
-			PASSERT(expected.delta != 0, "%d: '%s' should have a non-zero entry!\n", i, temp);
-			const diff_ptr_t actual = api_map_fetch(map, temp, len);
-			PASSERT(expected.delta == actual.delta, "%d: self-audit of '%s' (len: %d) failed! Expected: %#x(%d), fetched: %#x!\n", i, temp, len, expected.delta, expected.delta & 0x7, actual.delta);
-			/* printf("%d: '%s'(%d chars) %d -> %d\n", i, temp, len, expected.delta, actual.delta); */
+			else
+			{
+				api_ptr_t operands[2] = { 0x00 };
+				int num_operands = 1;
+				token_id_t operator;
+				uint8_t foo = key[1];
+				if (len == 18)
+				{
+					union binary_key binary_key;
+					memcpy(&binary_key, key, sizeof binary_key);
+					operator = binary_key.operator;
+					++num_operands;
+					assert(memcmp(&binary_key, key, len) == 0);
+					operands[0] = binary_key.lhs;
+					operands[1] = binary_key.rhs;
+				}
+				else if (len == 10)
+				{
+					union unary_key unary_key;
+					memcpy(&unary_key, key, sizeof unary_key);
+					operator = unary_key.operator;
+					assert(memcmp(&unary_key, key, len) == 0);
+					operands[0] = unary_key.operand;
+				}
+				else
+				{
+					assert(0 && "Brother this is NOT an operator key--the length is ALL WRONG!");
+				}
+				switch (operator) {
+#define X(ENUM, STR, LEN) case GDSCRIPT_##ENUM: printf("%d: %.*s", i, LEN, STR); break;
+					GDSCRIPT_OPERATORS
+#undef X
+#define X(ENUM, STR, LEN) case GDSCRIPT_##ENUM:					\
+					printf("NON-OPERATOR: '%.*s'\n", LEN, STR);	\
+					fflush(stdout);								\
+					assert(0 && "UNKNOWN OPERATOR");			\
+					break;
+						GDSCRIPT_NOT_OPERATORS
+#undef X
+				default:
+					printf(" bad operator: %03d(str: %.*s)\n", operator, len, key);
+					fflush(stdout);
+					assert(0 && "UNKNOWN OPERATOR");
+				}
+				for (int j = 0; j < num_operands; ++j)
+				{
+					/* printf("\toperand[%d]: %016lx\n", j, operands[j]); */
+					enum api_tag tag = api_tag(operands[j]);
+					class_t* class;
+					enumerator_t* enumerator;
+					native_struct_t* native_struct;
+					switch(tag)
+					{
+					case API_CLASS:
+						class = api_ptr(operands[j]);
+						printf(" %.*s", class->name.length, class->name.chars);
+						break;
+					case API_ENUM:
+						enumerator = api_ptr(operands[j]);
+						printf(" enum@%016lx", enumerator);
+						break;
+					case API_NATIVE_STRUCT:
+						native_struct = api_ptr(operands[j]);
+						printf(" %.*s", native_struct->format.length, native_struct->format.chars);
+						break;
+					default:
+						printf("BAD OPERAND API TYPE: %d\n", tag);
+						fflush(stdout);
+						assert(0 && "UNRECOGNIZED TAG TYPE");
+					}
+				}
+				switch(payload_tag)
+				{
+				case API_CLASS:
+					str = ((class_t*)api_ptr(map->values[i]))->name;
+					printf(" -> %.*s\n", str.length, str.chars, api_ptr(value));
+					break;
+				case API_ENUM:
+				{
+					printf(" -> [");
+					enumerator_t* e = api_ptr(value);
+					for (int j = 0; j < e->num_values; ++j)
+					{
+						str = e->values[j].name;
+						printf(" %.*s", str.length, str.chars);
+					}
+					printf(" ]\n");
+				}
+					break;
+				case API_NATIVE_STRUCT:
+					str = ((native_struct_t*)api_ptr(map->values[i]))->format;
+					printf(" -> { %.*s }@%016lx\n", str.length, str.chars, api_ptr(value));
+					break;
+				default:
+					printf(" -> (%d)@%016x\n", payload_tag, api_ptr(value));
+				}
+			}
 		}
-		/* else */
-		/* { */
-		/* 	printf("EMPTY: %d\n", i); */
-		/* } */
 	}
 }
 
-
-void api_map_dump_keys(char*** keys, int16_t** lens, int32_t* count, arena_t* arena, const api_map_t* map)
+#warning api_map_ppm() is fucky
+void api_map_ppm(FILE* dest, const int cols, const api_map_t* map)
 {
-	arena->size = 0;
-	*count = map->size;
-	int32_t key_len = 0;
-	int16_t* all_lens = abs_self(&map->lens_i16);
-	for (int32_t i = 0; i < map->cap; ++i)
+	fprintf(dest, "P3\n%d, %d\n1\n", cols, map->cap / cols);
+	char** keys = map->keys;
+	int32_t* lens = map->lengths;
+	const uint32_t cap_mask = map->cap - 1;
+	for (int i = 0; i < map->cap; ++i)
 	{
-		key_len += all_lens[i];
-	}
-	const int32_t req_size = *count * (sizeof *keys + sizeof *lens) + key_len;
-	arena_grow(arena, req_size);
-	*keys = arena_alloc(arena, *count * sizeof **keys);
-	*lens = arena_alloc(arena, *count * sizeof **lens);
-	self_ptr_t* key_selfptrs = abs_self(&map->keys_selfptrs);
-	int32_t idx = 0;
-	for (int32_t i = 0; i < map->cap; ++i)
-	{
-		if (all_lens[i] > 0)
+		if (lens[i] > 0)
 		{
-			(*keys)[idx] = arena_push(arena, abs_self(key_selfptrs + i), all_lens[i]);
-			(*lens)[idx] = all_lens[i];
-			++idx;
+			const int ideal = murmur3(keys[i], lens[i], HASH_SEED) & cap_mask;
+			fprintf(dest, "%.*s ", 6, i == ideal ? "1 1 1 " : "1 0 0 ");
+		}
+		else
+		{
+			fprintf(dest, "0 0 0 ");
 		}
 	}
 }

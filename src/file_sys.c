@@ -158,7 +158,7 @@ char* fs_read(const char* path, int* len)
 	FILE* file = fopen(path, "r");
 	if (!file)
 	{
-		fprintf(stderr, "Failed to map file \"%s\"!\n", path);
+		fprintf(stderr, "Failed to open file \"%s\"!\n", path);
 		return NULL;
 	}
 	else if ((fseek(file, 0, SEEK_END)) == -1) {
@@ -204,6 +204,7 @@ void fs_write(const char* abs_path, char* data)
 	if (file)
 	{
 		fprintf(file, "%s", data);
+		fflush(file);
 		fclose(file);
 	}
 }

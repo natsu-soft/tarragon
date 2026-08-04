@@ -10,6 +10,8 @@
 #include "error_macros.h"
 #include "allocators/scratch.h"
 
+// NOTE: this is TRASH--rewrite this
+
 
 #define ARENA_OVERHEAD 4096
 #define MICROSECOND 1000

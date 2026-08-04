@@ -5,7 +5,7 @@
 #include <unistd.h>
 #include <string.h>
 #include "error_macros.h"
-#include "json.h"
+#include "perfect_json.h"
 #include "rpc.h"
 #include "file_sys.h"
 #include "base_protocol.h"
@@ -13,16 +13,16 @@
 #include "allocators/arena.h"
 #include "allocators/scratch.h"
 #include "allocators/workpad.h"
-#include "json.h"
+#include "strings.h"
 
 #define KILOBYTE 1024
 
 	/* JS_OBJECT(JS_MEMBER(jsonrpc, "2.0", COMMA) JS_MEMBER_VAR(id, rpc->id, COMMA) BODY) */
-#define JSON_RPC(BODY)													\
-	arena_dynamic_push(JS_ARENA, "{\"jsonrpc\":\"2.0\",\"id\":", 22);	\
-	JS_VAR(rpc->id, COMMA)										\
-	BODY															\
-	arena_dynamic_push(JS_ARENA, "}", 1)							\
+#define JSON_RPC(...)													\
+	PJ_OBJ( \
+		PJ_MEMBER(jsonrpc, PJ_LIT("2.0"));		\
+		PJ_MEMBER(id, PJ_STR(rpc->id));			\
+		__VA_ARGS__)
 
 /* extern unsigned char default_config_json[]; */
 /* extern unsigned int default_config_json_len; */
@@ -71,17 +71,17 @@ static void handle_initialize(FILE* out, const rpc_t* rpc)
 {
 	PLAIN_LOG(" > handle_initialize()");
 	arena_t* scratch = scratch_arena(0);
-	#define JS_ARENA scratch
-	JSON_RPC(
-		JS_MEMBER_MACRO(result, JS_OBJECT(
-							JS_MEMBER_MACRO(capabilities, JS_OBJECT(), COMMA)
-							JS_MEMBER_MACRO(serverInfo, JS_OBJECT(
-												JS_MEMBER(name, "tarragon", COMMA)
-												JS_MEMBER(version, "0.0.0-lmao"))))));
-	char* msg = JS_TERMINATE;
-	#undef JS_ARENA
-	LOG("initialize response: %s\n", msg);
-	respond(out, msg, scratch->size - 1);
+	#define JSON_DEST out
+	JSON_RPC(PJ_MEMBER(capabilities, PJ_OBJ())
+			 PJ_LAST_MEMBER(serverInfo, PJ_OBJ(
+								PJ_MEMBER(name, PJ_LIT("tarragon"))
+								PJ_LAST_MEMBER("version", PJ_STR("0")))));
+	fflush(JSON_DEST);
+	#undef JSON_DEST
+	/* string msg = DUMP_JSON; */
+	/* #undef JS_ARENA */
+	/* LOG("initialize response: %s\n", msg); */
+	/* respond(out, msg, scratch->size - 1); */
 	lsp.state = LSP_INITIALIZING;
 }
 
@@ -137,16 +137,16 @@ static void handle_rpc(FILE* out, const rpc_t* rpc)
 	// why? because it's based
 	switch(rpc->method)
 	{
-	case INITIALIZE:
+	case RPC_INITIALIZE:
 		handle_initialize(out, rpc);
 		break;
-	case INITIALIZED:
+	case RPC_INITIALIZED:
 		handle_initialized(out, rpc);
 		break;
-	case SHUTDOWN:
+	case RPC_SHUTDOWN:
 		handle_shutdown(out, rpc);
 		break;
-	case EXIT:
+	case RPC_EXIT:
 		handle_exit(out, rpc);
 		break;
 	/* default: */
@@ -204,24 +204,3 @@ int ls_listen(FILE* in, FILE* out)
 /* 	fs_write(config_name, (char*)&default_config_json[0]); */
 /* 	return config_name; */
 /* } */
-
-int language_server_test(int argc, char** argv)
-{
-	printf("testing language server functionality\n");
-	char* cwd = fs_dirname(argv[0]);
-	file_context_t* context = fs_find_upward("bruh", cwd);
-	printf("testing config file generation\n");
-	int config_len = 0;
-	char* default_config_file = fs_abs_path("default_config.json");
-	assertf(default_config_file, "default config file DNE!");
-	#ifdef _WIN32
-	printf("WINDOWS_HACK:\nthis is the baked string for the default config json:\n%s\n", &default_config_json); // the assert test does not work on windows, BUT AS WE CAN SEE IT OUTPUTS PROPERLY
-	printf("does it look good?\n");
-	#else
-	/* assertf(!strcmp(fs_read(default_config_file, &config_len), &default_config_json[0]), "default config file does not match hex dump!"); */
-	#endif
-	/* char* config_path = ls_generate_config(context->dir); */
-	/* file_context_t* config_context = fs_find_upward(CONFIG_NAME, cwd); */
-	/* assertf(config_context, "find_upwards failed to find %s!", CONFIG_NAME); */
-	return 0;
-}

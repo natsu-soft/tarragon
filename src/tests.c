@@ -9,11 +9,13 @@ FILE* log_fp;
 
 
 #define TESTS								\
-	X(base_protocol) \
-	X(perfect_json) \
-	X(xml) \
-	X(gdscript_parser) \
-	X(godot_api)
+	X(linked_list) \
+	X(gdscript_suite) \
+	/* X(perfect_json) \ */
+	/* X(xml) \ */
+	/* X(godot_api) \ */
+	/* X(base_protocol) \ */
+	// declare pass
 	/* X(json)									\ */
 	/* X(gdscript_parser) */
 

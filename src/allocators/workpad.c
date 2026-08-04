@@ -53,6 +53,25 @@ arena_t* workpad_checkout(const int32_t size)
 	unavailable = res;
 	return res;
 }
+
+void* workpad(const int32_t size)
+{
+	if (!available)
+	{
+		more_workpads(size);
+	}
+	else if (available->arena.cap < size)
+	{
+		arena_grow(available, size);
+	}
+	struct workpad* w = available;
+	available = available->next;
+	w->arena.size = 0;
+	w->next = unavailable;
+	unavailable = w;
+	return w->arena.allocation;
+}
+
 void workpad_checkin(struct workpad* workpad)
 {
 	for (struct workpad** w = &unavailable ; *w; *w = (*w)->next)

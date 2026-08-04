@@ -13,6 +13,7 @@ typedef struct _IO_FILE FILE;
 
 typedef enum lsp_state_t
 {
+	// I can FEEL the X macro coming
 	LSP_UNINITIALIZED = 0,
 	LSP_INITIALIZING,
 	LSP_INITIALIZED,
@@ -21,22 +22,7 @@ typedef enum lsp_state_t
 	LSP_EXIT_1
 } lsp_state_t;
 
-typedef struct text_document_t
-{
-	char* abs_path;
-	char* language_id;
-	uint32_t version;
-} text_document_t;
 
-/* typedef struct lsp_t */
-/* { */
-/* 	FILE* out; */
-/* 	text_document_t* documents; */
-/* 	uint32_t num_documents; */
-/* 	lsp_state_t state; */
-/* } lsp_t; */
-
-/* lsp_t* lsp(void); */
 
 int ls_listen(FILE* in, FILE* out);
 
