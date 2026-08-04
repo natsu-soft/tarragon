@@ -12,6 +12,6 @@ int32_t shunt(parse_table_t* p_table, token_table_t* token_table, arena_t* backi
 
 int32_t parse(parse_table_t* p_table, token_table_t* token_table, arena_t* backing_arena, arena_t* work_arena);
 
-int32_t parse_backing_size(const int32_t src_length);
+int32_t parse_backing_size(const int32_t num_tokens);
 
 #endif /* End GDSCRIPT_PARSE_H */
