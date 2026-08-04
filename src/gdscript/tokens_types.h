@@ -2,23 +2,6 @@
 #define TOKEN_TYPES_H
 #include <stdint.h>
 
-enum slim_magic
-{
-	SM_THRESHOLD				= -1,
-	SM_EOF						= -5,
-	SM_CLOSE_SCOPE				= -10,
-	SM_OPEN_SCOPE,
-	SM_BAD_LWS					= -20,
-	SM_UNCLOSED_PAREN			= -30,
-	SM_UNCLOSED_BRACE,
-	SM_UNCLOSED_BRACKET,
-	SM_EXTRA_PAREN,
-	SM_EXTRA_BRACE,
-	SM_EXTRA_BRACKET,
-	SM_CHARS_AFTER_CONTINUATION	= -40,
-	SM_UNTERMINATED_STRING		= -50
-};
-
 typedef struct slim_table_t
 {
 	char* src;
