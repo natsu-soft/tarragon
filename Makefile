@@ -148,7 +148,7 @@ massive-script-writer: src/massive_script_writer.c
 Massive.gd: massive-script-writer
 	${CURDIR}/$<
 
-massive-tester: obj/massive_test.o obj/mem_sys.o obj/allocators/arena.o obj/gdscript/token.o obj/gdscript/flexer.o obj/gdscript/diagnostics.o obj/gdscript/gdscript_shunt.o obj/allocators/scratch.o obj/gdscript/hashmaps.o obj/hashmaps/gid_map.o obj/gdscript/print_diagnostics.o
+massive-tester: obj/massive_test.o obj/memery.o obj/mem_sys.o obj/allocators/arena.o obj/gdscript/diagnostics.o obj/gdscript/print_diagnostics.o obj/gdscript/lex.o obj/gdscript/parse.o  obj/gdscript/token_id_map.o
 	$(CC) $(CFLAGS) -o $@ $^
 
 massive-test: massive-tester Massive.gd
