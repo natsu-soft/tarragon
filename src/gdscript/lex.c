@@ -643,9 +643,9 @@ static inline void next_token(struct token* token, int32_t* cursor, const char* 
 int32_t lex(token_table_t* token_table, arena_t* backing_arena, arena_t* work_arena, const char* src, const int32_t length, diagnostic* diagnostics)
 {
 	token_table->src = src;
-	int32_t* offsets = arena_alloc(backing_arena, (length + 512) * sizeof *offsets);
-	int16_t* lens = arena_alloc(backing_arena, (length + 512) * sizeof *lens);
-	token_id_t* ids = arena_alloc(backing_arena, (length + 512) * sizeof *ids);
+	int32_t* offsets = arena_alloc(backing_arena, (length + 128) * sizeof *offsets);
+	int16_t* lens = arena_alloc(backing_arena, (length + 128) * sizeof *lens);
+	token_id_t* ids = arena_alloc(backing_arena, (length + 128) * sizeof *ids);
 	int32_t n = 0;
 	// NOTE: very memey setup
 	for (uint8_t i = 0; i < TOKEN_START; ++i)
