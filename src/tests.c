@@ -10,10 +10,10 @@ FILE* log_fp;
 
 #define TESTS								\
 	X(linked_list) \
+	X(godot_api) \
 	X(gdscript_suite) \
 	/* X(perfect_json) \ */
 	/* X(xml) \ */
-	/* X(godot_api) \ */
 	/* X(base_protocol) \ */
 	// declare pass
 	/* X(json)									\ */
