@@ -14,13 +14,13 @@ arena_t* workpad_checkout(const int32_t size);
 
 void* workpad(const int32_t size);
 
-void workpad_checkin(struct workpad* workpad);
+void workpad_checkin(arena_t* arena);
 
 void workpad_checkin_all(void);
 
 // I dont even want this anymore tbqh
 #ifndef WORKPAD
-static inline void _cleanup_workpad(arena_t** p) { workpad_checkin((struct workpad*)*p); }
+static inline void _cleanup_workpad(arena_t** p) { workpad_checkin((arena_t*)*p); }
 #define WORKPAD __attribute__((__cleanup__(_cleanup_workpad))) arena_t
 #endif
 
