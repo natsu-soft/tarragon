@@ -20,28 +20,38 @@
 #include "strings.h"
 #include "../memery.h"
 
-void print_parse_table(const char* src, const parse_table_t* parse_table, const token_table_t* token_table)
+static void print_parse_table(const char* src, const parse_table_t* parse_table, const token_table_t* token_table)
 {
 	int16_t* depths = parse_table->depths;
-	int32_t* indices = parse_table->token_indices;
-	for (int32_t i = 1; i < parse_table->size; ++i)
+	int32_t* index = parse_table->token_indices + 1;
+	for (int32_t i = 1; i < parse_table->size; ++i, ++index)
 	{
-		/* printf("%d:", depths[i]); */
-		switch(token_table->ids[indices[i]])
+		if (depths[i] == 0)
 		{
-		case GDSCRIPT_NONE: printf("[ NONE ] "); break;
-		#define X(A) \
-		case PARSE_##A: \
-			printf("[ PARSE_" #A " ] "); \
-			break;
-		PARSE_IDS
-		#undef X
-		case GDSCRIPT_LINE_END: putc('\n', stdout); break;
-		case GDSCRIPT_MISSING_PAREN_CLOSE: printf("missing:) "); break;
-		case GDSCRIPT_MISSING_BRACE_CLOSE: printf("missing:} "); break;
-		case GDSCRIPT_MISSING_BRACKET_CLOSE: printf("missing:] "); break;
-		default:
-			printf("%.*s ", token_table->lens[indices[i]], src + token_table->offsets[indices[i]]);
+			struct parse_node* node = parse_node(scratch_arena(4096), parse_table, i);
+			/* parse_node_sexp(node, token_table); */
+			parse_node_sexp(node, token_table);
+			printf("\n\n");
+		}
+		else if (0)
+		{
+				/* printf("%d:", depths[i]); */
+			switch(token_table->ids[*index])
+			{
+			case GDSCRIPT_NONE: printf("[ NONE ] "); break;
+			#define X(A) \
+			case PARSE_##A: \
+				printf("[ PARSE_" #A " ] "); \
+				break;
+			PARSE_IDS
+			#undef X
+			case GDSCRIPT_LINE_END: putc('\n', stdout); break;
+			case GDSCRIPT_MISSING_PAREN_CLOSE: printf("missing:) "); break;
+			case GDSCRIPT_MISSING_BRACE_CLOSE: printf("missing:} "); break;
+			case GDSCRIPT_MISSING_BRACKET_CLOSE: printf("missing:] "); break;
+			default:
+				printf("%.*s ", token_table->lens[index[i]], src + token_table->offsets[index[i]]);
+			}
 		}
 	}
 }
@@ -283,7 +293,7 @@ int gdscript_suite_test(int argc, char** argv)
 	scratch_alloc(4 * src_len);
 	MICROTIME(num_tokens = gdscript_flex(flex_arena, &table, src, src_len);)
 	printf("tokens: %d, src size: %d, token_size: %d, max size: %d\n", num_tokens, src_len, num_tokens * 7, 8 * src_len + 4096);
-	print_tokens(src, new_table.offsets, new_table.lens, new_table.num_tokens);
+	/* print_tokens(src, new_table.offsets, new_table.lens, new_table.num_tokens); */
 	/* print_ids(src, new_table.offsets, new_table.lens, new_table.ids, new_table.num_tokens); */
 	parse_table_t parse_table = {0};
 	arena_t* p_arena = workpad_checkout(parse_backing_size(num_tokens));

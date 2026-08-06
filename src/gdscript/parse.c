@@ -22,21 +22,12 @@ struct context
 	arena_t* arena;
 	int32_t* indices;
 	int16_t* depths;
-	int32_t* offsets;
 	char* src;
+	int32_t* offsets;
 	int16_t* lens;
 	token_id_t* ids;
 	int32_t num_tokens;
 	int16_t lws;
-};
-
-
-// TODO: stop using trees.  Impossible, I'm afraid :(
-// NOTE: I'm using child-junctions for my sibling-lists so I dont ever fuck-up with the tree-structure
-struct parse_node
-{
-	LINKED_TREE(struct parse_node)
-	int32_t index;
 };
 IMPL_LINKED_LIST_FUNCS(node, struct parse_node)
 
@@ -89,45 +80,49 @@ static inline uint8_t one_or_no_children_p(const struct parse_node* node)
 	return node->child == node->child->next || node->child->next == node->child->prev;
 }
 
-static void node_sexp(struct parse_node* node, struct context* ctx)
+void parse_node_sexp(struct parse_node* node, const token_table_t* token_table)
 {
-	putc('(', stdout);
 	struct parse_node* n = node;
 	do
 	{
-		const int32_t i = n->index;
-		switch(ctx->ids[i])
+		if (n->child != nil)
 		{
-		case GDSCRIPT_NONE: printf("%d:NONE", i - TOKEN_START); break;
-		#define X(ID) case PARSE_##ID: printf("%d:PARSE_" #ID , i - TOKEN_START); break;
+			putc('(', stdout);
+		}
+		const int32_t i = n->index;
+		switch(token_table->ids[i])
+		{
+		case GDSCRIPT_NONE:  /* printf("NONE"); */ continue; break;
+		#define X(ID) case PARSE_##ID: printf("PARSE_" #ID); break;
 		PARSE_IDS
 		#undef X
-		case TOKEN_START: printf("%d:TOKEN_START", i - TOKEN_START); break;
-		#define X(A,...) case GDSCRIPT_##A: printf("%d:GDSCRIPT_" #A, i - TOKEN_START); break;
-		GDSCRIPT_BUILTIN_TOKENS
-		#undef X
+		case TOKEN_START: printf("TOKEN_START"); break;
+		case GDSCRIPT_LINE_END: printf("\\n"); break;
+		/* #define X(A,...) case GDSCRIPT_##A: printf("GDSCRIPT_" #A); break; */
+		/* GDSCRIPT_BUILTIN_TOKENS */
+		/* #undef X */
+		case GDSCRIPT_PAREN_OPEN: printf("'('"); break;
+		case GDSCRIPT_PAREN_CLOSE: printf("')'"); break;
 		default:
-			printf("%d:%.*s", i - TOKEN_START, ctx->lens[i], ctx->src + ctx->offsets[i]);
+			printf("%.*s",token_table->lens[i], token_table->src + token_table->offsets[i]);
 		}
 		if (n->child != nil)
 		{
 			putc(' ', stdout);
-			node_sexp(n->child, ctx);
+			parse_node_sexp(n->child, token_table);
+			putc(')', stdout);
 		}
 		if (n->next != node)
 		{
 			putc(' ', stdout);
 		}
-		n = n->next;
-	} while(n != node);
-	putc(')', stdout);
+	} while((n = n->next) != node);
 }
 
-enum token_pos
+enum parse_length
 {
-	CONT_CURRENT	= 0x00,
-	AFTER_JCT		= 0x01,
-	NEW_CURRENT		= 0x02,
+	ISOMETRIC = 0x00,
+	NON_ISOMETRIC = 0x01,
 };
 
 enum parse_res
@@ -149,7 +144,36 @@ static enum parse_res parse_to_pair(const token_id_t pair, struct parse_node* ro
 static struct lambda_res parse_lambda(struct parse_node* root, int32_t* cursor, struct context* ctx);
 static enum parse_res parse_ternary_expr(struct parse_node* root, int32_t* cursor, struct context* ctx);
 static void parse_period_expr(struct parse_node** root, int32_t* cursor, struct context* ctx);
-static enum token_pos ingest_token(const token_id_t id, struct parse_node** current, struct parse_node** last, int32_t* cursor, struct context* ctx);
+static enum parse_length ingest_token(const token_id_t id, struct parse_node** current, struct parse_node** last, int32_t* cursor, struct context* ctx);
+
+struct parse_node* parse_node(arena_t* backing_arena, const parse_table_t* parse_table, const int32_t idx)
+{
+	struct parse_node* res = nil;
+	if (0 < idx && idx < parse_table->size)
+	{
+		int16_t* depths = parse_table->depths;
+		const int16_t depth0 = depths[idx];
+		res = alloc_node(backing_arena);
+		res->index = parse_table->token_indices[idx];
+		if (depths[idx - 1] > depth0)
+		{
+			res->child = alloc_jct(backing_arena);
+			for (int32_t i = idx - 1; i > 0 && depths[i] > depth0; --i)
+			{
+				if (depths[i] == depth0 + 1)
+				{
+					struct parse_node* node = parse_node(backing_arena, parse_table, i);
+					node_append(res->child, node);
+				}
+			}
+		}
+		else
+		{
+			res->child = nil;
+		}
+	}
+	return res;
+}
 
 // as a humble warmup
 int32_t shunt(parse_table_t* p_table, token_table_t* token_table, arena_t* backing_arena, arena_t* work_arena)
@@ -284,22 +308,22 @@ static void dump_postorder(struct parse_node* node, int32_t* indices, int16_t* d
 	}
 }
 
-static void print_postorder(struct parse_node* node, const int16_t depth, struct context* ctx)
+void print_postorder(struct parse_node* node, const int16_t depth, token_table_t* token_table)
 {
 	assert(node != NULL);
-	assertf(node->index == 0, "NON-JUNCTION: %d:%.*s\n", node->index, ctx->lens[node->index], ctx->src + ctx->offsets[node->index]);
+	assertf(node->index == 0, "NON-JUNCTION: %d:%.*s\n", node->index, token_table->lens[node->index], token_table->src + token_table->offsets[node->index]);
 	for(struct parse_node* p = node->next; p != node; p = p->next)
 	{
 		if (p->child != nil)
 		{
-			print_postorder(p->child, depth + 1, ctx);
+			print_postorder(p->child, depth + 1, token_table);
 		}
 		for (int16_t i = 0; i < 2 * depth; ++i)
 		{
 			putc(' ', stdout);
 		}
 		const int32_t i = p->index;
-		switch(ctx->ids[i])
+		switch(token_table->ids[i])
 		{
 		#define X(A,...) case GDSCRIPT_##A: printf("%d: GDSCRIPT_" #A "\n", i - TOKEN_START); break;
 		GDSCRIPT_BUILTIN_TOKENS
@@ -310,9 +334,9 @@ static void print_postorder(struct parse_node* node, const int16_t depth, struct
 		PARSE_IDS
 		#undef X
 		default:
-			printf("%d: %.*s\n", i - TOKEN_START, ctx->lens[i], ctx->src + ctx->offsets[i]);
+			printf("%d: %.*s\n", i - TOKEN_START, token_table->lens[i], token_table->src + token_table->offsets[i]);
 		}
-		assertf(p->child != NULL, "(%d:%.*s)'s child is NULL\n", i, ctx->lens[i], ctx->src + ctx->offsets[i]);
+		assertf(p->child != NULL, "(%d:%.*s)'s child is NULL\n", i, token_table->lens[i], token_table->src + token_table->offsets[i]);
 	}
 }
 
@@ -360,22 +384,24 @@ static int16_t parse_lines(int32_t* cursor, int32_t* n, const int16_t depth, con
 			struct parse_node* root = alloc_jct(ctx->arena);
 			for (; *cursor < ctx->num_tokens && ctx->ids[*cursor] == GDSCRIPT_LINE_END; ++*cursor);
 			parse_line(&root, cursor, ctx);
-			/* printf("\npost-order:\n"); */
-			/* print_postorder(root, depth, ctx); */
-			/* putc('\n', stdout); */
 			dump_postorder(root, ctx->indices, ctx->depths, n, depth);
 		}
 		else if (lws_actual > lws_count)
 		{
-			const int32_t n0 = *n;
+			const int32_t n0 = --*n;
+			int16_t depth0 = ctx->depths[n0];
+			int32_t index0 = ctx->indices[n0];
 			do
 			{
 				for (int32_t i = n0; i < *n; ++i) { ++ctx->depths[i]; }
-				lws_actual = parse_lines(cursor, n, depth + 1, lws_actual, ctx);
+				lws_actual = parse_lines(cursor, n, depth + 2, lws_actual, ctx);
 				ctx->indices[*n] = PARSE_SCOPE;
-				ctx->depths[*n] = depth;
+				ctx->depths[*n] = depth + 1;
 				++*n;
 			} while(lws_actual > lws_count);
+			ctx->indices[*n] = index0;
+			ctx->depths[*n] = depth0;
+			++*n;
 		}
 		else
 		{
@@ -445,19 +471,47 @@ static enum parse_res parse_line(struct parse_node** root, int32_t* cursor, stru
 			current = node;
 			last = node;
 		}
+		else if (id == GDSCRIPT_RETURN)
+		{
+			struct parse_node* node = alloc_node(ctx->arena);
+			node->index = *cursor;
+			node->child = alloc_jct(ctx->arena);
+			node_append(current, node);
+			current = node->child;
+			last = node->child;
+		}
+		else if (id == GDSCRIPT_SEMICOLON && current != *root)
+		{
+			struct parse_node* node = alloc_node(ctx->arena);
+			node->index = *cursor;
+			struct parse_node* cutoff = current;
+			for (; cutoff != *root; cutoff = cutoff->prev)
+			{
+				if (ctx->ids[cutoff->index] == GDSCRIPT_STRUCTURAL_COLON) break;
+			}
+			// make everything AFTER the cutoff a child of node
+			node->child = arena_alloc(ctx->arena, sizeof *node->child);
+			*node->child = (struct parse_node){ .child = nil };
+			node_pair(node->child, cutoff->next);
+			node_pair((*root)->prev, node->child);
+			node_pair(cutoff, node);
+			node_pair(node, *root);
+			current = node;
+			last = node;
+		}
 		else if (id == GDSCRIPT_CONST || id == GDSCRIPT_VAR)
 		{
 			struct parse_node* node = alloc_node(ctx->arena);
 			node->index = *cursor;
 			node->child = nil;
 			node_append(current, node);
-			++*cursor;
 			current = node;
 			last = node;
 			parse_decl(&current, &last, cursor, &subctx);
 		}
 		else if (id == GDSCRIPT_COLON)
 		{
+			ctx->ids[*cursor] = GDSCRIPT_STRUCTURAL_COLON;
 			struct parse_node* node = alloc_node(ctx->arena);
 			node->index = *cursor;
 			node->child = nil;
@@ -480,10 +534,15 @@ static enum parse_res parse_line(struct parse_node** root, int32_t* cursor, stru
 
 static enum parse_res parse_decl(struct parse_node** current, struct parse_node** last, int32_t* cursor, struct context* ctx)
 {
-	for (; *cursor < ctx->num_tokens; ++*cursor)
+	for (++*cursor; *cursor < ctx->num_tokens; ++*cursor)
 	{
 		const token_id_t id = ctx->ids[*cursor];
-		if (!id_bitset_has(ctx->parent_tokens, id))
+		if (GDSCRIPT_ASSIGNMENT_POWER <= id && id <= GDSCRIPT_ASSIGNMENT)
+		{
+			ingest_token(id, current, last, cursor, ctx);
+			return PARSED_END;
+		}
+		else if (!id_bitset_has(ctx->parent_tokens, id))
 		{
 			ingest_token(id, current, last, cursor, ctx);
 		}
@@ -502,12 +561,6 @@ static enum parse_res parse_decl(struct parse_node** current, struct parse_node*
 const uint8_t missing_delta = GDSCRIPT_MISSING_PAREN_CLOSE - GDSCRIPT_PAREN_CLOSE;
 static enum parse_res parse_to_pair(const token_id_t delim, struct parse_node* root, int32_t* cursor, struct context* ctx)
 {
-	if (delim < GDSCRIPT_PAREN_CLOSE || GDSCRIPT_BRACKET_CLOSE < delim)
-	{
-		printf("ERROR: PARSING TO INVALID PAIR: %d\n", delim);
-		fflush(stdout);
-		assert(0);
-	}
 	struct parse_node* current = root;
 	struct parse_node* last = root;
 	struct context subctx = *ctx;
@@ -527,12 +580,30 @@ static enum parse_res parse_to_pair(const token_id_t delim, struct parse_node* r
 			node_prepend(pair, root);
 			return PARSED_END;
 		}
+		else if (id == GDSCRIPT_COMMA && current != root)
+		{
+			struct parse_node* node = alloc_node(ctx->arena);
+			node->index = *cursor;
+			struct parse_node* cutoff = current;
+			for (; cutoff != root; cutoff = cutoff->prev)
+			{
+				if (ctx->ids[cutoff->index] == GDSCRIPT_COMMA) break;
+			}
+			// make everything AFTER the cutoff a child of node
+			node->child = arena_alloc(ctx->arena, sizeof *node->child);
+			*node->child = (struct parse_node){ .child = nil, };
+			node_pair(node->child, cutoff->next);
+			node_pair(root->prev, node->child);
+			node_pair(cutoff, node);
+			node_pair(node, root);
+			current = node;
+			last = node;
+		}
 		else if (id == GDSCRIPT_COLON && delim == GDSCRIPT_BRACE_CLOSE)
 		{
 			struct parse_node* node = alloc_node(ctx->arena);
 			node->child = nil;
 			node->index = *cursor;
-			++*cursor;
 			node_append(current, node);
 			current = node;
 		}
@@ -666,7 +737,7 @@ static enum parse_res parse_ternary_expr(struct parse_node* root, int32_t* curso
 			if (!id_bitset_has(ctx->parent_tokens, id))
 			{
 				const int32_t size0 = ctx->arena->size;
-				if (ingest_token(id, &current, &last, cursor, ctx) == NEW_CURRENT)
+				if (ingest_token(id, &current, &last, cursor, ctx) == NON_ISOMETRIC)
 				{
 					node_remove(current);
 					ctx->arena->size = size0;
@@ -720,74 +791,53 @@ static void parse_period_expr(struct parse_node** root, int32_t* cursor, struct 
 	}
 }
 
-static enum token_pos ingest_token(const token_id_t id, struct parse_node** current, struct parse_node** last, int32_t* cursor, struct context* ctx)
+// starts with cursor RIGHT AT A PERIOD, & guaranteed root is an period
+static struct parse_node* parse_period_expr_deluxe(struct parse_node** root,  int32_t* cursor, struct context* ctx)
+{
+	struct parse_node* first_period = *root;
+	for (++*cursor; *cursor < ctx->num_tokens; *cursor += 2)
+	{
+		const token_id_t id = ctx->ids[*cursor];
+		const token_id_t peek_id = ctx->ids[*cursor + 1];
+		if (id == GDSCRIPT_IDENTIFIER && peek_id == GDSCRIPT_PERIOD)
+		{
+			struct parse_node* node = alloc_node(ctx->arena);
+			node->index = *cursor;
+			node->child = nil;
+			node_prepend(node, (*root)->child);
+			node = alloc_node(ctx->arena);
+			node->index = *cursor + 1;
+			node->child = alloc_jct(ctx->arena);
+			node_prepend(node->child, *root);
+			*root = node;
+		}
+		else if (id == GDSCRIPT_IDENTIFIER)
+		{
+			struct parse_node* node = alloc_node(ctx->arena);
+			node->index = *cursor;
+			node->child = nil;
+			node_prepend(node, (*root)->child);
+			break;
+		}
+		else
+		{
+			--*cursor;
+			break;
+		}
+	}
+	return first_period;
+}
+
+
+static enum parse_length ingest_token_old(const token_id_t id, struct parse_node** current, struct parse_node** last, int32_t* cursor, struct context* ctx)
 {
 	struct parse_node* node = alloc_node(ctx->arena);
 	node->index = *cursor;
-	if (0)
-	{
-	switch (id)
-	{
-#define X(A,...) case GDSCRIPT_##A: printf(" - ingesting: %d: GDSCRIPT_" #A "\n", *cursor); break;
-		GDSCRIPT_BUILTIN_TOKENS
-	#undef X
-	default:
-	printf(" - ingesting: %d:%.*s\n", *cursor, ctx->lens[*cursor], ctx->src + ctx->offsets[*cursor]);
-	}
-	fflush(stdout);
-	}
 	const token_id_t current_id = ctx->ids[(*current)->index];
 	const token_id_t last_id = ctx->ids[(*last)->index];
-	enum token_pos res = last_id != GDSCRIPT_NONE ? CONT_CURRENT : AFTER_JCT;
+	enum parse_length res = ISOMETRIC;
 	// BINARY OPERATORS (incl. colon & arrow)
-	if (binary_operator_p(id))
-	{
-		node->child = alloc_jct(ctx->arena);
-		const token_id_t current_id = ctx->ids[(*current)->index];
-		if (binary_operator_p(current_id) ||  unary_operator_p(current_id) ||
-			operator_arg_p(current_id))
-		{
-			struct parse_node temp =
-			{
-				.next = &temp,
-				.prev = &temp,
-				.child = nil
-			};
-			/* node_replace(node, *current); */
-			node_replace(&temp, *current);
-			(*current)->next = *current;
-			(*current)->prev = *current;
-			node_prepend(node->child, *current);
-			/* node_sexp(node, ctx); */
-			/* putc('\n', stdout); */
-			node_replace(node, &temp);
-		}
-		else
-		{
-			node_append(*current, node);
-			res |= NEW_CURRENT;
-		}
-		*current = node;
-	}
-	// UNARY OPERATORS
-	else if (unary_operator_p(id))
-	{
-		// unary operators are cheeky shits tbqh
-		node->child = alloc_jct(ctx->arena);
-		// if last is binary or unary become the last node's last child
-		if (binary_operator_p(last_id) || unary_operator_p(last_id))
-		{
-			node_prepend(node, (*last)->child);
-		}
-		// else follow current & become current
-		else
-		{
-			node_append(*current, node);
-			*current = node;
-			res |= NEW_CURRENT;
-		}
-	}
-	else if (id == GDSCRIPT_PERIOD)
+	if (id == GDSCRIPT_PERIOD) // honestly, this is probably the most likely
 	{
 		if (last_id == GDSCRIPT_IDENTIFIER)
 		{
@@ -817,7 +867,53 @@ static enum token_pos ingest_token(const token_id_t id, struct parse_node** curr
 			node_append(*current, node);
 			/* cat_nodes(*current, node); */
 			*current = node;
-			res |= NEW_CURRENT;
+			res |= NON_ISOMETRIC;
+		}
+	}
+	else if (binary_operator_p(id))
+	{
+		node->child = alloc_jct(ctx->arena);
+		if (binary_operator_p(current_id) ||  unary_operator_p(current_id) ||
+			operator_arg_p(current_id))
+		{
+			struct parse_node temp =
+			{
+				.next = &temp,
+				.prev = &temp,
+				.child = nil
+			};
+			/* node_replace(node, *current); */
+			node_replace(&temp, *current);
+			(*current)->next = *current;
+			(*current)->prev = *current;
+			node_prepend(node->child, *current);
+			/* node_sexp(node, ctx); */
+			/* putc('\n', stdout); */
+			node_replace(node, &temp);
+		}
+		else
+		{
+			node_append(*current, node);
+			res |= NON_ISOMETRIC;
+		}
+		*current = node;
+	}
+	// UNARY OPERATORS
+	else if (unary_operator_p(id))
+	{
+		// unary operators are cheeky shits tbqh
+		node->child = alloc_jct(ctx->arena);
+		// if last is binary or unary become the last node's last child
+		if (binary_operator_p(last_id) || unary_operator_p(last_id))
+		{
+			node_prepend(node, (*last)->child);
+		}
+		// else follow current & become current
+		else
+		{
+			node_append(*current, node);
+			*current = node;
+			res |= NON_ISOMETRIC;
 		}
 	}
 	else if (identifier_or_literal_p(id))
@@ -833,7 +929,7 @@ static enum token_pos ingest_token(const token_id_t id, struct parse_node** curr
 			/* cat_nodes(*current, node); */
 			node_append(*current, node);
 			*current = node;
-			res |= NEW_CURRENT;
+			res |= NON_ISOMETRIC;
 		}
 	}
 	else if (GDSCRIPT_PAREN_OPEN <= id && id <= GDSCRIPT_BRACKET_OPEN)
@@ -854,13 +950,13 @@ static enum token_pos ingest_token(const token_id_t id, struct parse_node** curr
 			(last_id == GDSCRIPT_IDENTIFIER || last_id == GDSCRIPT_PERIOD || annotation_p(last_id)))
 		{
 			parent->index = last_id == GDSCRIPT_IDENTIFIER || last_id == GDSCRIPT_PERIOD ?
-				PARSE_FUNC : PARSE_ANNOTATION_PARAMS;
+				PARSE_FUNC : PARSE_PARAMETERIZED_ANNOTATION;
 			node_replace(parent, *last);
 			node_append(parent->child, *last);
 			if (*current == *last)
 			{
 				*current = parent;
-				res |= NEW_CURRENT;
+				res |= NON_ISOMETRIC;
 			}
 		}
 		else if (id == GDSCRIPT_BRACKET_OPEN && (last_id == GDSCRIPT_IDENTIFIER || last_id == GDSCRIPT_PERIOD))
@@ -872,7 +968,7 @@ static enum token_pos ingest_token(const token_id_t id, struct parse_node** curr
 			if (*current == *last)
 			{
 				*current = parent;
-				res |= NEW_CURRENT;
+				res |= NON_ISOMETRIC;
 			}
 		}
 		else
@@ -886,7 +982,7 @@ static enum token_pos ingest_token(const token_id_t id, struct parse_node** curr
 			{
 				node_append(*current, parent);
 				*current = parent;
-				res |= NEW_CURRENT;
+				res |= NON_ISOMETRIC;
 			}
 		}
 		/* node_sexp(parent, ctx); */
@@ -919,7 +1015,7 @@ static enum token_pos ingest_token(const token_id_t id, struct parse_node** curr
 			/* cat_nodes(*current, node); */
 			node_append(*current, node);
 			*current = node;
-			res |= NEW_CURRENT;
+			res |= NON_ISOMETRIC;
 		}
 	}
 	// https://docs.godotengine.org/en/stable/tutorials/scripting/gdscript/gdscript_basics.html#lambda-functions
@@ -934,7 +1030,7 @@ static enum token_pos ingest_token(const token_id_t id, struct parse_node** curr
 		node_prepend(lambda->child, node);
 		*current = lambda;
 		node = lambda;
-		res |= NEW_CURRENT;
+		res |= NON_ISOMETRIC;
 	}
 	else if (id != GDSCRIPT_NONE)// catch all keywords, annotations, etc.
 	{
@@ -942,8 +1038,168 @@ static enum token_pos ingest_token(const token_id_t id, struct parse_node** curr
 		/* cat_nodes(*current, node); */
 		node_append(*current, node);
 		*current = node;
-		res |= NEW_CURRENT;
+		res |= NON_ISOMETRIC;
 	}
 	*last = node;
-	return res;
+	return last_id != GDSCRIPT_NONE ? res : ISOMETRIC;
+}
+
+
+static enum parse_length ingest_token(const token_id_t id, struct parse_node** current, struct parse_node** last, int32_t* cursor, struct context* ctx)
+{
+	struct parse_node* node = alloc_node(ctx->arena);
+	node->index = *cursor;
+	const token_id_t current_id = ctx->ids[(*current)->index];
+	const token_id_t last_id = ctx->ids[(*last)->index];
+	enum parse_length res = ISOMETRIC;
+	switch (id)
+	{
+	case GDSCRIPT_PERIOD:
+		node->child = alloc_jct(ctx->arena);
+		struct parse_node* first_period = parse_period_expr_deluxe(&node, cursor, ctx);
+		if (last_id == GDSCRIPT_IDENTIFIER)
+		{
+			node_replace(node, *last);
+			node_append(first_period->child, *last);
+			*current = *last == *current ? node : *current;
+		}
+		else if (binary_operator_p(last_id) || unary_operator_p(last_id))
+		{
+			node_prepend(node, (*last)->child);
+		}
+		else
+		{
+			goto append_to_current;
+		}
+		break;
+	// BINARY OPERATORS (incl. colon but no arrow)
+	case GDSCRIPT_COLON: __attribute__((fallthrough));
+	case GDSCRIPT_OP_IS ... GDSCRIPT_OP_GREATER_THAN:
+		node->child = alloc_jct(ctx->arena);
+		if (binary_operator_p(current_id) || unary_operator_p(current_id) || operator_arg_p(current_id))
+		{
+			struct parse_node temp =
+			{
+				.next = &temp,
+				.prev = &temp,
+				.child = nil
+			};
+			node_replace(&temp, *current);
+			node_append(node->child, *current);
+			node_replace(node, &temp);
+			*current = node;
+		}
+		else
+		{
+			printf(" -attn: APPENDING TO CURRENT!\n");
+			goto append_to_current;
+		}
+		break;
+	case GDSCRIPT_OP_NOT ... GDSCRIPT_OP_BOOL_NOT:
+		node->child = alloc_jct(ctx->arena);
+		if (binary_operator_p(last_id) || unary_operator_p(last_id))
+		{
+			node_prepend(node, (*last)->child);
+		}
+		else
+		{
+			goto append_to_current;
+		}
+		break;
+	case GDSCRIPT_INTEGER ... GDSCRIPT_NODE_PATH: __attribute__((fallthrough));
+	case GDSCRIPT_NULL ... GDSCRIPT_NAN: __attribute__((fallthrough));
+	case GDSCRIPT_IDENTIFIER:
+		node->child = nil;
+		if (binary_operator_p(last_id) || unary_operator_p(last_id))
+		{
+			node_prepend(node, (*last)->child);
+		}
+		else
+		{
+			goto append_to_current;
+		}
+		break;
+	case GDSCRIPT_PAREN_OPEN ... GDSCRIPT_BRACKET_OPEN:
+		node->child = nil;
+		struct parse_node* pair = alloc_node(ctx->arena);
+		pair->child = alloc_jct(ctx->arena);
+		parse_to_pair(id + 3, node, cursor, ctx);
+		node_prepend(pair->child, node);
+		node = pair;
+		if (id == GDSCRIPT_PAREN_OPEN &&
+			(last_id == GDSCRIPT_IDENTIFIER || last_id == GDSCRIPT_PERIOD || annotation_p(last_id)))
+		{
+			pair->index = last_id == GDSCRIPT_IDENTIFIER || last_id == GDSCRIPT_PERIOD ?
+				PARSE_FUNC : PARSE_PARAMETERIZED_ANNOTATION;
+			node_replace(pair, *last);
+			node_append(pair->child, *last);
+			*current = *current == *last ? pair : *current;
+		}
+		else if (id == GDSCRIPT_BRACKET_OPEN && (last_id == GDSCRIPT_IDENTIFIER || last_id == GDSCRIPT_PERIOD))
+		{
+			pair->index = PARSE_INDEXED_ARRAY;
+			node_replace(pair, *last);
+			node_append(pair->child, *last);
+			*current = *current == *last ? pair : *current;
+		}
+		else
+		{
+			pair->index = id - (GDSCRIPT_PAREN_OPEN - PARSE_GROUP);
+			if (binary_operator_p(last_id) || unary_operator_p(last_id))
+			{
+				node_prepend(pair, (*last)->child);
+			}
+			else
+			{
+				goto append_to_current;
+			}
+		}
+		break;
+	case GDSCRIPT_IF:
+		if (expression_p(current_id))
+		{
+			ctx->ids[*cursor] = GDSCRIPT_TERNARY_IF;
+			struct parse_node* tern = alloc_node(ctx->arena);
+			node_replace(tern, *current);
+			tern->index = PARSE_TERNARY;
+			tern->child = alloc_jct(ctx->arena);
+			node->child = alloc_jct(ctx->arena);
+			node_append(node->child, *current);
+			parse_ternary_expr(node, cursor, ctx);
+			node_prepend(tern->child, node);
+			*current = tern;
+			node = tern;
+		}
+		else
+		{
+			node->child = nil;
+			goto append_to_current;
+		}
+		break;
+	case GDSCRIPT_FUNC:
+		node->child = nil;
+		if (ctx->ids[*cursor + 1] == GDSCRIPT_PAREN_OPEN)
+		{
+			++*cursor;
+			parse_lambda(node, cursor, ctx);
+			struct parse_node* lambda = alloc_node(ctx->arena);
+			lambda->index = PARSE_LAMBDA;
+			lambda->child = alloc_jct(ctx->arena);
+			node_prepend(lambda->child, node);
+			*current = lambda;
+			node = lambda;
+			res = NON_ISOMETRIC;
+		}
+		else
+		{
+			goto append_to_current;
+		}
+		break;
+	default: node->child = nil; append_to_current:
+		node_append(*current, node);
+		*current = node;
+		res = NON_ISOMETRIC;
+	}
+	*last = node;
+	return last_id != GDSCRIPT_NONE ? res : ISOMETRIC;
 }

@@ -212,6 +212,7 @@
 	X(ELIF,		  "elif",			4) \
 	X(FUNC,		  "func",		 	4) \
 	X(FOR,		  "for",			3) \
+	X(WHEN,	  "when",			5) \
 	X(WHILE,	  "while",			5) \
 	X(MATCH,	  "match",			5) \
 	X(BREAK,	  "break",			5) \
@@ -316,7 +317,7 @@
 
 #define PARSE_IDS \
 	X(SCOPE) \
-	X(ANNOTATION_PARAMS) \
+	X(PARAMETERIZED_ANNOTATION) \
 	X(LAMBDA) \
 	X(VARARG) \
 	X(TERNARY) \
@@ -344,8 +345,8 @@ typedef enum __attribute__((packed)) token_id_t
 	#undef X
 	GDSCRIPT_NUM_BUILTIN,
 	// NOTE: fml I have to promote identifiers to these manually
-	/* GDSCRIPT_TERNARY_IF, */
-	/* GDSCRIPT_TERNARY_ELSE, */
+	GDSCRIPT_TERNARY_IF,
+	GDSCRIPT_TERNARY_ELSE,
 	/* GDSCRIPT_GET, */
 	/* GDSCRIPT_SET, */
 	GDSCRIPT_NUMBER,
@@ -385,10 +386,15 @@ typedef enum __attribute__((packed)) token_id_t
 
 #ifndef TOKEN_ID_PREDICATES
 #define TOKEN_ID_PREDICATES
+static inline uint8_t assignment_p(const token_id_t id)
+{
+	return GDSCRIPT_ASSIGNMENT_POWER <= id && id <= GDSCRIPT_ASSIGNMENT;
+}
+
 static inline uint8_t binary_operator_p(const token_id_t id)
 {
 	return (GDSCRIPT_OP_IS <= id && id <= GDSCRIPT_OP_GREATER_THAN) ||
-		id == GDSCRIPT_COLON || id == GDSCRIPT_ARROW;
+		id == GDSCRIPT_COLON;
 }
 
 static inline uint8_t unary_operator_p(const token_id_t id)
@@ -398,7 +404,8 @@ static inline uint8_t unary_operator_p(const token_id_t id)
 
 static inline uint8_t identifier_or_literal_p(const token_id_t id)
 {
-	return id == GDSCRIPT_IDENTIFIER || (GDSCRIPT_NULL <= id && id <= GDSCRIPT_NAN) ||
+	return id == GDSCRIPT_IDENTIFIER ||
+		(GDSCRIPT_NULL <= id && id <= GDSCRIPT_NAN) ||
 		(GDSCRIPT_INTEGER <= id && id <= GDSCRIPT_NODE_PATH);
 }
 

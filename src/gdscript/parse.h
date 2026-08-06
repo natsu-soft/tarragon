@@ -6,7 +6,11 @@
 #include "tokens_types.h"
 #include "../allocators/arena_types.h"
 
-void parse_node_tests(void);
+struct parse_node* parse_node(arena_t* backing_arena, const parse_table_t* parse_table, const int32_t idx);
+
+void parse_node_sexp(struct parse_node* node, const token_table_t* token_table);
+
+void print_postorder(struct parse_node* node, const int16_t depth, token_table_t* token_table);
 
 int32_t shunt(parse_table_t* p_table, token_table_t* token_table, arena_t* backing_arena, arena_t* work_arena);
 

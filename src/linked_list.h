@@ -13,7 +13,7 @@ struct						\
 		};					\
 		TYPE* peers[2];		\
 	};						\
-};
+}
 
 #define LINKED_TREE(TYPE)	\
 struct						\
@@ -32,7 +32,7 @@ struct						\
 		TYPE* child;		\
 		TYPE* parent;		\
 	};						\
-};
+}
 
 
 #define IMPL_LINKED_LIST_FUNCS(NAME, TYPE)					\
@@ -70,6 +70,12 @@ static inline void NAME##_remove(TYPE* x)					\
 	TYPE** next_prev = &x->next->prev;						\
 	*prev_next = x->next;									\
 	*next_prev = x->prev;									\
+}															\
+															\
+static inline void NAME##_pair(TYPE* a, TYPE* b)			\
+{															\
+	a->next = b;											\
+	b->prev = a;											\
 }															\
 															\
 static inline void NAME##_replace(TYPE* new, TYPE* old)		\

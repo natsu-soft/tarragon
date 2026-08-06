@@ -12,7 +12,7 @@
 #define NODE_CAP 512
 struct test_node
 {
-	LINKED_TREE(struct test_node)
+	LINKED_TREE(struct test_node);
 	int64_t value;
 };
 IMPL_LINKED_LIST_FUNCS(node, struct test_node);
