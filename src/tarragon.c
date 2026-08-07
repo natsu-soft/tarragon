@@ -13,8 +13,6 @@
 #include "logger.h"
 /* #include "trie.h" */
 
-FILE* log_fp;
-
 #define CONFIG_JSON "tarragon.json"
 
 /* extern char supported_godot[]; */
