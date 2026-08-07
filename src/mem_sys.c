@@ -10,8 +10,8 @@
 #include <memoryapi.h>
 #else
 #include <sys/mman.h>
-#import <sys/stat.h>
-#import <fcntl.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #endif
 
 // TODO: TEST WINDOWS
