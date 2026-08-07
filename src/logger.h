@@ -3,13 +3,9 @@
 
 #include <stdio.h>
 
-#ifdef _WIN32
-typedef struct _iobuf FILE;
+#ifdef LOG_FILE_HERE
+FILE* log_fp;
 #else
-typedef struct _IO_FILE FILE;
-#endif
-
-#ifndef LOG_FILE_HERE
 extern FILE* log_fp;
 #endif
 
