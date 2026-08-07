@@ -16,10 +16,12 @@ struct workpad
 	arena_t arena;
 	/* struct workpad* next; */
 };
+
 struct fauxpad
 {
 	LINKED_LIST(struct workpad);
 };
+
 IMPL_LINKED_LIST_FUNCS(workpad, struct workpad)
 
 static struct fauxpad available =
