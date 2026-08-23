@@ -112,7 +112,7 @@ $(OBJ_DIRS) $(DEP_DIRS): %:
 	mkdir -p $@
 
 clean:
-	rm -rf *.o obj/ dep/ *.exe tarragon
+	rm -rf *.o obj/ dep/ *.exe tarragon tests extension_api.json
 
 clean-dep:
 	rm -rf dep/*.d
