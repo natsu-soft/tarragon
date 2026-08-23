@@ -133,14 +133,14 @@ static const api_ptr_t api_fetch(const string* str)
 			{
 				string temp = { .chars = str->chars + i0, .length = i - i0 };
 				api_ptr_t p = api_map_fetch(map, &temp);
-				FETCH_PRINT("%.*s -> ", temp.length , temp.value);
+				FETCH_PRINT("%.*s -> ", temp.length , temp.chars);
 				PASSERT(api_tag(p) == API_CLASS, "'%.*s' should have fetched a class!\n", temp.length, temp.chars);
 				map = api_ptr(p);
 				i0 = i + 1;
 			}
 		}
 		string temp = { .chars = str->chars + i0, .length = str->length - i0 };
-		FETCH_PRINT("%.*s (%d:", temp.length, temp.value, temp.length);
+		FETCH_PRINT("%.*s (%d:", temp.length, temp.chars, temp.length);
 		fflush(stdout);
 		res = api_map_fetch(map, &temp);
 		switch(res.tag)
