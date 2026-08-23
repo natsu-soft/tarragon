@@ -10,12 +10,12 @@
 .sconsign.dblite
 compile_commands.json
 tarragon.json
+api-generator
 tarragon
+tests
 unit-tests
 builtin-generator
 extension_api.json
-test-json-parser
-jansson-test
 *.log
 /.gdb_history
 *.gd
