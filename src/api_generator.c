@@ -1972,6 +1972,7 @@ int main(int argc, char** argv)
 
 	/* PHASE THREE: CACHE EVERYTHING NOW! */
 
+	printf("PHASE 3: cache\n");
 #define X(_, __, A) idx_##A = 0;
 	API_TAGS
 #undef X
@@ -2016,6 +2017,7 @@ int main(int argc, char** argv)
 
 	/* PHASE 4: EVERYTHING ELSE */
 
+	printf("PHASE 4: finalization\n");
 #define X(_, __, A) idx_##A = 0;
 	API_TAGS
 #undef X
