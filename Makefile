@@ -57,7 +57,7 @@ api-generator: obj/api_generator.o obj/mem_sys.o obj/allocators/arena.o obj/allo
 extension_api.json:
 	$(GODOT) --dump-extension-api-with-docs
 
-tests: obj/tests.o $(OBJ) obj/godot_api.o
+tests: obj/tests.o $(OBJ) obj/godot_api.o obj/godot_api.gen.o
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 %.h: ;
@@ -67,7 +67,7 @@ test: tests extension_api.json
 	${CURDIR}/$<
 
 
-src/godot_api.gen.c: api-generator extension_api.json
+src/godot_api.gen.c src/goodt_api.gen.h: api-generator extension_api.json
 	${CURDIR}/$<
 
 obj/builtin_generator.o: src/builtin_generator.c src/api_structs.h dep/builtin_generator.d | $(DEP_DIRS)
@@ -112,7 +112,7 @@ $(OBJ_DIRS) $(DEP_DIRS): %:
 	mkdir -p $@
 
 clean:
-	rm -rf *.o obj/ dep/ *.exe tarragon tests extension_api.json
+	rm -rf *.o obj/ dep/ *.exe tarragon tests extension_api.json src/godot_api.gen.c src/goodt_api.gen.h
 
 clean-dep:
 	rm -rf dep/*.d
