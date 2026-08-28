@@ -54,7 +54,7 @@ api-generator: obj/api_generator.o obj/mem_sys.o obj/allocators/arena.o obj/allo
 	$(CC) $(CFLAGS) -o $@ $^
 
 extension_api.json:
-	$(GODOT) --dump-extension-api-with-docs
+	$(GODOT) --dump-extension-api-with-docs --headless
 
 tests: obj/tests.o $(OBJ) obj/godot_api.o obj/godot_api.gen.o
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
