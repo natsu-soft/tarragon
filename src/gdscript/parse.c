@@ -39,7 +39,6 @@ static struct parse_node nil_node =
 	.child = nil
 };
 
-// NOTE: debug this
 static inline struct parse_node* alloc_node(arena_t* arena)
 {
 	struct parse_node* res = arena_alloc(arena, sizeof(struct parse_node));
@@ -128,7 +127,8 @@ enum parse_length
 enum parse_res
 {
     PARSED_END = 0x00,
-	AT_PARENT_TOKEN
+	AT_PARENT_TOKEN,
+	/* PARSED_ANNOTATIONS */
 };
 
 struct lambda_res
@@ -140,6 +140,7 @@ struct lambda_res
 static int16_t parse_lines(int32_t* cursor, int32_t* n, const int16_t depth, const int16_t lws_count, struct context* ctx);
 static enum parse_res parse_line(struct parse_node** root, int32_t* cursor, struct context* ctx);
 static enum parse_res parse_decl(struct parse_node** current, struct parse_node** last, int32_t* cursor, struct context* ctx);
+static enum parse_res parse_scope(struct parse_node* root, int32_t* cursor, struct context* ctx);
 static enum parse_res parse_to_pair(const token_id_t pair, struct parse_node* root, int32_t* cursor, struct context* ctx);
 static struct lambda_res parse_lambda(struct parse_node* root, int32_t* cursor, struct context* ctx);
 static enum parse_res parse_ternary_expr(struct parse_node* root, int32_t* cursor, struct context* ctx);
@@ -375,7 +376,6 @@ static void print_preorder(struct parse_node* node, const int16_t depth, struct 
 static int16_t parse_lines(int32_t* cursor, int32_t* n, const int16_t depth, const int16_t lws_count, struct context* ctx)
 {
 	while (*cursor < ctx->num_tokens)
-	/* for (int i = 0; i < 12; ++i) */
 	{
 		int16_t lws_actual = ctx->offsets[*cursor] - (ctx->offsets[*cursor - 1] + ctx->lens[*cursor - 1]);
 		if (lws_actual == lws_count || ctx->ids[*cursor - 1] == GDSCRIPT_SEMICOLON)
@@ -384,7 +384,10 @@ static int16_t parse_lines(int32_t* cursor, int32_t* n, const int16_t depth, con
 			struct parse_node* root = alloc_jct(ctx->arena);
 			for (; *cursor < ctx->num_tokens && ctx->ids[*cursor] == GDSCRIPT_LINE_END; ++*cursor);
 			parse_line(&root, cursor, ctx);
-			dump_postorder(root, ctx->indices, ctx->depths, n, depth);
+			// root is now a newline node so I have to prepend a jct before dumping
+			struct parse_node* temp = alloc_jct(ctx->arena);
+			node_prepend(root, temp);
+			dump_postorder(temp, ctx->indices, ctx->depths, n, depth);
 		}
 		else if (lws_actual > lws_count)
 		{
@@ -444,6 +447,77 @@ static enum parse_res parse_line(struct parse_node** root, int32_t* cursor, stru
 	id_bitset_add(&ctx_bitset, GDSCRIPT_SEMICOLON);
 	id_bitset_union(&ctx_bitset, ctx->parent_tokens);
 	subctx.parent_tokens = &ctx_bitset;
+	// consume all leading annotations
+	while (*cursor < ctx->num_tokens)
+	{
+		const token_id_t id = ctx->ids[*cursor];
+		if (annotation_p(id))
+		{
+			struct parse_node* node = alloc_node(ctx->arena);
+			node->index = *cursor;
+			node->child = alloc_jct(ctx->arena);
+			if (ctx->ids[*cursor + 1] == GDSCRIPT_PAREN_OPEN)
+			{
+				struct parse_node* params = alloc_node(ctx->arena);
+				struct parse_node* paren_open = alloc_node(ctx->arena);
+				params->id = PARSE_ANNOTATION_PARAMS;
+				paren_open->index = *cursor + 1;
+				params->child = alloc_jct(ctx->arena);
+				paren_open->child = nil;
+				++*cursor;
+				parse_to_pair(GDSCRIPT_PAREN_CLOSE, paren_open, cursor, ctx);
+				node_prepend(params->child, paren_open);
+				node_prepend(node->child, params);
+			}
+			node_append(current, node);
+			current = node->child->prev;
+			last = nil;
+			++*cursor;
+		}
+		else if (id == GDSCRIPT_LINE_END)
+		{
+			const int32_t cursor0 = *cursor;
+			for (; *cursor < ctx->num_tokens && ctx->ids[*cursor] == GDSCRIPT_LINE_END; ++*cursor);
+			const int16_t lws_ctx = ctx->lws;
+			const int16_t lws_next = ctx->offsets[*cursor] - (ctx->offsets[*cursor - 1] + ctx->lens[*cursor - 1]);
+			if (lws_next > lws_ctx)
+			{
+				struct parse_node* scope = alloc_node(ctx->arena);
+				scope->id = PARSE_SCOPE;
+				scope->child = alloc_jct(ctx->arena);
+				struct context subctx = *ctx;
+				subctx.lws = lws_next;
+				parse_scope(scope->child, cursor, &subctx);
+				node_prepend(scope, *root);
+				struct parse_node* endl = alloc_node(ctx->arena);
+				endl->index = cursor0;
+				endl->child = *root;
+				*root = endl;
+				return PARSED_END;
+			}
+			else if (lws_next < lws_ctx)
+			{
+				struct parse_node* endl = alloc_node(ctx->arena);
+				endl->index = cursor0;
+				endl->child = *root;
+				*root = endl;
+				return PARSED_END;
+			}
+		}
+		else if (id == GDSCRIPT_SEMICOLON)
+		{
+			++*cursor;
+		}
+		else if (id_bitset_has(ctx->parent_tokens, id))
+		{
+			--*cursor;
+			return AT_PARENT_TOKEN;
+		}
+		else
+		{
+			break;
+		}
+	}
 	for (; *cursor < ctx->num_tokens; ++*cursor)
 	{
 		const token_id_t prev_id = ctx->ids[*cursor - 1];
@@ -453,11 +527,12 @@ static enum parse_res parse_line(struct parse_node** root, int32_t* cursor, stru
 		/* if (id == GDSCRIPT_LINE_END || id == GDSCRIPT_SEMICOLON) */
 		if (id == GDSCRIPT_LINE_END)
 		{
-			struct parse_node* node = alloc_node(ctx->arena);
-			node->index = *cursor;
-			node->child = *root;
-			*root = alloc_jct(ctx->arena);
-			node_append(*root, node);
+			struct parse_node* endl = alloc_node(ctx->arena);
+			endl->index = *cursor;
+			endl->child = *root;
+			*root = endl;
+			/* *root = alloc_jct(ctx->arena); */
+			/* node_append(*root, node); */
 			++*cursor;
 			return PARSED_END;
 		}
@@ -470,6 +545,17 @@ static enum parse_res parse_line(struct parse_node** root, int32_t* cursor, stru
 			node_append(current, node);
 			current = node;
 			last = node;
+		}
+		else if ((id == GDSCRIPT_CONST || id == GDSCRIPT_VAR) &&
+				 (prev_id == GDSCRIPT_LINE_END || prev_id == GDSCRIPT_NONE || prev_id == GDSCRIPT_NONE))
+		{
+			struct parse_node* node = alloc_node(ctx->arena);
+			node->index = *cursor;
+			node->child = nil;
+			node_append(current, node);
+			current = node;
+			last = node;
+			parse_decl(&current, &last, cursor, &subctx);
 		}
 		else if (id == GDSCRIPT_RETURN)
 		{
@@ -499,16 +585,6 @@ static enum parse_res parse_line(struct parse_node** root, int32_t* cursor, stru
 			current = node;
 			last = node;
 		}
-		else if (id == GDSCRIPT_CONST || id == GDSCRIPT_VAR)
-		{
-			struct parse_node* node = alloc_node(ctx->arena);
-			node->index = *cursor;
-			node->child = nil;
-			node_append(current, node);
-			current = node;
-			last = node;
-			parse_decl(&current, &last, cursor, &subctx);
-		}
 		else if (id == GDSCRIPT_COLON)
 		{
 			ctx->ids[*cursor] = GDSCRIPT_STRUCTURAL_COLON;
@@ -518,6 +594,29 @@ static enum parse_res parse_line(struct parse_node** root, int32_t* cursor, stru
 			node_append(current, node);
 			current = node;
 			last = node;
+		}
+		else if (0)
+		/* else if (annotation_p(id)) */
+		{
+			struct parse_node* node = alloc_node(ctx->arena);
+			node->index = *cursor;
+			node->child = alloc_jct(ctx->arena);
+			if (ctx->ids[*cursor + 1] == GDSCRIPT_PAREN_OPEN)
+			{
+				struct parse_node* params = alloc_node(ctx->arena);
+				struct parse_node* paren_open = alloc_node(ctx->arena);
+				params->id = PARSE_ANNOTATION_PARAMS;
+				paren_open->index = *cursor + 1;
+				params->child = alloc_jct(ctx->arena);
+				paren_open->child = nil;
+				++*cursor;
+				parse_to_pair(GDSCRIPT_PAREN_CLOSE, paren_open, cursor, ctx);
+				node_prepend(params->child, paren_open);
+				node_prepend(node->child, params);
+			}
+			node_append(current, node);
+			current = node->child->prev;
+			last = nil;
 		}
 		else if (id_bitset_has(ctx->parent_tokens, id))
 		{
@@ -550,6 +649,41 @@ static enum parse_res parse_decl(struct parse_node** current, struct parse_node*
 		{
 			--*cursor;
 			return AT_PARENT_TOKEN;
+		}
+	}
+	return PARSED_END;
+}
+
+// N.B.: root already assumed to be the jct-child of a scope node
+static enum parse_res parse_scope(struct parse_node* root, int32_t* cursor, struct context* ctx)
+{
+	const int16_t lws_ctx = ctx->lws;
+	while (*cursor < ctx->num_tokens)
+	{
+		int16_t lws_actual = ctx->offsets[*cursor] - (ctx->offsets[*cursor - 1] + ctx->lens[*cursor - 1]);
+		/* if (lws_actual == lws_count || ctx->ids[*cursor - 1] == GDSCRIPT_SEMICOLON) */
+		if (lws_actual == lws_ctx)
+		{
+			struct parse_node* line = alloc_jct(ctx->arena);
+			parse_line(&line, cursor, ctx);
+			node_prepend(line, root);
+		}
+		else if (lws_actual > lws_ctx)
+		{
+			struct context subctx = *ctx;
+			do
+			{
+				subctx.lws = lws_actual;
+				struct parse_node* scope = alloc_node(ctx->arena);
+				scope->id = PARSE_SCOPE;
+				node_prepend(scope, root);
+				scope->child = alloc_jct(ctx->arena);
+				parse_scope(scope->child, cursor, &subctx);
+			} while (lws_actual > lws_ctx);
+		}
+		else
+		{
+			return PARSED_END;
 		}
 	}
 	return PARSED_END;
@@ -655,7 +789,6 @@ static enum parse_res parse_to_pair(const token_id_t delim, struct parse_node* r
 	}
 	return PARSED_END;
 }
-
 
 static struct lambda_res parse_lambda(struct parse_node* root, int32_t* cursor, struct context* ctx)
 {
@@ -950,7 +1083,7 @@ static enum parse_length ingest_token_old(const token_id_t id, struct parse_node
 			(last_id == GDSCRIPT_IDENTIFIER || last_id == GDSCRIPT_PERIOD || annotation_p(last_id)))
 		{
 			parent->index = last_id == GDSCRIPT_IDENTIFIER || last_id == GDSCRIPT_PERIOD ?
-				PARSE_FUNC : PARSE_PARAMETERIZED_ANNOTATION;
+				PARSE_FUNC : PARSE_ANNOTATION_PARAMS;
 			node_replace(parent, *last);
 			node_append(parent->child, *last);
 			if (*current == *last)
@@ -1130,7 +1263,7 @@ static enum parse_length ingest_token(const token_id_t id, struct parse_node** c
 			(last_id == GDSCRIPT_IDENTIFIER || last_id == GDSCRIPT_PERIOD || annotation_p(last_id)))
 		{
 			pair->index = last_id == GDSCRIPT_IDENTIFIER || last_id == GDSCRIPT_PERIOD ?
-				PARSE_FUNC : PARSE_PARAMETERIZED_ANNOTATION;
+				PARSE_FUNC : PARSE_ANNOTATION_PARAMS;
 			node_replace(pair, *last);
 			node_append(pair->child, *last);
 			*current = *current == *last ? pair : *current;
