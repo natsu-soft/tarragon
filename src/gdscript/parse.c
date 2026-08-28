@@ -392,8 +392,21 @@ static int16_t parse_lines(int32_t* cursor, int32_t* n, const int16_t depth, con
 		else if (lws_actual > lws_count)
 		{
 			const int32_t n0 = --*n;
-			int16_t depth0 = ctx->depths[n0];
-			int32_t index0 = ctx->indices[n0];
+			const int16_t depth0 = ctx->depths[n0];
+			const int32_t index0 = ctx->indices[n0];
+			/* #define SCOPED */
+			// NOTE: I ran the test a few times, looked at [MICROTIME], & this seems slightly slower
+			#ifdef SCOPED
+			struct parse_node* scope = alloc_node(ctx->arena);
+			scope->id = PARSE_SCOPE;
+			scope->child = alloc_jct(ctx->arena);
+			struct context subctx = *ctx;
+			subctx.lws = lws_actual;
+			parse_scope(scope->child, cursor, &subctx);
+			struct parse_node* temp = alloc_jct(ctx->arena);
+			node_prepend(temp, scope);
+			dump_postorder(temp, ctx->indices, ctx->depths, n, depth + 1);
+			#else
 			do
 			{
 				for (int32_t i = n0; i < *n; ++i) { ++ctx->depths[i]; }
@@ -402,6 +415,7 @@ static int16_t parse_lines(int32_t* cursor, int32_t* n, const int16_t depth, con
 				ctx->depths[*n] = depth + 1;
 				++*n;
 			} while(lws_actual > lws_count);
+			#endif
 			ctx->indices[*n] = index0;
 			ctx->depths[*n] = depth0;
 			++*n;
@@ -657,10 +671,20 @@ static enum parse_res parse_decl(struct parse_node** current, struct parse_node*
 // N.B.: root already assumed to be the jct-child of a scope node
 static enum parse_res parse_scope(struct parse_node* root, int32_t* cursor, struct context* ctx)
 {
+/* 	printf("parse_scope: %d\n", *cursor); */
+/* 	switch (ctx->ids[*cursor]) */
+/* 	{ */
+/* #define X(A,...) case GDSCRIPT_##A: printf("\ttoken id: " #A "\n"); break; */
+/* 		GDSCRIPT_BUILTIN_TOKENS */
+/* #undef X */
+/* 	default: */
+/* 		printf("\ttoken id: %d\n", ctx->ids[*cursor]); */
+/* 	} */
 	const int16_t lws_ctx = ctx->lws;
 	while (*cursor < ctx->num_tokens)
 	{
-		int16_t lws_actual = ctx->offsets[*cursor] - (ctx->offsets[*cursor - 1] + ctx->lens[*cursor - 1]);
+		const int16_t lws_actual = ctx->offsets[*cursor] - (ctx->offsets[*cursor - 1] + ctx->lens[*cursor - 1]);
+		/* printf("\t\\t %d vs %d\n", lws_actual, lws_ctx); */
 		/* if (lws_actual == lws_count || ctx->ids[*cursor - 1] == GDSCRIPT_SEMICOLON) */
 		if (lws_actual == lws_ctx)
 		{
@@ -671,15 +695,12 @@ static enum parse_res parse_scope(struct parse_node* root, int32_t* cursor, stru
 		else if (lws_actual > lws_ctx)
 		{
 			struct context subctx = *ctx;
-			do
-			{
-				subctx.lws = lws_actual;
-				struct parse_node* scope = alloc_node(ctx->arena);
-				scope->id = PARSE_SCOPE;
-				node_prepend(scope, root);
-				scope->child = alloc_jct(ctx->arena);
-				parse_scope(scope->child, cursor, &subctx);
-			} while (lws_actual > lws_ctx);
+			subctx.lws = lws_actual;
+			struct parse_node* scope = alloc_node(ctx->arena);
+			scope->id = PARSE_SCOPE;
+			node_prepend(scope, root);
+			scope->child = alloc_jct(ctx->arena);
+			parse_scope(scope->child, cursor, &subctx);
 		}
 		else
 		{
