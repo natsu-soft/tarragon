@@ -11,7 +11,7 @@
 #define SRC_TESTS								\
 	X(linked_list) \
 	X(godot_api) \
-	/* X(gdscript_suite)*/ \
+	X(gdscript_suite) \
 	/* X(perfect_json) \ */
 	/* X(xml) \ */
 	/* X(base_protocol) \ */
@@ -34,5 +34,6 @@ int main(int argc, char** argv)
 	#undef X
 	LOG("finished unit tests");
 	ENDLOG;
+	printf("ATTN: ALL TESTS PASSED!\n");
 	return 0;
 }
