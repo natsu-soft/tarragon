@@ -52,19 +52,6 @@ enum __attribute__((packed)) api_metadata
 API_TAGS
 #undef X
 
-/* // NOTE: if tag is none ptr should be null */
-/* typedef struct api_ptr_t */
-/* { */
-/* 	union */
-/* 	{ */
-/* 		void* ptr; // for lazy access */
-/* #define X(_, NAME, __) struct NAME##_t* NAME; */
-/* API_TAGS */
-/* #undef X */
-/* 	}; */
-/* 	enum api_tag tag; */
-/* } api_ptr_t; */
-
 // NOTE: this is cool and I _WILL_ use it >:^)
 // usually 48-bits are _actually_ used for pointers, machines with > 256TB of memory use 57 bits
 typedef union api_ptr_t
