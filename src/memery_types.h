@@ -29,4 +29,13 @@ typedef struct virtual_file
 	struct virtfile_handle handle;
 } virtual_file;
 
+typedef struct ring_buffer
+{
+	void* buffer;
+	int32_t size;
+	int fd; // note this gets closed automagically once all references dropped SO YOU HAVE TO KEEP THE FD
+	int32_t head;
+	int32_t tail;
+} ring_buffer;
+
 #endif /* End MEMERY_TYPES_H */

@@ -96,6 +96,8 @@ void unmap_file(virtual_file virt_file)
 }
 
 
+// https://lo.calho.st/posts/black-magic-buffer/
+// https://fgiesen.wordpress.com/2012/07/21/the-magic-ring-buffer/
 void* ring_map(int32_t ring_size)
 {
 	return 0x00;
