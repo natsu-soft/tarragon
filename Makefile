@@ -6,8 +6,8 @@ ifeq ($(OS),Windows_NT)
 else
 	RE := grep
 endif
-CFLAGS := -std=gnu11 -Wall -Wextra -Wno-int-conversion -fpermissive -fdiagnostics-show-option -ggdb -O0
-# CFLAGS := -std=gnu11 -Wall -Wextra -Wno-int-conversion -fpermissive -fdiagnostics-show-option -g0 -O2
+CFLAGS := -std=gnu17 -Wall -Wextra -Wno-int-conversion -fpermissive -fdiagnostics-show-option -ggdb -O0
+# CFLAGS := -std=gnu17 -Wall -Wextra -Wno-int-conversion -fpermissive -fdiagnostics-show-option -g0 -O2
 GODOT :=
 
 -include godot.mine
