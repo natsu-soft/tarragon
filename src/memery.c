@@ -8,16 +8,17 @@
 #else
 #include <fcntl.h>
 #include <sys/stat.h>
+#define _GNU_SOURCE
+// gotta define GNU_SOURCE for memfd_create for ring maps
 #include <sys/mman.h>
 #endif
 #include "error_macros.h"
 
 #warning if u were a dweeb ud check page size per system
-#define PAGE_SIZE 4096
 #define PAGE_MASK 4095
 
 
-virtual_buffer memalloc(size_t min_size)
+virtual_buffer memalloc(int32_t min_size)
 {
 	// too lazy for peak bitmemery
 	size_t size = PAGE_SIZE * (min_size / PAGE_SIZE) + (min_size & PAGE_MASK ? PAGE_SIZE : 0);
@@ -35,13 +36,13 @@ virtual_buffer memalloc(size_t min_size)
 	};
 }
 
-void memfree(const virtual_buffer vb)
+void memfree(virtual_buffer* vb)
 {
-	assert(munmap(vb.addr, vb.size) == 0);
+	assert(munmap(vb->addr, vb->size) == 0);
 }
 
 #ifdef _WIN32
-virtual_file map_file(const char* filename, size_t len)
+virtual_file map_file(const char* filename, int32_t len)
 {
 	// see: https://learn.microsoft.com/en-us/windows/win32/memory/file-mapping
 	HANDLE h_file = CreateFileA(filename,
@@ -64,7 +65,8 @@ virtual_file map_file(const char* filename, size_t len)
 	return res;
 }
 #else
-virtual_file map_file(const char* filename, size_t len)
+
+virtual_file map_file(const char* filename, int32_t len)
 {
 	int fd = open(filename, O_RDWR | O_CREAT | O_APPEND, 0400 | 0200);
 	assertf(fd != -1, "failed to get fd in ms_map_file().  Check the perms!\n");
@@ -82,8 +84,11 @@ virtual_file map_file(const char* filename, size_t len)
 	void* ptr = mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
 	virtual_file res =
 	{
-		.virt_buffer.addr = ptr,
-		.virt_buffer.size = len,
+		.virt_buffer =
+		{
+			.addr = ptr,
+			.size = len
+		},
 		.handle = fd
 	};
 	return res;
@@ -98,11 +103,27 @@ void unmap_file(virtual_file virt_file)
 
 // https://lo.calho.st/posts/black-magic-buffer/
 // https://fgiesen.wordpress.com/2012/07/21/the-magic-ring-buffer/
-void* ring_map(int32_t ring_size)
+void ring_map(ring_buffer* rb, int32_t min_size, char* anon_filename)
 {
-	return 0x00;
+	// TODO errchecking
+	const int32_t size = PAGE_SIZE * (min_size / PAGE_SIZE) + (min_size & PAGE_MASK ? PAGE_SIZE : 0);
+	rb->fd = memfd_create(anon_filename, 0x00);
+	ftruncate(rb->fd, size);
+	rb->addr = mmap(NULL,  2 * size, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+	void* p = mmap(rb->addr, size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_FIXED, rb->fd, 0);
+	p = mmap((uint8_t*)rb->addr + size, size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_FIXED, rb->fd, 0);
+	rb->head = 0;
+	rb->tail = 0;
 }
 
-void ring_unmap(void* buffer, int32_t ring_size)
+/* The munmap() function shall remove any mappings for those entire pages containing
+   any part of the address space of the process starting at addr  and  continuing
+   for  len bytes. Further references to these pages shall result in the generation
+   of a SIGSEGV signal to the process.  If there are no mappings in the specified
+   address range, then munmap() has no effect.
+*/
+void ring_unmap(ring_buffer* rb)
 {
+	munmap(rb->addr, 2 * rb->size);
+	close(rb->fd);
 }
