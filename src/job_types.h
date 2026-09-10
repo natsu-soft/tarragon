@@ -22,4 +22,6 @@ struct thread_context
 
 typedef void (*job_func)(void* args, struct thread_context* ctx);
 
+typedef void (*init_func)(void);
+
 #endif /* End JOB_TYPES_H */
