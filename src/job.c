@@ -1,5 +1,5 @@
 #include "job.h"
-#include <stdio.h>
+/* #include <stdio.h> */
 #include <assert.h>
 #include <string.h>
 #include <pthread.h>
@@ -47,8 +47,8 @@ struct
 } job_ring = {0};
 
 
+static pthread_barrier_t sleep_barrier;
 static pthread_mutex_t sleep_mtx = PTHREAD_MUTEX_INITIALIZER;
-static pthread_cond_t sleep_cnd = PTHREAD_COND_INITIALIZER;
 static _Atomic(enum job_state) job_state = JOBS_SLEEP;
 static int32_t num_job_threads = 0;
 static spinlock job_spinlock;
@@ -60,7 +60,7 @@ static void job_ring_write(void* src, const int32_t size)
 {
 	assert(size <= job_ring.free);
 	const int32_t head = atomic_load(&job_ring.head);
-	memcpy(job_ring.buffer + head, src, size);
+	memcpy((uint8_t*)job_ring.buffer + head, src, size);
 	job_ring.head = (head + size) % job_ring.size;
 	job_ring.used += size;
 	job_ring.free -= size;
@@ -70,7 +70,7 @@ static void job_ring_read(void* dest, const int32_t size)
 {
 	assert(size <= job_ring.used);
 	const int32_t tail = job_ring.tail;
-	memcpy(dest, job_ring.buffer + tail, size);
+	memcpy(dest, (uint8_t*)job_ring.buffer + tail, size);
 	job_ring.tail = (tail + size) % job_ring.size;
 	job_ring.used -= size;
 	job_ring.free += size;
@@ -78,17 +78,23 @@ static void job_ring_read(void* dest, const int32_t size)
 
 static void job_thread_main(struct thread_context* ctx)
 {
-	while (job_state != JOBS_KILL)
+	while (atomic_load(&job_state) != JOBS_KILL)
 	{
-		if (job_state == JOBS_WORK)
+		if (atomic_load(&job_state) == JOBS_WORK)
 		{
 			while (atomic_fetch_or(&job_spinlock, SPIN_LOCK)) { ; }
-			if (job_ring.head == job_ring.tail) { atomic_store(&job_spinlock, SPIN_UNLOCK); continue; }
+			if (job_ring.used == 0)
+			{
+				atomic_store(&job_spinlock, SPIN_UNLOCK);
+				continue;
+			}
 			struct job job;
 			job_ring_read(&job, sizeof job);
 			assert(job.arg_size <= JOB_ARG_CAP && "job arguments greater than 16KB!");
 			if (job.arg_size > 0)
 			{
+				// spin until args fully written to the job_ring
+				while(job_ring.used < job.arg_size) { ; }
 				job_ring_read(ctx->args, job.arg_size);
 			}
 			atomic_store(&job_spinlock, SPIN_UNLOCK);
@@ -105,10 +111,11 @@ static void job_thread_main(struct thread_context* ctx)
 				func(ctx->args, ctx);
 			}
 		}
-		else if (job_state == JOBS_SLEEP)// lock threads & do no work
+		else if (atomic_load(&job_state) == JOBS_SLEEP)// lock threads & do no work
 		{
+			/* pthread_barrier_wait(&sleep_barrier); */
 			pthread_mutex_lock(&sleep_mtx);
-			pthread_cond_wait(&sleep_cnd, &sleep_mtx);
+			/* pthread_cond_wait(&sleep_cnd, &sleep_mtx); */
 			pthread_mutex_unlock(&sleep_mtx);
 		}
 	}
@@ -133,7 +140,7 @@ void jobs_init(const int32_t num_threads, const int32_t min_job_ring_size)
 	job_threads = arena_calloc(&thread_setup_arena, num_threads * sizeof *job_threads);
 	num_job_threads = num_threads;
 	job_spinlock = SPIN_UNLOCK;
-	job_state = JOBS_SLEEP;
+	job_state = JOBS_WORK;
 	pthread_attr_t attr = {0};
 	for (int32_t i = 0; i < num_threads; ++i)
 	{
@@ -174,22 +181,25 @@ void __jobs_add_arg(job_func job, struct buffer args)
 	job_ring_write(args.data, args.size);
 }
 
-static _Atomic(uint32_t) wait_bitmask = 0;
-static void wait_thread(void* _, struct thread_context* ctx)
+static void wait_thread(void* args, struct thread_context* ctx)
 {
-	wait_bitmask &= ~(ctx->mask);
-	while (atomic_load(&wait_bitmask)) { ; }
+	_Atomic(uint32_t)* wait_bitmask = (_Atomic(uint32_t)*)(*(uint64_t**)args);
+	atomic_store(wait_bitmask, *wait_bitmask & ~ctx->mask);
+	while (atomic_load(wait_bitmask)) { ; }
 }
 
 void jobs_finish()
 {
+	_Atomic(uint32_t) wait_bitmask = 0;
 	for (int32_t i = 0; i < num_job_threads; ++i)
 	{
 		wait_bitmask |= 1 << i;
 	}
+	uint64_t** bits = (uint64_t**)&wait_bitmask;
+	/* printf("main: %0lx vs %0lx\n", bits, &wait_bitmask); */
 	for (int32_t i = 0; i < num_job_threads; ++i)
 	{
-		jobs_add(wait_thread);
+		jobs_add(wait_thread, (struct buffer){.data = &bits, .size = sizeof bits });
 	}
 	if (job_state != JOBS_WORK)
 	{
@@ -201,28 +211,27 @@ void jobs_finish()
 
 void jobs_sleep(void)
 {
-	job_state = JOBS_SLEEP;
+	if (job_state == JOBS_WORK)
+	{
+		pthread_mutex_lock(&sleep_mtx);
+		job_state = JOBS_SLEEP;
+	}
 }
 
 void jobs_wake(void)
 {
-	// gotta do this dance to make sure all threads are waiting for sleep_cnd
-	job_state = JOBS_WORK;
-	pthread_mutex_lock(&sleep_mtx);
-	pthread_cond_broadcast(&sleep_cnd);
-	pthread_mutex_unlock(&sleep_mtx);
+	if (job_state == JOBS_SLEEP)
+	{
+		job_state = JOBS_WORK;
+		pthread_mutex_unlock(&sleep_mtx);
+	}
 }
 
 void jobs_kill(void)
 {
-	enum job_state state0 = job_state;
-	job_state = JOBS_KILL;
-	if (state0 == JOBS_SLEEP)
-	{
-		pthread_mutex_lock(&sleep_mtx);
-		pthread_cond_broadcast(&sleep_cnd);
-		pthread_mutex_unlock(&sleep_mtx);
-	}
+	jobs_sleep();
+	atomic_store(&job_state, JOBS_KILL);
+	pthread_mutex_unlock(&sleep_mtx);
 	for (int32_t i = 0; i < num_job_threads; ++i)
 	{
 		pthread_join(job_threads[i], NULL);
