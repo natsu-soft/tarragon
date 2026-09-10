@@ -13,6 +13,7 @@ GODOT :=
 -include godot.mine
 
 #LDFLAGS := -flto -static
+LDADD := -lpthread
 LDFLAGS := -fuse-ld=mold -flto -static
 MAINS := src/tarragon.c src/tests.c src/builtin_generator.c src/massive_test.c
 IGNORE := src/gdscript/gdscript_ast.c src/gdscript/gdscript_tokenizer.c src/logger.c src/builtin.c src/allocators/devious.c src/fml.c src/api_generator.c src/godot_api.c src/massive_script_writer.c
@@ -39,10 +40,10 @@ TARRAGON_INCLUDES:=
 include tarragon.includes
 
 tarragon: $(patsubst obj/%.o, src/%.c, $(filter %.c, $(TARRAGON_INCLUDES))) | tarragon.includes
-	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDADD) $(LDFLAGS)
 
 unity-tarragon:  $(filter %.c, $(TARRAGON_INCLUDES)) | tarragon.includes
-	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDADD) $(LDFLAGS)
 
 src/builtin.gen: builtin-generator extension_api.json
 	${CURDIR}/$<
@@ -57,7 +58,7 @@ extension_api.json:
 	$(GODOT) --dump-extension-api-with-docs --headless
 
 tests: obj/tests.o $(OBJ) obj/godot_api.o obj/godot_api.gen.o
-	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDADD) $(LDFLAGS)
 
 %.h: ;
 
