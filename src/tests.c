@@ -1,5 +1,6 @@
 #include <unistd.h>
 #include <assert.h>
+#include "job.h"
 #define LOG_FILE_HERE
 #include "logger.h"
 #undef LOG_FILE_HERE
@@ -26,6 +27,8 @@ SRC_TESTS
 
 int main(int argc, char** argv)
 {
+	jobs_init(4, 8388608);
+	jobs_wake();
 	log_fp = fopen("test.log", "w");
 	LOG("running unit tests");
 	unsigned int i = 1;
@@ -35,5 +38,6 @@ int main(int argc, char** argv)
 	LOG("finished unit tests");
 	ENDLOG;
 	printf("ATTN: ALL TESTS PASSED!\n");
+	jobs_kill();
 	return 0;
 }
