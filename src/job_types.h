@@ -2,22 +2,14 @@
 #define JOB_TYPES_H
 
 #include <stdint.h>
-#include "buffer_type.h"
 #include "allocators/arena_types.h"
-
-enum job_state
-{
-	JOBS_SLEEP = 0x00,
-	JOBS_WORK,
-	JOBS_KILL,
-};
 
 struct thread_context
 {
-	void* args;
 	arena_t scratch;
-	int32_t num;
-	uint32_t mask;
+	int32_t thread_num;
+	uint32_t sync_epoch;
+	uint32_t thread_mask;
 };
 
 typedef void (*job_func)(void* args, struct thread_context* ctx);

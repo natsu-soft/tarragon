@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
+#include "benchmark.h"
 #include "gdscript/token_ids.h"
 #include "perfect_json.h"
 #include "mem_sys.h"
@@ -1798,6 +1799,10 @@ static void relative_pointers(const size_t base)
 int main(int argc, char** argv)
 {
 	assert(sizeof(api_ptr_t) == 8 && "8 && api_ptr_t must be 8 bytes!\n");
+	/* scratch_init(); */
+	/* token_ids_init(); */
+	scratch_init();
+	token_ids_init();
 	/* printf("NOTE: these should be ordered largest to smallest & be divisible by 8!\n"); */
 #define X(_, A,...) printf("sizeof(" #A "_t): %d\n", sizeof(A##_t));
 	API_TAGS

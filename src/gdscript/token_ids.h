@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include "token_ids_types.h"
 
+void token_ids_init(void);
+
 token_id_t builtin_operators(const char* key, const int8_t len);
 
 #endif /* End GDSCRIPT_HATOKEN_IDS */

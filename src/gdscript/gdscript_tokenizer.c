@@ -37,7 +37,7 @@ static struct
 } builtin = {0};
 
 /* __attribute__((constructor)) */
-static void populate_builtin(void)
+void tokenizer_init(void)
 {
 	uint32_t l = 0;
 

@@ -6,6 +6,8 @@
 #include "allocators/arena.h"
 #include "token.h"
 
+/* void tokenizer_init(void); */
+
 
 /* uint32_t gdscript_tokenize(arena_t* arena, token_t** tokens, gdscript_id_t** ids, const char* str, const uint32_t n); */
 

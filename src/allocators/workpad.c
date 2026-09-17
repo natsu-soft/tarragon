@@ -35,8 +35,8 @@ static struct fauxpad unavailable =
 	.prev = (struct workpad*)&unavailable
 };
 
-__attribute__((constructor))
-static void workpad_init(void)
+/* __attribute__((constructor)) */
+void workpad_init(void)
 {
 	struct workpad* workpads = calloc(INIT_NUM_WORKPADS, sizeof *workpads);
 	arena_init(&workpads->arena, WORKPAD_OVERHEAD);

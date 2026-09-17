@@ -31,7 +31,7 @@ static enum {
 static uint32_t content_length = 0;
 static arena_t decode_arena = {0};
 
-__attribute__((constructor)) void bp_init(void)
+/* __attribute__((constructor)) */ void bp_init(void)
 {
 	arena_init(&decode_arena, ARENA_OVERHEAD);
 }

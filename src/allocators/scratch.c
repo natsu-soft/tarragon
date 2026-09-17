@@ -9,7 +9,7 @@
 
 static arena_t scratch = {0x00};
 
-__attribute__((constructor))
+/* __attribute__((constructor)) */
 void scratch_init(void)
 {
 	arena_init(&scratch, SCRATCH_OVERHEAD);

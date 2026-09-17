@@ -30,7 +30,7 @@ typedef struct virtual_file
 	struct virtfile_handle handle;
 } virtual_file;
 
-// the virt buffer pun is intentional
+// NOTE: REORDER & DIE
 typedef struct ring_buffer
 {
 	void* addr;

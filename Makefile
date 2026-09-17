@@ -1,29 +1,37 @@
 # NOTE: for release build use gcc & mold at -O2
 # CC := clang
-CC := gcc
-ifeq ($(OS),Windows_NT)
+ifeq ($(OS), Windows_NT)
 	RE := rg
 else
 	RE := grep
+	OS := $(shell uname -s)
 endif
+CC := gcc
 CFLAGS := -std=gnu17 -Wall -Wextra -Wno-int-conversion -fpermissive -fdiagnostics-show-option -ggdb -O0
 # CFLAGS := -std=gnu17 -Wall -Wextra -Wno-int-conversion -fpermissive -fdiagnostics-show-option -g0 -O2
 GODOT :=
-
 -include godot.mine
 
 #LDFLAGS := -flto -static
+# LDADD := -lpthread
 LDADD := -lpthread
 LDFLAGS := -fuse-ld=mold -flto -static
 MAINS := src/tarragon.c src/tests.c src/builtin_generator.c src/massive_test.c
 IGNORE := src/gdscript/gdscript_ast.c src/gdscript/gdscript_tokenizer.c src/logger.c src/builtin.c src/allocators/devious.c src/fml.c src/api_generator.c src/godot_api.c src/massive_script_writer.c
-ALL_SRC := $(wildcard src/*.c)
-ALL_SRC += $(wildcard src/*/*.c)
+ALL_SRC := $(wildcard src/*.c) $(wildcard src/allocators/*.c) $(wildcard src/gdscript/*.c) $(wildcard src/hashmaps/*.c)
+ifeq ($(OS), Windows_NT)
+	ALL_SRC += $(wildcard src/windows/*.c)
+endif
+ifeq ($(OS), Linux)
+	ALL_SRC += $(wildcard src/linux/*.c)
+endif
+ifeq ($(OS), Darwin)
+	ALL_SRC += $(wildcard src/osx/*.c)
+endif
 SRC := $(filter-out $(IGNORE), $(filter-out $(MAINS), $(ALL_SRC)))
 DEP := $(patsubst src/%.c,dep/%.d,$(SRC))
 OBJ := $(patsubst src/%.c,obj/%.o,$(SRC))
 ALL_OBJ := $(patsubst src/%.c,obj/%.o,$(ALL_SRC))
-
 SRC_DIRS := src/ $(wildcard src/*/)
 OBJ_DIRS := $(patsubst src/%,obj/%,$(SRC_DIRS))
 DEP_DIRS := $(patsubst src/%,dep/%,$(SRC_DIRS))

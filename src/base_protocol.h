@@ -17,6 +17,8 @@ typedef struct arena_t arena_t;
 
 /* void bp_reset(void); */
 
+void bp_init(void);
+
 const uint32_t bp_send(FILE* stream, const char* content);
 
 const uint32_t bp_sendn(FILE* stream, const char* content, const uint32_t n);

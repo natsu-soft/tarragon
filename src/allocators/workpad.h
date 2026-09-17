@@ -10,6 +10,8 @@ typedef struct arena_t arena_t;
 // memory leaks are a skill issue
 // so are double frees
 
+void workpad_init(void);
+
 arena_t* workpad_checkout(const int32_t size);
 
 void* workpad(const int32_t size);

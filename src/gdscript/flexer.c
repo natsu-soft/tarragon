@@ -36,8 +36,8 @@ static struct
 	int16_t num;
 } unary_triggers = {0};
 
-__attribute__((constructor))
-static void hashmap_init(void)
+/* __attribute__((constructor)) */
+void flexer_init(void)
 {
 	// NOTE: graph as in GRAPHEME
 	// str&id arena
@@ -128,8 +128,8 @@ static struct {
 } flex_table = {0};
 /* #define BESPOKE_DELIM_CHARS \ */
 /* 	X('@') */
-__attribute__((constructor))
-static void init_flexer(void)
+/* __attribute__((constructor)) */
+void flexer_init(void)
 {
 	int16_t i = 0;
 	int16_t l = 0;

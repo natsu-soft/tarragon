@@ -61,8 +61,8 @@ static struct {
 static int8_t num_unary_preceders = 0;
 static token_id_t* unary_preceders = NULL;
 
-__attribute__((constructor))
-static void init_lexer(void)
+/* __attribute__((constructor)) */
+void init_lexer(void)
 {
 	int32_t l = 0;
 #define X(_, __, LEN) l += LEN;

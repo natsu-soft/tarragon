@@ -36,8 +36,8 @@
 
 static token_id_map_t builtin_ops = {0};
 
-__attribute__((constructor))
-static void hashmaps_init(void)
+/* __attribute__((constructor)) */
+void token_ids_init(void)
 {
 		int32_t str_size = 0;
 		#define X(ID, STR, LEN) str_size += LEN;

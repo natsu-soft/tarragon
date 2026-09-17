@@ -226,8 +226,8 @@ static struct id_bitset unary_triggers = {0};
 	X(SCOPE_OPEN) \
 	X(SCOPE_CLOSE)
 
-__attribute__((constructor))
-static void init(void)
+/* __attribute__((constructor)) */
+void lex_init(void)
 {
 	// tbqh I should just mmap 10mb for all of these inits instead of faffing around with counting.
 	virtual_buffer vb = memalloc(5 * KB); // and just "leak" it lol lmao

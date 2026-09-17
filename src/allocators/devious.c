@@ -12,7 +12,7 @@
 static arena_t* available;
 
 
-__attribute__((constructor))
+/* __attribute__((constructor)) */
 void absolutely_devious(void)
 {
 	arena_t* arenas = calloc(DEVIOUS0, sizeof *arenas);

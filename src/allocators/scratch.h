@@ -4,6 +4,8 @@
 #include <stdint.h>
 
 
+void scratch_init(void);
+
 void* scratch_alloc(const int32_t size);
 
 struct arena_t* scratch_arena(const int32_t size);

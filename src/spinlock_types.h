@@ -4,7 +4,6 @@
 #include <stdint.h>
 #include <stdatomic.h>
 
-// NOTE: https://h4x0r.org/futex/
 
 typedef _Atomic(uint8_t) spinlock;
 

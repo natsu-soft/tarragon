@@ -103,7 +103,7 @@ void unmap_file(virtual_file virt_file)
 
 // https://lo.calho.st/posts/black-magic-buffer/
 // https://fgiesen.wordpress.com/2012/07/21/the-magic-ring-buffer/
-void ring_map(ring_buffer* rb, int32_t min_size, char* anon_filename)
+int32_t ring_map(ring_buffer* rb, int32_t min_size, char* anon_filename)
 {
 	// TODO errchecking
 	const int32_t size = PAGE_SIZE * (min_size / PAGE_SIZE) + (min_size & PAGE_MASK ? PAGE_SIZE : 0);
@@ -112,8 +112,8 @@ void ring_map(ring_buffer* rb, int32_t min_size, char* anon_filename)
 	rb->addr = mmap(NULL,  2 * size, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 	void* p = mmap(rb->addr, size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_FIXED, rb->fd, 0);
 	p = mmap((uint8_t*)rb->addr + size, size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_FIXED, rb->fd, 0);
-	rb->head = 0;
-	rb->tail = 0;
+	rb->size = size;
+	return size;
 }
 
 /* The munmap() function shall remove any mappings for those entire pages containing
