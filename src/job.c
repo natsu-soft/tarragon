@@ -1,20 +1,31 @@
+// NOTE: futex is better but CHRIST fuck barriers & shit fam
 #include "job.h"
-/* #include <stdio.h> */
+#include <asm-generic/errno-base.h>
+#include <stdio.h>
 #include <assert.h>
 #include <string.h>
 #include <pthread.h>
 #include <stdatomic.h>
-#include "buffer_type.h"
-#include "spinlock_types.h"
+#include "atom_ring.h"
 #include "allocators/arena.h"
 #include "memery.h"
+#include "threading.h"
+#include "allocators/scratch.h"
 
-#define JOB_ARG_CAP 16384
 
+// TODO: FUCK spinlocks FUCK mutex USE futexes
+// https://martinuke0.github.io/posts/2026-05-17-building-userland-mutexes-with-the-futex-system-call/
+// NOTE: https://h4x0r.org/futex/
 enum
 {
-	NON_INITIALIZER = 0x00,
-	INITIALZIER = 0x7f
+	REGULAR_JOB = 0x00,
+	INITIALIZER = 0x01,
+};
+
+enum jobs_state
+{
+	JOBS_ALIVE = 0x00,
+	JOBS_DEAD = 0x01,
 };
 
 struct job
@@ -30,103 +41,66 @@ struct job
 		uint64_t bits;
 		void* fptr;
 	};
-	int32_t arg_size;
+	void* args;
 };
 
-struct
-{
-	void* buffer;
-	int32_t size;
-	int fd; // note this gets closed automagically once all references dropped SO YOU HAVE TO KEEP THE FD
-	// NOTE: head MUST be atomic, but I don't think tail has to be :^)
-	_Atomic(int32_t) head;
-	int32_t tail;
-	_Atomic(int32_t) used;
-	_Atomic(int32_t) free;
-	// NOTE: head is atomic so that way job_add works freely
-} job_ring = {0};
-
-
-static pthread_barrier_t sleep_barrier;
-static pthread_mutex_t sleep_mtx = PTHREAD_MUTEX_INITIALIZER;
-static _Atomic(enum job_state) job_state = JOBS_SLEEP;
-static int32_t num_job_threads = 0;
-static spinlock job_spinlock;
+static _Atomic(enum jobs_state) jobs_state = JOBS_ALIVE;
+static struct atom_ring job_ring = {0};
+static int32_t num_worker_threads = 0;
 static virtual_buffer job_vbuff;
-static pthread_t* job_threads;
+static pthread_t* worker_threads;
 
-// NOTE: dont give a FUCK about alignment since we memcpy gang
-static void job_ring_write(void* src, const int32_t size)
+static void worker_main(struct thread_context* ctx)
 {
-	assert(size <= job_ring.free);
-	const int32_t head = atomic_load(&job_ring.head);
-	memcpy((uint8_t*)job_ring.buffer + head, src, size);
-	job_ring.head = (head + size) % job_ring.size;
-	job_ring.used += size;
-	job_ring.free -= size;
-}
-
-static void job_ring_read(void* dest, const int32_t size)
-{
-	assert(size <= job_ring.used);
-	const int32_t tail = job_ring.tail;
-	memcpy(dest, (uint8_t*)job_ring.buffer + tail, size);
-	job_ring.tail = (tail + size) % job_ring.size;
-	job_ring.used -= size;
-	job_ring.free += size;
-}
-
-static void job_thread_main(struct thread_context* ctx)
-{
-	while (atomic_load(&job_state) != JOBS_KILL)
+	int32_t res;
+	struct job job;
+	while (atomic_load_explicit(&jobs_state, memory_order_acquire) == JOBS_ALIVE)
 	{
-		if (atomic_load(&job_state) == JOBS_WORK)
+		/* printf("%d-%d\n", ctx->sync_epoch, ctx->thread_num); */
+		/* fflush(stdout); */
+		res = atom_ring_multi_read(&job_ring, &job, sizeof job, ctx->thread_num, ctx->sync_epoch);
+		if (res == sizeof job)
 		{
-			while (atomic_fetch_or(&job_spinlock, SPIN_LOCK)) { ; }
-			if (job_ring.used == 0)
+			if (job.fptr == NULL)
 			{
-				atomic_store(&job_spinlock, SPIN_UNLOCK);
-				continue;
+				printf("NULLPTR:wrkr%d:{ %0x, %0x }\n", ctx->thread_num, job.fptr, job.args);
+				fflush(stdout);
+				assert(job.fptr != NULL);
 			}
-			struct job job;
-			job_ring_read(&job, sizeof job);
-			assert(job.arg_size <= JOB_ARG_CAP && "job arguments greater than 16KB!");
-			if (job.arg_size > 0)
-			{
-				// spin until args fully written to the job_ring
-				while(job_ring.used < job.arg_size) { ; }
-				job_ring_read(ctx->args, job.arg_size);
-			}
-			atomic_store(&job_spinlock, SPIN_UNLOCK);
-			ctx->scratch.size = 0;
-			if (job.tag & INITIALZIER)
+			else if (job.tag == REGULAR_JOB)
 			{
 				job.tag = 0x00;
-				init_func func = job.fptr;
-				func();
+				job_func job_function = job.fptr;
+				job_function(job.args, ctx);
 			}
-			else
+			else if (job.tag == INITIALIZER)
 			{
-				job_func func = job.fptr;
-				func(ctx->args, ctx);
+				job.tag = 0x00;
+				init_func initializer = job.fptr;
+				initializer();
 			}
 		}
-		else if (atomic_load(&job_state) == JOBS_SLEEP)// lock threads & do no work
+		else
 		{
-			/* pthread_barrier_wait(&sleep_barrier); */
-			pthread_mutex_lock(&sleep_mtx);
-			/* pthread_cond_wait(&sleep_cnd, &sleep_mtx); */
-			pthread_mutex_unlock(&sleep_mtx);
+			switch(res)
+			{
+				// TODO: sync_addr error handing
+			default: assert(res && "atomic_ring_read() returned a sync_addr failure");
+			}
 		}
 	}
+	return;
 }
 
 void jobs_init(const int32_t num_threads, const int32_t min_job_ring_size)
 {
 	ring_map((struct ring_buffer*)&job_ring, min_job_ring_size, "jobring");
-	job_ring.used = 0;
-	job_ring.free = job_ring.size;
-	job_vbuff = memalloc(PAGE_SIZE + (64 * KB + JOB_ARG_CAP) * num_threads);
+	__uint128_t* ring_test =  job_ring.addr;
+	*ring_test = 0xB16B00B5B00BCAFE;
+	assert(strncmp(job_ring.addr, job_ring.addr + job_ring.size, 16) == 0);
+	assert(((uint64_t)&job_ring.read_state & 0x03) == 0);
+	assert(((uint64_t)&job_ring.write_state & 0x03) == 0);
+	job_vbuff = memalloc(PAGE_SIZE + 64 * KB * num_threads);
 	arena_t thread_setup_arena =
 	{
 		.allocation = job_vbuff.addr,
@@ -135,107 +109,100 @@ void jobs_init(const int32_t num_threads, const int32_t min_job_ring_size)
 	arena_t thread_mem_arena =
 	{
 		.allocation = (uint8_t*)job_vbuff.addr + PAGE_SIZE,
-		.cap = (64 * KB + JOB_ARG_CAP) * num_threads
+		.cap = 64 * KB * num_threads
 	};
-	job_threads = arena_calloc(&thread_setup_arena, num_threads * sizeof *job_threads);
-	num_job_threads = num_threads;
-	job_spinlock = SPIN_UNLOCK;
-	job_state = JOBS_WORK;
-	pthread_attr_t attr = {0};
+	worker_threads = arena_calloc(&thread_setup_arena, num_threads * sizeof *worker_threads);
+	num_worker_threads = num_threads;
+	// set the schedule policy to PREVENT SLEEPING
+	pthread_attr_t attr;
+	pthread_attr_init(&attr);
+	/* pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED); */
+	/* pthread_attr_setschedpolicy(&attr, SCHED_FIFO); */
+	/* struct sched_param schedule_params = */
+	/* { */
+	/* 	.sched_priority = sched_get_priority_max(SCHED_FIFO), */
+	/* }; */
+	/* pthread_attr_setschedparam(&attr, &schedule_params); */
+	/* cpu_set_t cpuset; */
 	for (int32_t i = 0; i < num_threads; ++i)
 	{
 		struct thread_context* ctx = arena_alloc_aligned(&thread_setup_arena, sizeof *ctx, 64);
 		*ctx = (struct thread_context)
 		{
-			.num = i,
-			.mask = 1 << i,
-			.args = arena_alloc(&thread_mem_arena, JOB_ARG_CAP),
+			.thread_num = i,
+			.thread_mask = 1 << i,
 			.scratch =
 			{
 				.allocation = arena_alloc(&thread_mem_arena, 64 * KB),
 				.cap = 64 * KB
 			},
 		};
-		pthread_create(job_threads + i, &attr, job_thread_main, ctx);
+		// and pin each thread to a SINGLE CORE to PREVENT SLEEPING
+		/* CPU_ZERO(&cpuset); */
+		/* CPU_SET(i, &cpuset); */
+		/* pthread_attr_setaffinity_np(&attr, sizeof cpuset, &cpuset); */
+		pthread_create(worker_threads + i, &attr, worker_main, ctx);
 	}
 }
 
 void jobs_add_initializer(init_func initializer)
 {
 	struct job j = { .fptr = initializer };
-	j.tag = INITIALZIER;
-	job_ring_write(&j, sizeof j);
+	j.tag = INITIALIZER;
+	atom_ring_write(&job_ring, &j, sizeof j);
 }
 
-
-void __jobs_add_noarg(job_func job)
+void jobs_add_noarg(job_func job)
 {
 	struct job j = { .fptr = job };
-	job_ring_write(&j, sizeof j);
+	atom_ring_write(&job_ring, &j, sizeof(j));
 }
 
-void __jobs_add_arg(job_func job, struct buffer args)
+void jobs_add_arg(job_func job, void* args)
 {
-	struct job j = { .fptr = job, .arg_size = args.size };
-	job_ring_write(&j, sizeof j);
-	job_ring_write(args.data, args.size);
+	struct job j = { .fptr = job, .args = args };
+	atom_ring_write(&job_ring, &j, sizeof(j));
 }
 
-static void wait_thread(void* args, struct thread_context* ctx)
+static inline void worker_sync(struct barrier* barrier, struct thread_context* ctx)
 {
-	_Atomic(uint32_t)* wait_bitmask = (_Atomic(uint32_t)*)(*(uint64_t**)args);
-	atomic_store(wait_bitmask, *wait_bitmask & ~ctx->mask);
-	while (atomic_load(wait_bitmask)) { ; }
+	ctx->sync_epoch++;
+	barrier_wait(barrier);
 }
 
-void jobs_finish()
+static uint8_t barrier_idx = 0;
+static struct barrier sync_barriers[2] = {0};
+
+void jobs_sync()
 {
-	_Atomic(uint32_t) wait_bitmask = 0;
-	for (int32_t i = 0; i < num_job_threads; ++i)
+	sync_barriers[barrier_idx].count = num_worker_threads + 1;
+	struct job* syncs = scratch_alloc(num_worker_threads * sizeof *syncs);
+	for (int32_t i = 0; i < num_worker_threads; ++i)
 	{
-		wait_bitmask |= 1 << i;
+		syncs[i] = (struct job){ .fptr = worker_sync, .args = sync_barriers + barrier_idx };
 	}
-	uint64_t** bits = (uint64_t**)&wait_bitmask;
-	/* printf("main: %0lx vs %0lx\n", bits, &wait_bitmask); */
-	for (int32_t i = 0; i < num_job_threads; ++i)
-	{
-		jobs_add(wait_thread, (struct buffer){.data = &bits, .size = sizeof bits });
-	}
-	if (job_state != JOBS_WORK)
-	{
-		jobs_wake();
-	}
-	while (atomic_load(&wait_bitmask)) { ; }
+	atom_ring_write(&job_ring, syncs, num_worker_threads * sizeof *syncs);
+	barrier_wait(sync_barriers + barrier_idx);
+	// NOTE: magic barrier index toggle that makes the atom ring work
+	//       yadda-yadda stack addresses yadda-yadda "reading too fast"
+	barrier_idx = (barrier_idx + 1) & 0x01;
 }
 
 
-void jobs_sleep(void)
-{
-	if (job_state == JOBS_WORK)
-	{
-		pthread_mutex_lock(&sleep_mtx);
-		job_state = JOBS_SLEEP;
-	}
-}
 
-void jobs_wake(void)
+void jobs_finish(void)
 {
-	if (job_state == JOBS_SLEEP)
+	printf("> jobs_finish():finishing last \"active\" jobs then joining threads\n");
+	fflush(stdout);
+	atomic_store_explicit(&jobs_state, JOBS_DEAD, memory_order_release);
+	/* jobs_sync(); */
+	for (int32_t i = 0; i < num_worker_threads; ++i)
 	{
-		job_state = JOBS_WORK;
-		pthread_mutex_unlock(&sleep_mtx);
+		printf("joining: %d\n", i);
+		pthread_join(worker_threads[i], NULL);
+		fflush(stdout);
 	}
-}
-
-void jobs_kill(void)
-{
-	jobs_sleep();
-	atomic_store(&job_state, JOBS_KILL);
-	pthread_mutex_unlock(&sleep_mtx);
-	for (int32_t i = 0; i < num_job_threads; ++i)
-	{
-		pthread_join(job_threads[i], NULL);
-	}
+	printf("\nATTN: ALL THREADS KILLED!\n");
 	memfree(&job_vbuff);
 	ring_unmap((ring_buffer*)&job_ring);
 }
