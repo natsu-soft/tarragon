@@ -11,7 +11,8 @@
 #include "benchmark.h"
 #include "threading.h"
 
-
+#define SAN_CHECK \
+	X(barrier_wait) \
 
 #define SRC_TESTS								\
 	X(threading) \
@@ -28,6 +29,7 @@
 
 
 #define X(A) extern int A##_test(int argc, char** argv);
+SAN_CHECK
 SRC_TESTS
 #undef X
 
@@ -68,40 +70,23 @@ static void print_char(char c, struct thread_context* ctx)
 
 int main(int argc, char** argv)
 {
-	printf("[ SANITY ] testing barrier_wait() with 256 threads");
-	assert(threading_test(argc, argv) == 0);
-	printf("A-OK: barrier_wait()\n");
-	printf("\n[ SANITY ] atom_ring::synching 1024 times\n"
-		"  nota bene: I'm using jobs_sync() but the real culprit is read locking fuckily\n");
-	jobs_init(6, 4096);
-	/* MICROTIME(jobs_kill();) */
-	/* return 0; */
-	char spinner[4] = { '-', '\\', '|', '/' };
-	uint32_t spin_idx = 0;
-	for (int i = 0; i < 64; ++i)
-	{
-		MICROTIME(jobs_sync();)
-	}
-	fflush(stdout);
-	MICROTIME(jobs_finish();)
-	return 0;
-	jobs_add_initializer(scratch_init);
-	printf("queued scratch_init()");
-	jobs_add_initializer(workpad_init);
-	printf("queued workpad_init()");
-	jobs_add_initializer(lex_init);
-	printf("queued lex_init()");
-	jobs_add_initializer(flexer_init);
-	printf("queued flexer_init()");
-	fflush(stdout);
-	/* for (char c = ' '; c < '~'; ++c) */
+	#define X(A) printf("\n[ SANCHECK ] Testing " #A "()\n"); assert(A##_test(argc, argv) == 0); printf("SANE: " #A "()\n");
+	SAN_CHECK
+	#undef X
+	jobs_init(4, 4096);
+	/* for (int i = 0; i < 4096; ++i) */
 	/* { */
-	/* 	jobs_add(print_char, c); */
+	/* 	MICROTIME(jobs_sync();) */
 	/* } */
-	MICROTIME(jobs_sync();)
-	printf("POST-INITIALIZER SYNCH\n");
-	fflush(stdout);
-	jobs_finish();
+	/* fflush(stdout); */
+	/* MICROTIME(jobs_finish();) */
+	/* return 0; */
+	MICROTIME(jobs_add_initializer(scratch_init);
+	jobs_add_initializer(workpad_init);
+	jobs_add_initializer(lex_init);
+	jobs_add_initializer(flexer_init);
+	jobs_sync();)
+	MICROTIME(jobs_finish();)
 	return 0;
 	/* MICROTIME( */
 	/* scratch_init(); */
@@ -119,7 +104,7 @@ int main(int argc, char** argv)
 	ENDLOG;
 	printf("\n[CLEANUP] killing job threads\n");
 	/* jobs_sleep(); */
-	jobs_finalize();
+	jobs_finish();
 	printf("ATTN: ALL TESTS PASSED!\n");
 	return 0;
 }

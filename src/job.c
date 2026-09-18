@@ -1,6 +1,7 @@
 // NOTE: futex is better but CHRIST fuck barriers & shit fam
 #include "job.h"
-#include <asm-generic/errno-base.h>
+#include <stdint.h>
+#include <unistd.h>
 #include <stdio.h>
 #include <assert.h>
 #include <string.h>
@@ -20,12 +21,13 @@ enum
 {
 	REGULAR_JOB = 0x00,
 	INITIALIZER = 0x01,
+	KILL_WORKER = 0x02
 };
 
 enum jobs_state
 {
-	JOBS_ALIVE = 0x00,
-	JOBS_DEAD = 0x01,
+	JOBS_ALIVE	= 0x00,
+	JOBS_DEAD	= 0x01,
 };
 
 struct job
@@ -58,18 +60,18 @@ static void worker_main(struct thread_context* ctx)
 	{
 		/* printf("%d-%d\n", ctx->sync_epoch, ctx->thread_num); */
 		/* fflush(stdout); */
-		res = atom_ring_multi_read(&job_ring, &job, sizeof job, ctx->thread_num, ctx->sync_epoch);
+		res = atom_ring_read(&job_ring, &job, sizeof job);
 		if (res == sizeof job)
 		{
-			if (job.fptr == NULL)
+			/* if (job.fptr == NULL) */
+			/* { */
+			/* 	printf("NULLPTR:wrkr%d:{ %0x, %0x }\n", ctx->thread_num, job.fptr, job.args); */
+			/* 	fflush(stdout); */
+			/* 	assert(job.fptr != NULL); */
+			/* } */
+			/* else if (job.tag == REGULAR_JOB) */
+			if (job.tag == REGULAR_JOB)
 			{
-				printf("NULLPTR:wrkr%d:{ %0x, %0x }\n", ctx->thread_num, job.fptr, job.args);
-				fflush(stdout);
-				assert(job.fptr != NULL);
-			}
-			else if (job.tag == REGULAR_JOB)
-			{
-				job.tag = 0x00;
 				job_func job_function = job.fptr;
 				job_function(job.args, ctx);
 			}
@@ -103,12 +105,12 @@ void jobs_init(const int32_t num_threads, const int32_t min_job_ring_size)
 	job_vbuff = memalloc(PAGE_SIZE + 64 * KB * num_threads);
 	arena_t thread_setup_arena =
 	{
-		.allocation = job_vbuff.addr,
+		.addr = job_vbuff.addr,
 		.cap = PAGE_SIZE
 	};
 	arena_t thread_mem_arena =
 	{
-		.allocation = (uint8_t*)job_vbuff.addr + PAGE_SIZE,
+		.addr = (uint8_t*)job_vbuff.addr + PAGE_SIZE,
 		.cap = 64 * KB * num_threads
 	};
 	worker_threads = arena_calloc(&thread_setup_arena, num_threads * sizeof *worker_threads);
@@ -116,14 +118,6 @@ void jobs_init(const int32_t num_threads, const int32_t min_job_ring_size)
 	// set the schedule policy to PREVENT SLEEPING
 	pthread_attr_t attr;
 	pthread_attr_init(&attr);
-	/* pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED); */
-	/* pthread_attr_setschedpolicy(&attr, SCHED_FIFO); */
-	/* struct sched_param schedule_params = */
-	/* { */
-	/* 	.sched_priority = sched_get_priority_max(SCHED_FIFO), */
-	/* }; */
-	/* pthread_attr_setschedparam(&attr, &schedule_params); */
-	/* cpu_set_t cpuset; */
 	for (int32_t i = 0; i < num_threads; ++i)
 	{
 		struct thread_context* ctx = arena_alloc_aligned(&thread_setup_arena, sizeof *ctx, 64);
@@ -133,14 +127,10 @@ void jobs_init(const int32_t num_threads, const int32_t min_job_ring_size)
 			.thread_mask = 1 << i,
 			.scratch =
 			{
-				.allocation = arena_alloc(&thread_mem_arena, 64 * KB),
+				.addr = arena_alloc(&thread_mem_arena, 64 * KB),
 				.cap = 64 * KB
 			},
 		};
-		// and pin each thread to a SINGLE CORE to PREVENT SLEEPING
-		/* CPU_ZERO(&cpuset); */
-		/* CPU_SET(i, &cpuset); */
-		/* pthread_attr_setaffinity_np(&attr, sizeof cpuset, &cpuset); */
 		pthread_create(worker_threads + i, &attr, worker_main, ctx);
 	}
 }
@@ -166,43 +156,43 @@ void jobs_add_arg(job_func job, void* args)
 
 static inline void worker_sync(struct barrier* barrier, struct thread_context* ctx)
 {
-	ctx->sync_epoch++;
 	barrier_wait(barrier);
+	ctx->sync_epoch++;
 }
 
+static struct barrier sync_barriers[16] = {0};
 static uint8_t barrier_idx = 0;
-static struct barrier sync_barriers[2] = {0};
 
 void jobs_sync()
 {
-	sync_barriers[barrier_idx].count = num_worker_threads + 1;
-	struct job* syncs = scratch_alloc(num_worker_threads * sizeof *syncs);
-	for (int32_t i = 0; i < num_worker_threads; ++i)
-	{
-		syncs[i] = (struct job){ .fptr = worker_sync, .args = sync_barriers + barrier_idx };
-	}
-	atom_ring_write(&job_ring, syncs, num_worker_threads * sizeof *syncs);
+	/* sync_barriers[barrier_idx].count = num_worker_threads + 1; */
+	/* usleep(1024); // HILARIOUS BUT NEEDED */
+	barrier_init(sync_barriers + barrier_idx, num_worker_threads + 1);
+	struct job sync = { .fptr = worker_sync, .args = sync_barriers + barrier_idx };
+	atom_ring_nwrite(&job_ring, &sync, num_worker_threads, sizeof sync);
 	barrier_wait(sync_barriers + barrier_idx);
 	// NOTE: magic barrier index toggle that makes the atom ring work
 	//       yadda-yadda stack addresses yadda-yadda "reading too fast"
-	barrier_idx = (barrier_idx + 1) & 0x01;
+	//       EVEN THO I AM ACTUALLY ATOMICALL INITIALIZING IT WTF????
+	/* barrier_idx = (barrier_idx + 1) & 0x01; */
+	/* barrier_idx = (barrier_idx + 1) & 0x03; */
+	barrier_idx = (barrier_idx + 1) & 0x0f;
 }
-
-
 
 void jobs_finish(void)
 {
 	printf("> jobs_finish():finishing last \"active\" jobs then joining threads\n");
 	fflush(stdout);
 	atomic_store_explicit(&jobs_state, JOBS_DEAD, memory_order_release);
-	/* jobs_sync(); */
+	// you need to write data so that way threads waiting to READ actually READ & EXIT
+	// spiritually it should be zero
+	struct job kill_job = { .tag = KILL_WORKER };
+	atom_ring_nwrite(&job_ring, &kill_job,  num_worker_threads, sizeof kill_job);
 	for (int32_t i = 0; i < num_worker_threads; ++i)
 	{
-		printf("joining: %d\n", i);
 		pthread_join(worker_threads[i], NULL);
 		fflush(stdout);
 	}
-	printf("\nATTN: ALL THREADS KILLED!\n");
 	memfree(&job_vbuff);
 	ring_unmap((ring_buffer*)&job_ring);
 }

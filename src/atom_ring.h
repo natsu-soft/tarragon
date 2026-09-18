@@ -9,6 +9,7 @@
 // NOTE: both() allow for multiple readers & writers simultaneously.
 // if there's a bug it's probably something to do with how write/readable is calculated w/ transactions
 int32_t atom_ring_write(struct atom_ring* ring, void* restrict src, const int32_t size);
+int32_t atom_ring_nwrite(struct atom_ring* ring, void* restrict src, const int32_t n, const int32_t size);
 int32_t atom_ring_read(struct atom_ring* ring, void* restrict dest, const int32_t size);
 
 #endif /* End ATOM_RING_H */

@@ -13,7 +13,7 @@
 		gettimeofday(&micro_stop, NULL); \
 		unsigned long long delta_ms = 1e6 * (micro_start.tv_sec - micro_stop.tv_sec) + micro_stop.tv_usec - micro_start.tv_usec; \
 		printf("[MICROTIME] "#BODY " %06dus\n", delta_ms);	\
-		fflush(stdout); \
+		/* fflush(stdout); */ \
 	}
 
 #define MICROMESSAGE(MSG, BODY)				\

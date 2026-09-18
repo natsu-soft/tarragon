@@ -65,7 +65,7 @@ void flexer_init(void)
 	// damnboi
 	arena_t arena =
 	{
-		.allocation = buffer + 512 * 10,
+		.addr = buffer + 512 * 10,
 		.cap = size
 	};
 #define X(ID, STR, LEN) \
@@ -79,7 +79,7 @@ void flexer_init(void)
 	GDSCRIPT_LITERALS
 	GDSCRIPT_ANNOTATIONS
 #undef X
-	unary_triggers.ids = arena.allocation + arena.size;
+	unary_triggers.ids = arena.addr + arena.size;
 	token_id_t* id;
 #define X(ID,...) \
 	id = arena_alloc(&arena, sizeof(token_id_t)); \
@@ -554,7 +554,7 @@ int32_t gdscript_flex(arena_t* arena, token_table_t* table, const char* src, con
 {
 	table->src = src;
 	int32_t num = 0;
-	int32_t* offsets = arena->allocation;
+	int32_t* offsets = arena->addr;
 	int16_t* lens = offsets + n + 512;
 	token_id_t* ids = lens + n + 512;
 	/* SCRATCH* shunt_scratch = scratch_checkout_size(4 * n); */

@@ -357,7 +357,7 @@ static const int32_t shunt_vaniglia(int32_t* dest, token_id_t* ids0, struct i32_
 
 const int32_t gdscript_shunt(arena_t* arena, token_table_t* dest, const token_table_t* src, const int32_t n)
 {
-	dest->offsets = arena->allocation;
+	dest->offsets = arena->addr;
 	dest->lens = dest->offsets + n;
 	dest->ids = dest->lens + n;
 	if (n > 0)

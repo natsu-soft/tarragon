@@ -96,7 +96,7 @@ void* workpad_alloc(const int32_t size)
 	workpad_remove(workpad);
 	workpad_append((struct workpad*)&unavailable, workpad);
 	workpad->arena.size = 0;
-	return workpad->arena.allocation;
+	return workpad->arena.addr;
 }
 
 void workpad_checkin(arena_t* arena)

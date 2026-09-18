@@ -1946,7 +1946,7 @@ int main(int argc, char** argv)
 	api_map->cap = base_map_entries;
 	map_arena = (arena_t)
 	{
-		.allocation = arena_alloc_aligned(&str_arena, map_size, 64u),
+		.addr = arena_alloc_aligned(&str_arena, map_size, 64u),
 		.cap = map_size
 	};
 	/* api_map_back(api_map, arena_alloc(&map_arena, map_scale * base_map_entries)); */
@@ -2086,11 +2086,11 @@ int main(int argc, char** argv)
 	FILE* ppm = fopen("godot_api.ppm", "wb");
 	api_map_ppm(ppm, 64, api_map);
 	fclose(ppm);
-	relative_pointers(str_arena.allocation);
+	relative_pointers(str_arena.addr);
 	// just make all pointers self-relative YOLO
 	fprintf(src, "\nconst int32_t api_size = %d;\n", total_size);
 	fprintf(src, "uint8_t api_binary[%d] =\n{\n\t", total_size);
-	uint8_t* bin = (void*)str_arena.allocation;
+	uint8_t* bin = (void*)str_arena.addr;
 	for (int32_t i = 0; i < total_size; ++i)
 	{
 		fprintf(src, "0x%02x, ", bin[i]);
@@ -2122,7 +2122,7 @@ int main(int argc, char** argv)
 		);
 	fprintf(src, "char* builtin_api_chars = api_binary + %ld;\n"
 			"const int32_t num_builtin_api_chars = %d;\n",
-			(size_t)str_arena.allocation - (size_t)bin,
+			(size_t)str_arena.addr - (size_t)bin,
 			str_arena.size);
 	const uint64_t hash = api_map_hash(api_map, total_size);
 	fprintf(src, "uint64_t api_hash = %lu; /* NOTE: DO NOT SAVE AS HEX */\n", hash);

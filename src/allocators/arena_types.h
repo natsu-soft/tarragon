@@ -5,7 +5,7 @@
 
 typedef struct arena_t
 {
-	uint8_t* allocation;
+	uint8_t* addr;
 	int32_t cap;
 	int32_t size;
 } arena_t;

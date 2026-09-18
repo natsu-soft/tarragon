@@ -21,7 +21,7 @@ void* scratch_alloc(const int32_t size)
 	{
 		arena_grow(&scratch, size);
 	}
-	return scratch.allocation;
+	return scratch.addr;
 }
 
 arena_t* scratch_arena(const int32_t size)

@@ -255,21 +255,21 @@ void subtrie_leaf_strings(const trie_node_t* node, const char* prefix, const uin
 		{
 			if (char_arena->size + n > char_arena->cap)
 			{
-				const size_t char_offset = (size_t)char_arena->allocation - (size_t)str_arena->allocation;
+				const size_t char_offset = (size_t)char_arena->addr - (size_t)str_arena->addr;
 				for (size_t i = 0; i < str_arena->size; i += sizeof(char*))
 				{
-					char* temp = str_arena->allocation + i;
-					temp = (void*)((size_t)temp - (size_t)str_arena->allocation);
-					memcpy(str_arena->allocation + i, temp, sizeof(char*));
+					char* temp = str_arena->addr + i;
+					temp = (void*)((size_t)temp - (size_t)str_arena->addr);
+					memcpy(str_arena->addr + i, temp, sizeof(char*));
 				}
-				str_arena->allocation = realloc(str_arena->allocation, str_arena->cap + char_arena->size + n + RESIZE_OVERHEAD);
+				str_arena->addr = realloc(str_arena->addr, str_arena->cap + char_arena->size + n + RESIZE_OVERHEAD);
 				for (size_t i = 0; i < str_arena->size; i += sizeof(char*))
 				{
-					char* temp = str_arena->allocation + i;
-					temp = (void*)((size_t)temp + (size_t)str_arena->allocation);
-					memcpy(str_arena->allocation + i, temp, sizeof(char*));
+					char* temp = str_arena->addr + i;
+					temp = (void*)((size_t)temp + (size_t)str_arena->addr);
+					memcpy(str_arena->addr + i, temp, sizeof(char*));
 				}
-				char_arena->allocation = str_arena->allocation + char_offset;
+				char_arena->addr = str_arena->addr + char_offset;
 				char_arena->cap = char_arena->size + n + RESIZE_OVERHEAD;
 			}
 			char* leaf_str = arena_alloc(char_arena, n);
@@ -319,21 +319,21 @@ char** trie_candidates(const trie_t* trie, arena_t* arena, const char* prefix, u
 	const size_t arena_size = n * (sizeof(char*) + prefix_len + 16);
 	if (arena->cap < arena_size)
 	{
-		arena->allocation = realloc(arena->allocation, arena_size + RESIZE_OVERHEAD);
+		arena->addr = realloc(arena->addr, arena_size + RESIZE_OVERHEAD);
 	}
 	arena->size = 0;
 	arena_t str_arena =
 	{
 		.cap = n * sizeof(char*),
-		.allocation = arena->allocation
+		.addr = arena->addr
 	};
 	arena_t char_arena =
 	{
 		.cap = arena_size - n * sizeof(char*),
-		.allocation = arena->allocation + n * sizeof(char*)
+		.addr = arena->addr + n * sizeof(char*)
 	};
 	subtrie_leaf_strings(subtrie, prefix, prefix_len, &str_arena, &char_arena);
-	return (char**)str_arena.allocation;
+	return (char**)str_arena.addr;
 }
 
 void trie_serialize(trie_t* trie, char* filename)
@@ -457,7 +457,7 @@ int array_trie_test(int argc, char** argv)
 	assert(trie_remove_token(&fruit_trie, "Yuzu"));
 	assert(trie_remove_token(&fruit_trie, "Yuzu") == 0);
 	printf("GOOD!\n");
-	free(candidate_arena.allocation);
+	free(candidate_arena.addr);
 	free(fl->allocation);
 	free(fl2->allocation);
 	return 0;

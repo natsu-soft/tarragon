@@ -85,7 +85,7 @@ static int32_t decode_nosleep(FILE* stream, char** out_json)
 #else
 		case '\r':
 #endif
-			temp = decode_arena.allocation;
+			temp = decode_arena.addr;
 			uint8_t i;
 			for (i = 0; i < decode_arena.size && temp[i] != ' '; ++i);
 			char* endptr = temp + decode_arena.size;
@@ -97,9 +97,9 @@ static int32_t decode_nosleep(FILE* stream, char** out_json)
 			}
 			else if (content_length + 1 > decode_arena.cap)
 			{
-				temp = realloc(decode_arena.allocation, content_length + ARENA_OVERHEAD);
+				temp = realloc(decode_arena.addr, content_length + ARENA_OVERHEAD);
 				assert(temp && "failed to realloc memory for base protocol arena!");
-				decode_arena.allocation = temp;
+				decode_arena.addr = temp;
 				decode_arena.cap = content_length + ARENA_OVERHEAD;
 			}
 			decode_arena.size = 0;
@@ -114,7 +114,7 @@ static int32_t decode_nosleep(FILE* stream, char** out_json)
 		decode_arena.size += fread(decode_arena.allocation + decode_arena.size, 1, 2 - decode_arena.size, stream);
 		if (decode_arena.size == 2)
 #else
-		decode_arena.size += fread(decode_arena.allocation + decode_arena.size, 1, 4 - decode_arena.size, stream);
+		decode_arena.size += fread(decode_arena.addr + decode_arena.size, 1, 4 - decode_arena.size, stream);
 		if (decode_arena.size == 4)
 #endif
 		{
@@ -131,11 +131,11 @@ static int32_t decode_nosleep(FILE* stream, char** out_json)
 		changed. Otherwise, if a read error occurs, the error indicator for  the
 		stream shall be set, and errno shall be set to indicate the error.
 		*/
-		decode_arena.size += fread(decode_arena.allocation + decode_arena.size, 1, content_length - decode_arena.size, stream);
+		decode_arena.size += fread(decode_arena.addr + decode_arena.size, 1, content_length - decode_arena.size, stream);
 		/* arena_push(&decode_arena, &c, 1); */
 		if (decode_arena.size == content_length)
 		{
-			*out_json = decode_arena.allocation;
+			*out_json = decode_arena.addr;
 			return content_length;
 		}
 		break;

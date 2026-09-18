@@ -10,6 +10,9 @@
 void futex_lock(struct futex* ftx);
 void futex_unlock(struct futex* ftx);
 
+// zero struct initialization is atomic, so futex doesnt need an initializer
+// BUT BARRIERS DO LMAO
+void barrier_init(struct barrier* barrier, const int32_t count);
 void barrier_wait(struct barrier* barrier);
 
 void stdout_lock();

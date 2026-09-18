@@ -231,7 +231,7 @@ void lex_init(void)
 {
 	// tbqh I should just mmap 10mb for all of these inits instead of faffing around with counting.
 	virtual_buffer vb = memalloc(5 * KB); // and just "leak" it lol lmao
-	arena_t arena = { .allocation = vb.addr, .cap = vb.size };
+	arena_t arena = { .addr = vb.addr, .cap = vb.size };
 	const int32_t token_id_map_scale = sizeof(char*) + sizeof(int8_t) + sizeof(token_id_t);
 	token_id_map_init(&grapheme_map, arena_alloc(&arena, 256 * token_id_map_scale), 256);
 	arena_align2(&arena, 64);
@@ -752,7 +752,7 @@ int32_t lex(token_table_t* token_table, arena_t* backing_arena, arena_t* work_ar
 	offsets[n] = length;
 	lens[n] = 0;
 	ids[n] = GDSCRIPT_EOF;
-	backing_arena->size = (ids + n) - backing_arena->allocation;
+	backing_arena->size = (ids + n) - backing_arena->addr;
 	token_table->offsets = offsets;
 	token_table->lens = lens;
 	token_table->ids = ids;

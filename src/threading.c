@@ -43,10 +43,16 @@ void futex_unlock(struct futex* ftx)
 	}
 }
 
+void barrier_init(struct barrier* barrier, const int32_t count)
+{
+	store_ex(&barrier->count, count, seq_cst);
+}
+
+#include <stdio.h>
+
 void barrier_wait(struct barrier* bar)
 {
-	assert(bar->count > 0);
-	if (fetch_sub_ex(&bar->count, 1, release) <= 1)
+	if (fetch_sub_ex(&bar->count, 1, seq_cst) <= 1)
 	{
 		sync_addr_wake_all(&bar->count);
 	}
@@ -77,37 +83,23 @@ void stdout_unlock()
 #define NUM_THREADS 256
 #define BARRIER_NUM NUM_THREADS + 1
 
-char spinner[4] = { '-', '\\', '|', '/' };
-uint32_t spin_idx = 0;
-
-static void barrier_test(struct barrier* b)
-{
-	putc(spinner[spin_idx++ & 0x03], stdout);
-	putc('\b', stdout);
-	fflush(stdout);
-	barrier_wait(b);
-}
-int threading_test(int argc, char** argv)
+int barrier_wait_test(int argc, char** argv)
 {
 	pthread_t test_threads[NUM_THREADS] = {0};
 	pthread_attr_t attr;
 	pthread_attr_init(&attr);
-	struct barrier barrier = { .count = NUM_THREADS + 1 };
+	struct barrier barrier;
+	barrier_init(&barrier, NUM_THREADS + 1);
 	for (int32_t i = 0; i < NUM_THREADS; ++i)
 	{
-		pthread_create(test_threads + i,  &attr, barrier_test, &barrier);
+		pthread_create(test_threads + i,  &attr, barrier_wait, &barrier);
 	}
 	barrier_wait(&barrier);
-	putc('\n', stdout);
-	printf("- joining threads");
 	for (int32_t i = 0; i < NUM_THREADS; ++i)
 	{
-		putc(spinner[spin_idx++ & 0x03], stdout);
-		putc('\b', stdout);
 		fflush(stdout);
 		pthread_join(test_threads[i], NULL);
 	}
-	putc('\n', stdout);
 	return 0;
 }
 #undef NUM_THREADS

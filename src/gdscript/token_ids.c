@@ -45,7 +45,7 @@ void token_ids_init(void)
 		#undef X
 		uint8_t* buffer = malloc(128 * 10 + str_size);
 		token_id_map_init(&builtin_ops, buffer, 128);
-		arena_t str_arena = { .allocation = buffer + 128 * 10, .cap = str_size};
+		arena_t str_arena = { .addr = buffer + 128 * 10, .cap = str_size};
 		#define X(ID, STR, LEN) token_id_map_cache(&builtin_ops, arena_push(&str_arena, STR, LEN), LEN, GDSCRIPT_##ID);
 		BUILTIN_MAPPED_OPERATORS
 		#undef X

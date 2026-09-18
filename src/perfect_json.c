@@ -306,7 +306,7 @@ json_id_t pj_parse(json_t* json, arena_t* arena, const char* src, const int32_t 
 	arena_grow(arena, 5 * len);
 	json->src = src;
 	json->index = 0;
-	int32_t* offsets = arena->allocation;
+	int32_t* offsets = arena->addr;
 	uint8_t* bitmasks = offsets + len;
 	const int32_t num_tokens = tokenize(offsets, bitmasks, src, len);
 	if (num_tokens > 0)

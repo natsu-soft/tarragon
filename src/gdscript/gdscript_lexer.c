@@ -75,13 +75,13 @@ void init_lexer(void)
 	builtin.ids = builtin.lens + GDSCRIPT_NUM_BUILTIN;
 	arena_t char_arena =
 	{
-		.allocation = builtin.ids + GDSCRIPT_NUM_BUILTIN,
+		.addr = builtin.ids + GDSCRIPT_NUM_BUILTIN,
 		.cap = l
 	};
 	int32_t i = 0;
 	char* str;
 #define X(ENUM, STR, LEN)												\
-	builtin.tokens[i] = char_arena.allocation + char_arena.size;	\
+	builtin.tokens[i] = char_arena.addr + char_arena.size;	\
 	str = STR; \
 	arena_push(&char_arena, str, LEN);								\
 	builtin.lens[i] = LEN;											\
@@ -564,12 +564,12 @@ int32_t gdscript_lex(arena_t* arena, token_table_t* table, const char* src, cons
 	int16_t* lens = scratch_alloc(n * (sizeof *table->lens + sizeof(token_id_t)));
 	*len_arena = (arena_t)
 	{
-		.allocation = lens,
+		.addr = lens,
 		.cap = n * sizeof *table->lens
 	};
 	*id_arena = (arena_t)
 	{
-		.allocation = lens + n,
+		.addr = lens + n,
 		.cap = n * sizeof(token_id_t)
 	};
 	/* arena_t* len_arena = SCRATCH_ARENA(n * sizeof *table->lens, 0); */
@@ -766,18 +766,18 @@ int32_t gdscript_lex(arena_t* arena, token_table_t* table, const char* src, cons
 		arena_grow(arena, req_size);
 	}
 	table->src = src;
-	table->offsets = arena->allocation;
-	table->ids = memcpy(table->offsets + num_tokens, id_arena->allocation, num_tokens * sizeof *table->ids);
-	table->lens = memcpy(table->ids + num_tokens, len_arena->allocation, num_tokens * sizeof *table->lens);
+	table->offsets = arena->addr;
+	table->ids = memcpy(table->offsets + num_tokens, id_arena->addr, num_tokens * sizeof *table->ids);
+	table->lens = memcpy(table->ids + num_tokens, len_arena->addr, num_tokens * sizeof *table->lens);
 	table->num_tokens = num_tokens;
 	return num_tokens;
 }
 
 static void lws_to_scopes(arena_t* offset_arena, arena_t* len_arena, arena_t* id_arena, int32_t* num_tokens)
 {
-	#define OFFSETS ((int32_t*)offset_arena->allocation)
-	#define LENS ((int16_t*)len_arena->allocation)
-	#define IDS ((token_id_t*)id_arena->allocation)
+	#define OFFSETS ((int32_t*)offset_arena->addr)
+	#define LENS ((int16_t*)len_arena->addr)
+	#define IDS ((token_id_t*)id_arena->addr)
 	int32_t lws0 = 0;
 	int32_t n = *num_tokens;
 	arena_t* depth_arena = scratch_arena(128 * sizeof lws0); // if this isn't enough the user deserves to segfault
@@ -1023,9 +1023,9 @@ static void id_unary_operators(token_id_t* ids, const int32_t num_tokens)
 STACK(id, token_id_t)
 static void lint_pairs(arena_t* offset_arena, arena_t* len_arena, arena_t* id_arena, int32_t* num_tokens)
 {
-	#define OFFSETS ((int32_t*)offset_arena->allocation)
-	#define LENS ((int16_t*)len_arena->allocation)
-	#define IDS ((token_id_t*)id_arena->allocation)
+	#define OFFSETS ((int32_t*)offset_arena->addr)
+	#define LENS ((int16_t*)len_arena->addr)
+	#define IDS ((token_id_t*)id_arena->addr)
 	struct id_stack* stack = alloca(sizeof *stack);
 	*stack = (struct id_stack)
 	{
@@ -1138,9 +1138,9 @@ static void lint_commas(token_id_t* const ids, const int32_t num_tokens)
 static void preprocess_tokens(const char* src, arena_t* offset_arena, arena_t* len_arena, arena_t* id_arena, int32_t* num_tokens)
 {
 	/* classify_gdscript_tokens(src, ids, offsets, lens, *num_tokens - 1); // don't gotta classify the last token -- it's EOF */
-	int32_t* const offsets = offset_arena->allocation;
-	int16_t* const lens = len_arena->allocation;
-	token_id_t* ids = id_arena->allocation;
+	int32_t* const offsets = offset_arena->addr;
+	int16_t* const lens = len_arena->addr;
+	token_id_t* ids = id_arena->addr;
 	coalesce_numbers(src, offsets, lens, ids, num_tokens);
 	trim_token(offsets, lens, ids, num_tokens, GDSCRIPT_WHITESPACE);
 	trim_token(offsets, lens, ids, num_tokens, GDSCRIPT_COMMENT);
@@ -1148,9 +1148,9 @@ static void preprocess_tokens(const char* src, arena_t* offset_arena, arena_t* l
 	cull_pointless_lines(offsets, lens, ids, num_tokens);
 	/* one_assignment_per_line(offsets, lens, ids, num_tokens); */
 	lws_to_scopes(offset_arena, len_arena, id_arena, num_tokens);
-	trim_token(offset_arena->allocation, len_arena->allocation, id_arena->allocation, num_tokens, GDSCRIPT_LEADING_WHITESPACE);
+	trim_token(offset_arena->addr, len_arena->addr, id_arena->addr, num_tokens, GDSCRIPT_LEADING_WHITESPACE);
 	lint_pairs(offset_arena, len_arena, id_arena, num_tokens);
-	ids = id_arena->allocation;
+	ids = id_arena->addr;
 	const int32_t n = *num_tokens;
 	lint_commas(ids, n);
 	id_unary_operators(ids, n);

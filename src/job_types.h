@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include "allocators/arena_types.h"
 
+
 struct thread_context
 {
 	arena_t scratch;
