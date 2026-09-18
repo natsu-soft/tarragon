@@ -24,7 +24,7 @@ enum
 
 /* #include <stdio.h> */
 
-static inline int32_t readable_size(struct atom_ring* ring)
+static inline const int32_t readable_size(struct atom_ring* ring)
 {
 	const int32_t size = ring->size;
 	const int32_t head = load_ex(&ring->head, acquire);
@@ -32,7 +32,7 @@ static inline int32_t readable_size(struct atom_ring* ring)
 	return head >= tail ? head - tail : head + size - tail;
 }
 
-static inline int32_t writeable_size(struct atom_ring* ring)
+static inline const int32_t writeable_size(struct atom_ring* ring)
 {
 	const int32_t size = ring->size;
 	const int32_t head = load_ex(&ring->head, acquire);
@@ -48,55 +48,55 @@ int32_t atom_ring_write(struct atom_ring* ring, void* restrict src, const int32_
 	for (;;)
 	{
 		state = load(write_state) & ~LOCKED;
-		if (size <= writeable_size(ring) - load(&ring->read_tx) &&
+		if (size <= writeable_size(ring) - load_ex(&ring->read_tx, acquire) &&
 			comp_swap_ex(write_state, &state, LOCKED | state, acq_rel, acquire))
 		{
 			// futex wait until read_tx size is 0
-			fetch_add(&ring->write_tx, size);
-			const int32_t head = swap(&ring->head, (ring->head + size) % ring->size);
+			fetch_add_ex(&ring->write_tx, size, release);
+			const int32_t head = swap_ex(&ring->head, (ring->head + size) % ring->size, acq_rel);
 			state = LOCKED | WAITING;
 			int32_t num_woke = 0;
-			if (fetch_and(write_state, ~LOCKED) & WAITING)
+			if (fetch_and_ex(write_state, ~LOCKED, acq_rel) & WAITING)
 			{
 				num_woke = sync_addr_wake_all(write_state);
 			}
 			memcpy(ring->addr + head, src, size);
-			fetch_sub(&ring->write_tx, size);
-			if (fetch_and(read_state, ~WAITING) == WAITING)
+			fetch_sub_ex(&ring->write_tx, size, release);
+			if (fetch_and_ex(read_state, ~WAITING, acq_rel) == WAITING)
 			{
 				sync_addr_wake_all(read_state);
 			}
 			return size;
 		}
 		int32_t wait_state = state | WAITING;
-		if (comp_swap(write_state, &state, wait_state))
+		if (comp_swap_ex(write_state, &state, wait_state, acq_rel, acquire))
 		{
 			sync_addr_wait(write_state, &wait_state);
 		}
 	}
 }
 
-int32_t atom_ring_multi_read(struct atom_ring* ring, void* restrict dest, const int32_t size, const int32_t id, const uint32_t gen)
+int32_t atom_ring_read(struct atom_ring* ring, void* restrict dest, const int32_t size)
 {
 	_Atomic(int32_t)* const read_state = &ring->read_state;
 	_Atomic(int32_t)* const write_state = &ring->write_state;
 	int32_t state;
 	for (;;)
 	{
-		state = load(read_state) & ~LOCKED;
-		if (size <= readable_size(ring) - load(&ring->write_tx) &&
-			comp_swap_ex(read_state, &state, LOCKED | state, acquire, acquire))
+		state = load_ex(read_state, acquire) & ~LOCKED;
+		if (size <= readable_size(ring) - load_ex(&ring->write_tx, acquire) &&
+			comp_swap_ex(read_state, &state, LOCKED | state, acq_rel, acquire))
 		{
-			fetch_add(&ring->read_tx, size);
-			const int32_t tail = swap(&ring->tail, (ring->tail + size) % ring->size);
+			fetch_add_ex(&ring->read_tx, size, release);
+			const int32_t tail = swap_ex(&ring->tail, (ring->tail + size) % ring->size, acq_rel);
 			state = LOCKED | WAITING;
-			if (fetch_and(read_state, ~LOCKED) & WAITING)
+			if (fetch_and_ex(read_state, ~LOCKED, acq_rel) & WAITING)
 			{
 				sync_addr_wake_all(read_state);
 			}
 			memcpy(dest, ring->addr + tail, size);
-			fetch_sub(&ring->read_tx, size);
-			if (fetch_and(write_state, ~WAITING) == WAITING)
+			fetch_sub_ex(&ring->read_tx, size, release);
+			if (fetch_and_ex(write_state, ~WAITING, acq_rel) == WAITING)
 			{
 				sync_addr_wake_all(write_state);
 			}
@@ -104,7 +104,7 @@ int32_t atom_ring_multi_read(struct atom_ring* ring, void* restrict dest, const 
 			return size;
 		}
 		int32_t wait_state = state | WAITING;
-		if (comp_swap(read_state, &state, wait_state))
+		if (comp_swap_ex(read_state, &state, wait_state, acq_rel, acquire))
 		{
 			sync_addr_wait(read_state, &wait_state);
 		}
