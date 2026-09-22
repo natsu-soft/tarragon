@@ -12,6 +12,8 @@ enum
 	FTX_WAIT,
 };
 
+// READ: https://locklessinc.com/articles/barriers/
+// READ: https://locklessinc.com/articles/phasers/
 
 // based raymond chen explaining futex
 // https://devblogs.microsoft.com/oldnewthing/20170601-00/?p=96265
@@ -52,27 +54,78 @@ void barrier_init(struct barrier* barrier, const int32_t count)
 
 void barrier_wait(struct barrier* bar)
 {
-	if (fetch_sub_ex(&bar->count, 1, seq_cst) <= 1)
+	futex_lock((struct futex*)bar);
+	int32_t value = fetch_sub_ex(&bar->count, 1, acq_rel);
+	futex_unlock((struct futex*)bar);
+	if (value == 1)
 	{
-		sync_addr_wake_all(&bar->count);
+		return;
+	}
+	else if (value > 1)
+	{
+		while ((value = load_ex(&bar->count, acquire)) > 0) { ; }
+		return;
 	}
 	else
 	{
-		int32_t current;
-		while ((current = load_ex(&bar->count, acquire)) > 0)
-		{
-			sync_addr_wait(&bar->count, &current);
-		}
+		assert(0 && "Hello, Fraud department? You're gonna wanna see this!");
+	}
+	/* int32_t value; */
+	/* if ((value = fetch_sub_ex(&bar->count, 1, seq_cst)) == 1) */
+	/* { */
+	/* 	sync_addr_wake_all(&bar->count); */
+	/* } */
+	/* else if (value > 1) */
+	/* { */
+	/* 	while ((value = load_ex(&bar->count, acquire)) > 0) */
+	/* 	{ */
+	/* 		sync_addr_wait(&bar->count, &value); */
+	/* 	} */
+	/* } */
+	/* else */
+	/* { */
+	/* 	assert(0 && "Hello, Fraud department? You're gonna wanna see this!"); */
+	/* } */
+}
+
+// stack behavior not the best tbqh
+void cond_wait(struct conditional* conditional, struct futex* futex)
+{
+	int32_t val = fetch_add_ex(&conditional->count, 1, acq_rel);
+	futex_unlock(futex);
+	while (val < load_ex(&conditional->count, acquire))
+	{
+		sync_addr_wait(&conditional->count, &val);
+	}
+	futex_lock(futex);
+}
+
+void cond_signal(struct conditional* conditional)
+{
+	if (load_ex(&conditional->count, acquire) > 0)
+	{
+		fetch_sub_ex(&conditional->count, 1, release);
+		sync_addr_wake_all(&conditional->count);
 	}
 }
 
+void cond_broadcast(struct conditional* conditional)
+{
+	if (swap_ex(&conditional->count, 0, acq_rel) > 0)
+	{
+		sync_addr_wake_all(&conditional->count);
+	}
+}
+
+
+
 static struct futex stdout_futex = { 0 };
-void stdout_lock()
+void global_ftx_lock()
 {
 	futex_lock(&stdout_futex);
 }
 
-void stdout_unlock()
+void global_ftx_unlock()
 {
 	futex_unlock(&stdout_futex);
 }
@@ -83,7 +136,7 @@ void stdout_unlock()
 #define NUM_THREADS 256
 #define BARRIER_NUM NUM_THREADS + 1
 
-int barrier_wait_test(int argc, char** argv)
+int barrier_wait_sancheck(void)
 {
 	pthread_t test_threads[NUM_THREADS] = {0};
 	pthread_attr_t attr;

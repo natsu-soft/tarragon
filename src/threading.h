@@ -15,12 +15,14 @@ void futex_unlock(struct futex* ftx);
 void barrier_init(struct barrier* barrier, const int32_t count);
 void barrier_wait(struct barrier* barrier);
 
-void stdout_lock();
-void stdout_unlock();
+void global_ftx_lock();
+void global_ftx_unlock();
 
-/* void cond_wait(struct conditional* conditional, struct futex* futex); */
-/* void cond_signal(struct conditional* conditional); */
-/* void cond_broadcast(struct conditional* conditional); */
+#define ftx_printf(A, ...) do { global_ftx_lock(); printf(A __VA_OPT__(,) __VA_ARGS__); global_ftx_unlock(); } while(0);
+
+void cond_wait(struct conditional* conditional, struct futex* futex);
+void cond_signal(struct conditional* conditional);
+void cond_broadcast(struct conditional* conditional);
 
 
 #endif /* End THREADING_H */

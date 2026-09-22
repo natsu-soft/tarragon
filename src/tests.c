@@ -9,13 +9,12 @@
 #include "gdscript/lex.h"
 #include "gdscript/flexer.h"
 #include "benchmark.h"
-#include "threading.h"
 
 #define SAN_CHECK \
-	X(barrier_wait) \
+	X(barrier_wait)								\
+	X(atom_ring)
 
 #define SRC_TESTS								\
-	X(threading) \
 	X(jobs) \
 	/* X(linked_list) \ */
 	/* X(godot_api) \ */
@@ -33,71 +32,31 @@ SAN_CHECK
 SRC_TESTS
 #undef X
 
-
-static void job_nop(void* args, struct thread_context* ctx)
-{
-	/* int* iteration = args; */
-	int32_t iteration = (int32_t)args;
-	printf("%d\n", iteration);
-	fflush(stdout);
-}
-
-int jobs_test(int argc, char** argv)
-{
-	#define JT_NUM 1000000
-	printf("testing jobs N=%d\n", JT_NUM);
-	CLOCKTIME(
-		for (int32_t i = 0; i < JT_NUM; ++i)
-		{
-			jobs_add(job_nop, (void*)i);
-		}
-		jobs_sync();
-	)
-	CLOCKTIME(
-		for (int32_t i = 0; i < JT_NUM; ++i)
-		{
-			job_nop((void*)i, NULL);
-		}
-	)
-	return 0;
-}
-
-static void print_char(char c, struct thread_context* ctx)
-{
-	printf("wrkr%d: %c\n", ctx->thread_num, c);
-	fflush(stdout);;;
-}
-
 int main(int argc, char** argv)
 {
-	#define X(A) printf("\n[ SANCHECK ] Testing " #A "()\n"); assert(A##_test(argc, argv) == 0); printf("SANE: " #A "()\n");
+	#define X(A) printf("\n[ SANCHECK ] Checking " #A "()\n"); assert(A##_sancheck() == 0); printf("SANE: " #A "()\n");
 	SAN_CHECK
 	#undef X
 	jobs_init(4, 4096);
-	/* for (int i = 0; i < 4096; ++i) */
-	/* { */
-	/* 	MICROTIME(jobs_sync();) */
-	/* } */
-	/* fflush(stdout); */
-	/* MICROTIME(jobs_finish();) */
-	/* return 0; */
-	MICROTIME(jobs_add_initializer(scratch_init);
-	jobs_add_initializer(workpad_init);
-	jobs_add_initializer(lex_init);
-	jobs_add_initializer(flexer_init);
-	jobs_sync();)
-	MICROTIME(jobs_finish();)
-	return 0;
-	/* MICROTIME( */
-	/* scratch_init(); */
-	/* workpad_init(); */
-	/* lex_init(); */
-	/* flexer_init();) */
-	/* jobs_kill(); */
+	printf("worker threads initialized. Initializing other systems\n");
+	fflush(stdout);
+	jobs_add_initializer(scratch_init); printf("> queued scratch_init()\n");
+	jobs_add_initializer(workpad_init); printf("> queued workpad_init()\n");
+	jobs_add_initializer(lex_init); printf("> queued lex_init()\n");
+	jobs_add_initializer(flexer_init); printf("> queued flexer_init()--TODO: DELETE THIS\n");
+	printf("> synching\n");
+	fflush(stdout);
+	jobs_sync();
+	printf("\nrunning tests\n");
+	fflush(stdout);
 	log_fp = fopen("test.log", "w");
 	LOG("running unit tests");
 	unsigned int i = 1;
-	#define X(A) printf("\n[%d] Testing " #A ".c\n", i++); assert(A##_test(argc, argv) == 0); printf("A-OK: " #A ".c\n");
+	#define X(A) \
+		printf("\n[%d] Testing " #A ".c\n", i++); \
+		assert(A##_test(argc, argv) == 0 && "TEST-FAILED!"); \
+		printf("A-OK: " #A ".c\n"); \
+		fflush(stdout);
 	SRC_TESTS
 	#undef X
 	LOG("finished unit tests");

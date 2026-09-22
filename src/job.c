@@ -8,10 +8,11 @@
 #include <pthread.h>
 #include <stdatomic.h>
 #include "atom_ring.h"
+/* #include "safe_ring.h" */
 #include "allocators/arena.h"
+#include "allocators/scratch.h"
 #include "memery.h"
 #include "threading.h"
-#include "allocators/scratch.h"
 
 
 // TODO: FUCK spinlocks FUCK mutex USE futexes
@@ -61,6 +62,7 @@ static void worker_main(struct thread_context* ctx)
 		/* printf("%d-%d\n", ctx->sync_epoch, ctx->thread_num); */
 		/* fflush(stdout); */
 		res = atom_ring_read(&job_ring, &job, sizeof job);
+		/* res = atom_ring_read(&job_ring, &job, sizeof job); */
 		if (res == sizeof job)
 		{
 			/* if (job.fptr == NULL) */
@@ -97,11 +99,14 @@ static void worker_main(struct thread_context* ctx)
 void jobs_init(const int32_t num_threads, const int32_t min_job_ring_size)
 {
 	ring_map((struct ring_buffer*)&job_ring, min_job_ring_size, "jobring");
-	__uint128_t* ring_test =  job_ring.addr;
-	*ring_test = 0xB16B00B5B00BCAFE;
-	assert(strncmp(job_ring.addr, job_ring.addr + job_ring.size, 16) == 0);
-	assert(((uint64_t)&job_ring.read_state & 0x03) == 0);
-	assert(((uint64_t)&job_ring.write_state & 0x03) == 0);
+	/* __uint128_t* ring_test =  job_ring.addr; */
+	/* *ring_test = 0xB16B00B5B00BCAFE; */
+	/* assert(strncmp(job_ring.addr, job_ring.addr + job_ring.size, 16) == 0); */
+	assert(((uint64_t)job_ring.addr & 0x3f) == 0x00);
+	/* assert(((uint64_t)&job_ring.read_state & 0x03) == 0); */
+	/* assert(((uint64_t)&job_ring.write_state & 0x03) == 0); */
+	/* memset(job_ring.addr, 0x00, 2 * job_ring.size); */
+	atomic_thread_fence(memory_order_release);
 	job_vbuff = memalloc(PAGE_SIZE + 64 * KB * num_threads);
 	arena_t thread_setup_arena =
 	{
@@ -160,34 +165,25 @@ static inline void worker_sync(struct barrier* barrier, struct thread_context* c
 	ctx->sync_epoch++;
 }
 
-static struct barrier sync_barriers[16] = {0};
-static uint8_t barrier_idx = 0;
-
+// IF YOU CRASH THAT'S A FEATURE
 void jobs_sync()
 {
-	/* sync_barriers[barrier_idx].count = num_worker_threads + 1; */
-	/* usleep(1024); // HILARIOUS BUT NEEDED */
-	barrier_init(sync_barriers + barrier_idx, num_worker_threads + 1);
-	struct job sync = { .fptr = worker_sync, .args = sync_barriers + barrier_idx };
-	atom_ring_nwrite(&job_ring, &sync, num_worker_threads, sizeof sync);
-	barrier_wait(sync_barriers + barrier_idx);
-	// NOTE: magic barrier index toggle that makes the atom ring work
-	//       yadda-yadda stack addresses yadda-yadda "reading too fast"
-	//       EVEN THO I AM ACTUALLY ATOMICALL INITIALIZING IT WTF????
-	/* barrier_idx = (barrier_idx + 1) & 0x01; */
-	/* barrier_idx = (barrier_idx + 1) & 0x03; */
-	barrier_idx = (barrier_idx + 1) & 0x0f;
+	struct barrier sync_barrier;
+	barrier_init(&sync_barrier, num_worker_threads + 1);
+	struct job sync = { .fptr = worker_sync, .args = &sync_barrier };
+	atom_ring_n_write(&job_ring, &sync, num_worker_threads, sizeof sync);
+	barrier_wait(&sync_barrier);
 }
 
 void jobs_finish(void)
 {
-	printf("> jobs_finish():finishing last \"active\" jobs then joining threads\n");
+	printf("\nATTN::jobs_finish():finishing last \"active\" jobs then joining threads\n\n");
 	fflush(stdout);
 	atomic_store_explicit(&jobs_state, JOBS_DEAD, memory_order_release);
 	// you need to write data so that way threads waiting to READ actually READ & EXIT
 	// spiritually it should be zero
 	struct job kill_job = { .tag = KILL_WORKER };
-	atom_ring_nwrite(&job_ring, &kill_job,  num_worker_threads, sizeof kill_job);
+	atom_ring_n_write(&job_ring, &kill_job,  num_worker_threads, sizeof kill_job);
 	for (int32_t i = 0; i < num_worker_threads; ++i)
 	{
 		pthread_join(worker_threads[i], NULL);
@@ -195,4 +191,48 @@ void jobs_finish(void)
 	}
 	memfree(&job_vbuff);
 	ring_unmap((ring_buffer*)&job_ring);
+}
+
+struct _test_struct
+{
+	uint32_t* ints;
+	uint32_t idx;
+};
+
+static void worker_test(struct _test_struct* args, struct thread_context* ctx)
+{
+	args->ints[args->idx] ^= args->idx;
+}
+
+#include "benchmark.h"
+static char spinner[4] = { '-', '\\', '|', '/' };
+int jobs_test(char** argc, int argv)
+{
+	#define TEST_LEN 1024
+	int32_t test_ints[TEST_LEN] = { 0 };
+	// dumbass, you need to allocate heap memory for this
+	struct _test_struct* worker_args = scratch_alloc(TEST_LEN * sizeof *worker_args);
+	for (uint32_t i = 0; i < TEST_LEN; ++i)
+	{
+		worker_args[i] = (struct _test_struct){ .ints = test_ints, .idx = i};
+		jobs_add(worker_test, worker_args + i);
+	}
+	// xor a MASSIVE bit buffer EXACTLY ONCE.
+	// then sync
+	CLOCKTIME(jobs_sync();)
+	uint8_t check = 0;
+	printf("\n>> SYNC <<\n");
+	assert((0x01 ^ 0x01) == 0x00);
+	assert((0x01 ^ 0x01 ^ 0x01) != 0x00);
+	uint8_t res = 0;
+	for (int32_t i = 0; i < TEST_LEN; ++i)
+	{
+		if (test_ints[i] != i)
+		{
+			res = 1;
+			printf("%d != %d\n", i, test_ints[i]);
+		}
+	}
+	return res;
+	// check everything is ONE
 }
