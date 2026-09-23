@@ -12,6 +12,12 @@ enum atom_ring_errs
 	ATOM_RING_TIMEOUT
 };
 
+struct tx_range
+{
+	int32_t start;
+	int32_t end;
+};
+
 // NOTE: alignment MATTERS
 struct atom_ring
 {
@@ -36,15 +42,10 @@ struct atom_ring
 	// double-word
 	_Atomic(int32_t) reading_head;
 	_Atomic(int32_t) writing_tail;
-	// NOTE: used_size only used for fence-fence synchronization so memcpy writes are visible in other threads
-	// and direction is actually a NECESSARY for size calculations
+	// direction is actually a NECESSARY for size calculations
 	// which makes both of them COMPLETELY VITAL
 	// double-word
-	_Atomic(uint32_t) used_size;
 	_Atomic(uint32_t) direction;
-	// NOTE: available != readable/writeable
-	_Atomic(uint8_t) w_mask[4096];
-	_Atomic(uint8_t) r_mask[4096];
 };
 
 #endif /* End ATOM_RING_TYPES_H */
