@@ -43,10 +43,10 @@ struct atom_ring
 	// double-word
 	_Atomic(int32_t) reading_head;
 	_Atomic(int32_t) writing_tail;
-	// direction is actually a NECESSARY for size calculations
-	// which makes both of them COMPLETELY VITAL
+	// NOTE: NVM.  this is right: https://lo.calho.st/posts/black-magic-buffer/
+	// direction is actually a NECESSARY for size calculations--WRONG!
 	// double-word
-	_Atomic(uint32_t) direction;
+	/* _Atomic(int32_t) direction; */
 };
 
 #endif /* End ATOM_RING_TYPES_H */
