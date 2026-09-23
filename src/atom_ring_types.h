@@ -9,7 +9,9 @@
 enum atom_ring_errs
 {
 	ATOM_RING_SIZE_CHECK_TIMEOUT = -32,
-	ATOM_RING_TIMEOUT
+	ATOM_RING_TIMEOUT,
+	ATOM_RING_INVALID_READ,
+	ATOM_RING_OVERWRITE,
 };
 
 struct tx_range
@@ -21,7 +23,6 @@ struct tx_range
 // NOTE: alignment MATTERS
 struct atom_ring
 {
-	// NOTE: NECESSARY
 	_Atomic(uint8_t)* addr;
 	// double-word
 	int32_t size;
