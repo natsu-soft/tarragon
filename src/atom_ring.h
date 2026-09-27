@@ -9,8 +9,6 @@
 // NOTE: both() allow for multiple readers & writers simultaneously.
 // if there's a bug it's probably something to do with how write/readable is calculated mid-transaction_S_
 
-#error you can have single & concurrent readers, BUT ONLY ONE WRITER AT A TIME.  THE OTHERS CAN WAIT TIL THAT MEMCPY FINISHES
-
 int32_t atom_ring_write(struct atom_ring* ring, void* src, const int32_t size);
 int32_t atom_ring_read(struct atom_ring* ring, void* dest, const int32_t size);
 

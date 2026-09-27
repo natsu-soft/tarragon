@@ -230,7 +230,7 @@ static void print_ring(struct atom_ring* ring, const int32_t i0, const int32_t i
 		}
 		putc('\n', stdout);
 	}
-	putc('\n', stdout);
+	printf("\n----- SECOND ALLOCATION ------------------------------------------------------------------------------\n\n");
 	for (int32_t r = ring->size; r < 2 * ring->size; r += 32)
 	{
 		printf("%004d ", r);
@@ -241,11 +241,11 @@ static void print_ring(struct atom_ring* ring, const int32_t i0, const int32_t i
 			{
 				putc(' ', stdout);
 			}
-			if (idx == i0)
+			if (idx - ring->size == i0)
 			{
 				putc('[', stdout);
 			}
-			else if (idx == i1)
+			else if (idx - ring->size == i1)
 			{
 				putc(']', stdout);
 			}
@@ -438,7 +438,7 @@ int32_t atom_ring_concurrent_write(struct atom_ring* ring, void* src, const int3
 			const int32_t tail1 = (tail + size) % ring->size;
 			// TODO: consider WAITING instead of SPINNING
 			while (load_ex(&ring->tail, acquire) != tail)
-			{ sync_addr_wait(); }
+			{ ; }
 			/* if (!(load_ex(write_state, acquire) & ERR_STOP)) cache_update_tail(tail, tail1); */
 			store_ex(&ring->tail, tail1, release);
 			wake_if_only_waiting(&ring->read_state);
@@ -639,6 +639,10 @@ int atom_ring_sancheck(void)
 	struct atom_ring test_ring = {0};
 	ring_map((struct ring_buffer*)&test_ring, 4096, "sancheck");
 	memset(test_ring.addr, 0x00, 2 * test_ring.size);
+	test_ring.addr[test_ring.size + 1] = 0xff;
+	test_ring.addr[0] = 0xaa;
+	print_ring(&test_ring, 0, 2);
+	assert(0);
 	const int32_t size = test_ring.size;
 	printf("- writeable: %d (head: %d, tail: %d)\n", writeable_size(&test_ring), test_ring.head, test_ring.tail);
 	assert(writeable_size(&test_ring) == size);
