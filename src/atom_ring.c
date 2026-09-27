@@ -435,9 +435,10 @@ int32_t atom_ring_concurrent_write(struct atom_ring* ring, void* src, const int3
 			thread_fence(seq_cst);
 			/* memory_fence_asm(); */
 			/* Update the tail used for readable size calculation */
-			const int32_t tail1 = (tail + size) % ring->size;
+			int32_t tail0 = load_ex(&ring->tail, acquire);
+			int32_t tail1 = (tail + size) % ring->size;
 			// TODO: consider WAITING instead of SPINNING
-			while (load_ex(&ring->tail, acquire) != tail)
+			while ((tail0 = load_ex(&ring->tail, acquire)) != tail)
 			{ ; }
 			/* if (!(load_ex(write_state, acquire) & ERR_STOP)) cache_update_tail(tail, tail1); */
 			store_ex(&ring->tail, tail1, release);
@@ -501,7 +502,7 @@ int32_t atom_ring_concurrent_read(struct atom_ring* ring, void* dest, const int3
 			/* 	} */
 			/* } */
 			memcpy(dest, ring->addr + head, size);
-			/* memset(ring->addr + head, 0x00, size); */
+			memset(ring->addr + head, 0x00, size);
 			thread_fence(seq_cst);
 
 			// TODO: WAIT dont SPIN
