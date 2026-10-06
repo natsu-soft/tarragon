@@ -798,7 +798,7 @@ int atom_ring_sancheck(void)
 	{
 		pthread_create(writers + i, &attr, threaded_write, &write_args);
 	}
-	printf("- irregular concurrent read/write test. ");
+	printf("- irregular concurrent read/write test ");
 	for (uint8_t i = 0;
 		 load_ex(&bytes_written, acquire) < TOTAL_BYTES || load_ex(&bytes_read, acquire) < TOTAL_BYTES;
 		 ++i)
