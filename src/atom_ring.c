@@ -524,7 +524,7 @@ int32_t atom_ring_concurrent_read(struct atom_ring* ring, void* dest, const int3
 #include <unistd.h>
 #include "error_macros.h"
 
-#define TOTAL_BYTES 1073741824
+#define TOTAL_BYTES 2147483648
 
 
 static int32_t assert_write(struct atom_ring* ring, void* src, const int32_t size, const int32_t expected_writeable_size)
