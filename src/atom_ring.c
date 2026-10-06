@@ -817,7 +817,8 @@ int atom_ring_sancheck(void)
 	printf("DONE                                    \n");
 	printf("- joining threads");
 	fflush(stdout);
-	// They're dead but im just making sure
+	// They're NOT DEAD
+	#error rework the while logic in the threaded readers/writers; they stall.  Use a cheeky little spinlock tbqh.
 	for (int32_t i = 0; i < NUM_WRITERS; ++i)
 	{
 		pthread_join(writers[i], NULL);
