@@ -25,7 +25,7 @@ struct dbg_msg
 	enum dbg_tag tag;
 };
 
-#define MSG_RING_SIZE 32
+#define MSG_RING_SIZE 1024
 
 struct
 {
@@ -77,8 +77,9 @@ static void cache_update_head(const uint32_t pos0, const uint32_t pos1)
 
 static void msg_print_all(void)
 {
-	const int32_t i0 = msg_ring.head - MSG_RING_SIZE > 0 ? msg_ring.head - MSG_RING_SIZE : 0;
+	const int32_t i0 = msg_ring.head - MSG_RING_SIZE < msg_ring.head ? msg_ring.head - MSG_RING_SIZE : 0;
 	thread_fence(acquire);
+	printf("msg_ring.head %d\n", msg_ring.head);
 	for (int32_t i = i0; i < msg_ring.head; ++i)
 	{
 		struct dbg_msg* msg = msg_ring.messages + (i % MSG_RING_SIZE);
@@ -396,9 +397,15 @@ int32_t atom_ring_concurrent_write(struct atom_ring* ring, void* src, const int3
 		{
 			if (writeable_size(ring) < size)
 			{
+				#ifndef NOFRAUD
+				state = FREE;
+				unlock_and_wake(write_state);
+				continue;
+				#else
 				fetch_or(write_state, ERR_STOP);
 				fetch_or(&ring->read_state, ERR_STOP);
 				assert(0 && "writing: lol nvm");
+				#endif
 				/* state = FREE; */
 				/* unlock_and_wake(write_state); */
 				/* continue; */
@@ -417,10 +424,7 @@ int32_t atom_ring_concurrent_write(struct atom_ring* ring, void* src, const int3
 			// SANCHECK IN FLIGHT ERROR CHECKING
 			/* for (int32_t i = 0; i < size; ++i) */
 			/* { */
-			/* 	if(ring->addr[tail + i] != 0x00) */
-			/* 	{ */
-			/* 		return ATOM_RING_OVERWRITE; */
-			/* 	} */
+			/* 	assert(ring->addr + tail + i == 0x00 && "brother wtf?"); */
 			/* } */
 			memcpy(ring->addr + (tail & ring->size - 1), src, size);
 			thread_fence(seq_cst);
@@ -464,9 +468,15 @@ int32_t atom_ring_concurrent_read(struct atom_ring* ring, void* dest, const int3
 		{
 			if (readable_size(ring) < size)
 			{
+				#ifndef NOFRAUD
+				state = FREE;
+				unlock_and_wake(read_state);
+				continue;
+				#else
 				fetch_or(read_state, ERR_STOP);
 				fetch_or(&ring->write_state, ERR_STOP);
 				assert(0 && "reading: lol");
+				#endif
 			}
 			/* int32_t head = fetch_add_mod(&ring->reading_head, size, ring->size); */
 			const uint32_t head = fetch_add(&ring->reading_head, size);
@@ -603,14 +613,42 @@ static void threaded_read(struct san_struct* args)
 			store_ex(&ring->write_state, ERR_STOP, release);
 			print_ring(ring, range.start, range.end % ring->size);
 			printf("\nBAD: read: [%d, %d)\n", range.start, range.end);
+			for (int32_t j = (range.start / 32 * 32); j < (range.end / 32 * 32) + 1; ++j)
+			{
+				if (j % 32 == 0)
+				{
+					printf("\n%04d ", j);
+				}
+			}
+			const int32_t row0 = (range.start / 32) * 32;
+			printf("%04d", row0);
+			for (int32_t i = row0; i < range.start; ++i)
+			{
+				if (i % 16)
+				{
+					printf(" --");
+				}
+				else
+				{
+					printf("  --");
+				}
+			}
 			for (int32_t i = 0; i < size; ++i)
 			{
+				if ((range.start + i) % 32 == 0)
+				{
+					printf("\n%04d ", (range.start + i) & (ring->size - 1));
+				}
+				else if ((range.start + i) % 16 == 0)
+				{
+					printf(" ");
+				}
 				printf(" %02x", dest[i]);
 			}
 			printf("\nREAD INVALID MEMORY!\n");
 			msg_print_all();
 			fflush(stdout);
-			assert(0x00 && "error in " __FILE__"::read_job()");
+			assert(0x00 && "error in src/atom_ring.c::read_job()");
 		}
 		assert(res == size);
 		fetch_add_ex(cumulative, res, acq_rel);
@@ -706,11 +744,42 @@ int atom_ring_sancheck(void)
 	}
 	printf("DONE\n");
 	#endif
-	assert(strncmp(test_ring.addr, test_ring.addr + test_ring.size, test_ring.size) == 0 && "WHATS GOING ON HERE???");
-	printf("- passed esoteric strncmp check :^)");
+	printf("- fuzzy strncmp check ");
+	uint8_t src[64];
+	for (int32_t i = 0; i < 256; ++i)
+	{
+		src[i] = 0xff;
+	}
+	for (int32_t n = 0; n < 64; ++n)
+	{
+		const int32_t i0 = test_ring.tail & test_ring.size - 1;
+		int32_t remaining;
+		while ((remaining = writeable_size(&test_ring)) > 0)
+		{
+			const int32_t size = (remaining > 64 ? rand() & 0x3f : rand() % remaining) + 1;
+			atom_ring_write(&test_ring, src, size);
+		}
+		for (int32_t i = i0; i < i0 + test_ring.size - 1; ++i)
+		{
+			assert(test_ring.addr[i] == 0xff && "FRUITFUL ASSERT!!!");
+		}
+		assert(strncmp(test_ring.addr, test_ring.addr + test_ring.size, test_ring.size) == 0 && "WHATS GOING ON HERE???");
+		test_ring.head = test_ring.tail;
+		test_ring.reading_head = test_ring.tail;
+	}
+	printf("DONE!\n");
 	fflush(stdout);
-	// TODO: spin up some mfn THREADS
-	ring_unmap((struct ring_buffer*)&test_ring);
+	//  spin up some mfn THREADS
+
+	store_ex(&msg_ring.head, 0u, seq_cst);
+	store_ex(&test_ring.head, 0u, seq_cst);
+	store_ex(&test_ring.tail, 0u, seq_cst);
+	store_ex(&test_ring.reading_head, 0u, seq_cst);
+	store_ex(&test_ring.writing_tail, 0u, seq_cst);
+	memset(test_ring.addr, 0x00, test_ring.size);
+	assert(readable_size(&test_ring) == 0);
+	assert(writeable_size(&test_ring) == test_ring.size - 1);
+	/* ring_unmap((struct ring_buffer*)&test_ring); */
 	#define NUM_WRITERS 2
 	#define NUM_READERS 4
 	pthread_t writers[NUM_WRITERS] = {0};
@@ -729,7 +798,6 @@ int atom_ring_sancheck(void)
 	{
 		pthread_create(writers + i, &attr, threaded_write, &write_args);
 	}
-	store_ex(&msg_ring.head, 0u, release);
 	printf("- irregular concurrent read/write test. ");
 	for (uint8_t i = 0;
 		 load_ex(&bytes_written, acquire) < TOTAL_BYTES || load_ex(&bytes_read, acquire) < TOTAL_BYTES;
@@ -746,7 +814,9 @@ int atom_ring_sancheck(void)
 		printf("\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b");
 		fflush(stdout);
 	}
-	printf("DONE\n");
+	printf("DONE                                    \n");
+	printf("- joining threads");
+	fflush(stdout);
 	// They're dead but im just making sure
 	for (int32_t i = 0; i < NUM_WRITERS; ++i)
 	{
