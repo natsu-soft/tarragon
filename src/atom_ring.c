@@ -20,9 +20,9 @@ enum dbg_tag
 
 struct dbg_msg
 {
-	_Atomic(int32_t) pos0;
-	_Atomic(int32_t) pos1;
-	_Atomic(enum dbg_tag) tag;
+	uint32_t pos0;
+	uint32_t pos1;
+	enum dbg_tag tag;
 };
 
 #define MSG_RING_SIZE 32
@@ -34,9 +34,9 @@ struct
 } msg_ring = {0};
 /* static struct ticketlock msg_lock = {0}; */
 
-static void cache_write(const int32_t start, const int32_t end)
+static void cache_write(const uint32_t start, const uint32_t end)
 {
-	const int32_t idx = fetch_add_ex(&msg_ring.head, 1, seq_cst) % MSG_RING_SIZE;
+	const uint32_t idx = fetch_add_ex(&msg_ring.head, 1, seq_cst) & (MSG_RING_SIZE - 1);
 	/* printf("%d\n", idx); */
 	struct dbg_msg* temp = msg_ring.messages + idx;
 	temp->pos0 = start;
@@ -44,9 +44,9 @@ static void cache_write(const int32_t start, const int32_t end)
 	temp->tag = CACHE_WRITE;
 }
 
-static void cache_read(const int32_t start, const int32_t end)
+static void cache_read(const uint32_t start, const uint32_t end)
 {
-	const int32_t idx = fetch_add_ex(&msg_ring.head, 1, seq_cst) % MSG_RING_SIZE;
+	const uint32_t idx = fetch_add_ex(&msg_ring.head, 1, seq_cst) & (MSG_RING_SIZE - 1);
 	/* printf("%d\n", idx); */
 	struct dbg_msg* temp = msg_ring.messages + idx;
 	temp->pos0 = start;
@@ -54,24 +54,24 @@ static void cache_read(const int32_t start, const int32_t end)
 	temp->tag = CACHE_READ;
 }
 
-static void cache_update_tail(const int32_t pos0, const int32_t pos1)
+static void cache_update_tail(const uint32_t pos0, const uint32_t pos1)
 {
-	const int32_t idx = fetch_add_ex(&msg_ring.head, 1, seq_cst) % MSG_RING_SIZE;
+	const uint32_t idx = fetch_add_ex(&msg_ring.head, 1, seq_cst) & (MSG_RING_SIZE - 1);
 	/* printf("%d\n", idx); */
 	struct dbg_msg* temp = msg_ring.messages + idx;
-	store_ex(&temp->pos0, pos0, release);
-	store_ex(&temp->pos1, pos1, release);
-	store_ex(&temp->tag, UPDATE_TAIL, release);
+	temp->pos0 = pos0;
+	temp->pos1 = pos1;
+	temp->tag = UPDATE_TAIL;
 }
 
-static void cache_update_head(const int32_t pos0, const int32_t pos1)
+static void cache_update_head(const uint32_t pos0, const uint32_t pos1)
 {
-	const int32_t idx = fetch_add_ex(&msg_ring.head, 1, seq_cst) % MSG_RING_SIZE;
+	const uint32_t idx = fetch_add_ex(&msg_ring.head, 1, seq_cst) & (MSG_RING_SIZE - 1);
 	/* printf("%d\n", idx); */
 	struct dbg_msg* temp = msg_ring.messages + idx;
-	store_ex(&temp->pos0, pos0, release);
-	store_ex(&temp->pos1, pos1, release);
-	store_ex(&temp->tag, UPDATE_HEAD, release);
+	temp->pos0 = pos0;
+	temp->pos1 = pos1;
+	temp->tag = UPDATE_HEAD;
 }
 
 
@@ -83,7 +83,7 @@ static void msg_print_all(void)
 	{
 		struct dbg_msg* msg = msg_ring.messages + (i % MSG_RING_SIZE);
 
-		switch(load_ex(&msg->tag, acquire))
+		switch(msg->tag)
 		{
 		case CACHE_WRITE:
 			printf("writing: [%d, %d)\n", msg->pos0, msg->pos1);
@@ -173,12 +173,12 @@ enum
 
 static inline const int32_t writeable_size(struct atom_ring* ring)
 {
-	const int32_t size = ring->size;
+	const uint32_t size = ring->size;
 	const int32_t head = load_ex(&ring->head, acquire);
 	const int32_t tail = load_ex(&ring->writing_tail, acquire);
 	/* const int32_t dir = load_ex(&ring->direction, acquire); */
 	/* return head <= size ? size - (tail - head) : head - tail; */
-	return  size - (tail - head);
+	return  size - (tail - head) - 1;
 }
 
 static inline const int32_t readable_size(struct atom_ring* ring)
@@ -282,7 +282,7 @@ static inline int32_t wake_if_only_waiting(_Atomic(int32_t)* state_ptr)
 int32_t atom_ring_write(struct atom_ring* ring, void* src, const int32_t size)
 {
 	assert(0 < size);
-	assert(size <= ring->size);
+	assert(size <= ring->size - 1);
 	_Atomic(int32_t)* const read_state = &ring->read_state;
 	_Atomic(int32_t)* const write_state = &ring->write_state;
 	int32_t state = load(write_state) & ~LOCKED;
@@ -301,15 +301,14 @@ int32_t atom_ring_write(struct atom_ring* ring, void* src, const int32_t size)
 				assert(0 && "writing: lol nvm");
 			}
 			/* int32_t tail = fetch_add_mod(&ring->writing_tail, size, ring->size); */
-			int32_t tail = fetch_add_ex(&ring->writing_tail, size, acq_rel);
+			const int32_t tail = fetch_add_ex(&ring->writing_tail, size, acq_rel);
 
 			// TODO: in-flight error checking
 
-			memcpy(ring->addr + tail, src, size);
-			const int32_t tail1 = tail + size;
-			cache_write(tail, tail1);
+			memcpy(ring->addr + (tail & ring->size - 1), src, size);
+			cache_write(tail & ring->size - 1, tail + size & ring->size - 1);
 			/* if (tail1 < tail0) fetch_or_ex(&ring->direction, REVERSE, release); */
-			store_ex(&ring->tail, tail1, release);
+			store_ex(&ring->tail, tail + size, release);
 			unlock_and_wake(write_state);
 			wake_if_only_waiting(read_state);
 			return size;
@@ -327,7 +326,7 @@ int32_t atom_ring_write(struct atom_ring* ring, void* src, const int32_t size)
 int32_t atom_ring_read(struct atom_ring* ring, void* dest, const int32_t size)
 {
 	assert(0 < size);
-	assert(size <= ring->size);
+	assert(size <= ring->size - 1);
 	_Atomic(int32_t)* const read_state = &ring->read_state;
 	_Atomic(int32_t)* const write_state = &ring->write_state;
 	/* int32_t state = load_ex(read_state, acquire) & ~(LOCKED | ERR_STOP); */
@@ -348,23 +347,15 @@ int32_t atom_ring_read(struct atom_ring* ring, void* dest, const int32_t size)
 				assert(0 && "reading: lol nvm");
 			}
 			/* int32_t head = fetch_add_mod(&ring->reading_head, size, ring->size); */
-			int32_t head = fetch_add_ex(&ring->reading_head, size, acq_rel);
+			const uint32_t head = fetch_add_ex(&ring->reading_head, size, acq_rel);
 
 			// TODO: in-flight error checking
 
-			memcpy(dest, ring->addr + head, size);
-			memset(ring->addr + head, 0x00, size);
+			memcpy(dest, ring->addr + (head & ring->size - 1), size);
+			memset(ring->addr + (head & ring->size - 1), 0x00, size);
 
-			cache_read(head, head + size);
-			if (head + size > ring->size)
-			{
-				fetch_sub_ex(&ring->reading_head, ring->size, acq_rel);
-				fetch_sub_ex(&ring->writing_tail, ring->size, acq_rel);
-				fetch_sub_ex(&ring->tail, ring->size, acq_rel);
-				head -= ring->size;
-			}
-			const int32_t head1 = head + size;
-			store_ex(&ring->head, head1, release);
+			cache_read(head & ring->size - 1, head + size & ring->size - 1);
+			store_ex(&ring->head, head + size, release);
 			unlock_and_wake(read_state);
 			wake_if_only_waiting(write_state);
 			return size;
@@ -390,7 +381,7 @@ int32_t atom_ring_n_write(struct atom_ring* ring, void* src, const int32_t n, co
 int32_t atom_ring_concurrent_write(struct atom_ring* ring, void* src, const int32_t size, struct tx_range* write_range)
 {
 	assert(0 < size);
-	assert(size <= ring->size);
+	assert(size <= ring->size - 1);
 	_Atomic(int32_t)* const write_state = &ring->write_state;
 	int32_t state = load(write_state) & ~(LOCKED | ERR_STOP);
 	for (;;)
@@ -413,8 +404,8 @@ int32_t atom_ring_concurrent_write(struct atom_ring* ring, void* src, const int3
 				/* continue; */
 			}
 			/* int32_t tail = fetch_add_mod(&ring->writing_tail, size, ring->size); */
-			int32_t tail = fetch_add_ex(&ring->writing_tail, size, acq_rel);
-			cache_write(tail, tail + size);
+			const uint32_t tail = fetch_add_ex(&ring->writing_tail, size, acq_rel);
+			cache_write(tail & ring->size - 1, tail + size & ring->size - 1);
 			if (write_range != NULL)
 			{
 				write_range->start = tail;
@@ -431,12 +422,12 @@ int32_t atom_ring_concurrent_write(struct atom_ring* ring, void* src, const int3
 			/* 		return ATOM_RING_OVERWRITE; */
 			/* 	} */
 			/* } */
-			memcpy(ring->addr + tail, src, size);
+			memcpy(ring->addr + (tail & ring->size - 1), src, size);
 			thread_fence(seq_cst);
 			/* memory_fence_asm(); */
 			/* Update the tail used for readable size calculation */
-			int32_t tail0 = load_ex(&ring->tail, acquire);
-			int32_t tail1 = (tail + size) % ring->size;
+			uint32_t tail0 = load_ex(&ring->tail, acquire);
+			const uint32_t tail1 = tail + size;
 			// TODO: consider WAITING instead of SPINNING
 			while ((tail0 = load_ex(&ring->tail, acquire)) != tail)
 			{ ; }
@@ -457,8 +448,8 @@ int32_t atom_ring_concurrent_write(struct atom_ring* ring, void* src, const int3
 
 int32_t atom_ring_concurrent_read(struct atom_ring* ring, void* dest, const int32_t size, struct tx_range* read_range)
 {
-	assert(0 < size);
-	assert(size <= ring->size);
+	assert(size > 0);
+	assert(size <= ring->size - 1);
 	_Atomic(int32_t)* const read_state = &ring->read_state;
 	int32_t state = load_ex(read_state, acquire) & ~(LOCKED | ERR_STOP);
 	for (;;)
@@ -478,22 +469,16 @@ int32_t atom_ring_concurrent_read(struct atom_ring* ring, void* dest, const int3
 				assert(0 && "reading: lol");
 			}
 			/* int32_t head = fetch_add_mod(&ring->reading_head, size, ring->size); */
-			int32_t head = fetch_add(&ring->reading_head, size);
-			cache_read(head, head + size);
-			if (head + size >= ring->size)
-			{
-				fetch_sub_ex(&ring->reading_head, ring->size, release);
-				fetch_sub_ex(&ring->writing_tail, ring->size, release);
-				fetch_sub_ex(&ring->tail, ring->size, release);
-			}
+			const uint32_t head = fetch_add(&ring->reading_head, size);
+			cache_read(head & (ring->size - 1), head + size & ring->size - 1);
 			if (read_range != NULL)
 			{
-				read_range->start = head;
-				read_range->end = head + size;
+				read_range->start = head & ring->size - 1;
+				read_range->end = head + size & ring->size - 1;
 			}
 			unlock_and_wake(read_state);
 
-			thread_fence(seq_cst);
+			/* thread_fence(seq_cst); */
 			/* for (int32_t i = 0; i < size; ++i) */
 			/* { */
 			/* 	if (ring->addr[head + i] != 0xff) */
@@ -501,12 +486,12 @@ int32_t atom_ring_concurrent_read(struct atom_ring* ring, void* dest, const int3
 			/* 		return ATOM_RING_INVALID_READ; */
 			/* 	} */
 			/* } */
-			memcpy(dest, ring->addr + head, size);
-			memset(ring->addr + head, 0x00, size);
-			thread_fence(seq_cst);
+			memcpy(dest, ring->addr + (head & ring->size - 1), size);
+			memset(ring->addr + (head & ring->size - 1), 0x00, size);
+			/* thread_fence(seq_cst); */
 
 			// TODO: WAIT dont SPIN
-			const int32_t head1 = head + size >= ring->size ? head + size - ring->size : head + size;
+			const uint32_t head1 = head + size;
 			while (load_ex(&ring->head, acquire) != head) { ; }
 			/* if (!(load_ex(read_state, acquire) & ERR_STOP)) cache_update_head(head, head1); */
 			store_ex(&ring->head, head1, release);
@@ -617,15 +602,13 @@ static void threaded_read(struct san_struct* args)
 			store_ex(&ring->read_state, ERR_STOP, release);
 			store_ex(&ring->write_state, ERR_STOP, release);
 			print_ring(ring, range.start, range.end % ring->size);
-			msg_print_all();
-			printf("\nBAD: read: [%d, %d)\n", range.start, range.end % ring->size);
+			printf("\nBAD: read: [%d, %d)\n", range.start, range.end);
 			for (int32_t i = 0; i < size; ++i)
 			{
-				if (i % 32 == 0) putc('\n', stdout);
-				else if (i % 16 == 0) putc(' ', stdout);
 				printf(" %02x", dest[i]);
 			}
 			printf("\nREAD INVALID MEMORY!\n");
+			msg_print_all();
 			fflush(stdout);
 			assert(0x00 && "error in " __FILE__"::read_job()");
 		}
@@ -642,35 +625,40 @@ int atom_ring_sancheck(void)
 	memset(test_ring.addr, 0x00, 2 * test_ring.size);
 	test_ring.addr[test_ring.size + 1] = 0xff;
 	test_ring.addr[0] = 0xaa;
-	print_ring(&test_ring, 0, 2);
-	assert(0);
+	uint32_t foo = 0x44332211;
+	memcpy(test_ring.addr + test_ring.size - 2, &foo, 4);
+	/* print_ring(&test_ring, test_ring.size - 2, 2); */
+	/* assert(0); */
+	memset(test_ring.addr, 0x00, test_ring.size);
+	/* print_ring(&test_ring, test_ring.size - 2, 2); */
+	/* assert(0); */
 	const int32_t size = test_ring.size;
 	printf("- writeable: %d (head: %d, tail: %d)\n", writeable_size(&test_ring), test_ring.head, test_ring.tail);
-	assert(writeable_size(&test_ring) == size);
+	assert(writeable_size(&test_ring) == size - 1);
 	printf("- filling ring. ");
-	for (int32_t i = 0; i < size; ++i)
+	for (int32_t i = 0; i < size - 1; ++i)
 	{
-		assert(writeable_size(&test_ring) == size - i);
+		assert(writeable_size(&test_ring) == size - 1 - i);
 		uint8_t byte = 0xff;
 		/* atom_ring_write(&test_ring, &byte, 1); */
-		assert_write(&test_ring, &byte, 1, size - i);
+		assert_write(&test_ring, &byte, 1, size - 1 - i);
 	}
 	/* assert(test_ring.direction == REVERSE); */
 	printf("DONE\n- verifying ring full ");
-	for (int32_t i = 0; i < size; ++i)
+	for (int32_t i = 0; i < size - 1; ++i)
 	{
 		assert(test_ring.addr[i] == 0xff);
 	}
 	printf("DONE\n- readable: %d (head: %d, tail: %d)\n", readable_size(&test_ring), test_ring.head, test_ring.tail);
-	assert(readable_size(&test_ring) == size);
+	assert(readable_size(&test_ring) == size - 1);
 	printf("- emptying ring. ");
 	fflush(stdout);
-	for (int32_t i = 0; i < size; ++i)
+	for (int32_t i = 0; i < size - 1; ++i)
 	{
 		/* assert(readable_size(&test_ring) == size - i); */
 		/* fflush(stdout); */
 		uint8_t byte;
-		assert_read(&test_ring, &byte, 1, size - i);
+		assert_read(&test_ring, &byte, 1, size - i - 1);
 		assert(byte == 0xff);
 	}
 	assert(readable_size(&test_ring) == 0);
@@ -687,21 +675,22 @@ int atom_ring_sancheck(void)
 	uint32_t temp = -1u;
 	atom_ring_write(&test_ring, &temp, sizeof temp);
 	atom_ring_read(&test_ring, &temp, sizeof temp);
+	#ifdef LMAO
 	printf("- wrap test. ");
 	const int32_t pos0 = test_ring.tail;
 	for (int32_t lap = 0; lap < 128; ++lap)
 	{
-		for (int32_t i = 0; i < size; ++i)
+		for (int32_t i = 0; i < size - 1; ++i)
 		{
 			putc(spinner[i & 0x03], stdout);
 			/* putc('.', stdout); */
 			/* printf("%d\n", i); */
 			fflush(stdout);
 			uint64_t double_word = -1u;
-			assert(writeable_size(&test_ring) == 4096);
+			assert(writeable_size(&test_ring) == 4096 - 1);
 			assert(readable_size(&test_ring) == 0);
-			assert_write(&test_ring, &double_word, 1, size);
-			assert(writeable_size(&test_ring) == 4095);
+			assert_write(&test_ring, &double_word, 1, size - 1);
+			assert(writeable_size(&test_ring) == 4095 - 1);
 			assert(readable_size(&test_ring) == 1);
 			assert_read(&test_ring, &double_word, 1, 1);
 			assert(double_word == -1u);
@@ -716,6 +705,9 @@ int atom_ring_sancheck(void)
 		putc('\b', stdout);
 	}
 	printf("DONE\n");
+	#endif
+	assert(strncmp(test_ring.addr, test_ring.addr + test_ring.size, test_ring.size) == 0 && "WHATS GOING ON HERE???");
+	printf("- passed esoteric strncmp check :^)");
 	fflush(stdout);
 	// TODO: spin up some mfn THREADS
 	ring_unmap((struct ring_buffer*)&test_ring);

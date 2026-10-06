@@ -16,8 +16,8 @@ enum atom_ring_errs
 
 struct tx_range
 {
-	int32_t start;
-	int32_t end;
+	uint32_t start;
+	uint32_t end;
 };
 
 // NOTE: alignment MATTERS
@@ -25,7 +25,7 @@ struct atom_ring
 {
 	_Atomic(uint8_t)* addr;
 	// double-word
-	int32_t size;
+	uint32_t size; // speed NOW
 	int32_t fd;
 	// double-word
 	// pre-transaction values
