@@ -606,6 +606,8 @@ static int64_t threaded_write(struct san_struct* args)
 			return bytes_written;
 		}
 	}
+	args->status = FINISHED;
+	return bytes_written;
 }
 
 
@@ -860,8 +862,9 @@ int atom_ring_sancheck(void)
 	printf("\n  + DONE\n");
 	printf("- joining threads\n");
 	fflush(stdout);
-	// They're NOT DEAD
-	/* #error rework the while logic in the threaded readers/writers; they stall.  Use a cheeky little spinlock tbqh. */
+	// NOTE: they're NOT DEAD
+	// NOTE: you need dat dere size-check while loop
+	/* #error double check your shit aint spinning */
 	for (int32_t i = 0; i < NUM_WRITERS; ++i)
 	{
 		printf("  + w%d: %02x\n", i, write_args[i].status);
