@@ -281,6 +281,9 @@ static inline int32_t wake_if_only_waiting(_Atomic(int32_t)* state_ptr)
 	return res;
 }
 
+// NOTE: atom_ring_read & concurrent_read both zero read regions.
+// But -ONLY- atom_ring_concurrent_write checks if its writing into a zeroed region.
+
 int32_t atom_ring_write(struct atom_ring* ring, void* src, const int32_t size)
 {
 	assert(0 < size);
