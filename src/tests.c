@@ -64,6 +64,7 @@ int main(int argc, char** argv)
 	printf("\n[CLEANUP] killing job threads\n");
 	/* jobs_sleep(); */
 	jobs_finish();
-	printf("ATTN: ALL TESTS PASSED!\n");
+	printf("A-OK: all threads killed\n");
+	printf("\nATTN: ALL TESTS PASSED!\n");
 	return 0;
 }

@@ -178,8 +178,6 @@ void jobs_sync()
 
 void jobs_finish(void)
 {
-	printf("\nATTN::jobs_finish():finishing last \"active\" jobs then joining threads\n\n");
-	fflush(stdout);
 	atomic_store_explicit(&jobs_state, JOBS_DEAD, memory_order_release);
 	// you need to write data so that way threads waiting to READ actually READ & EXIT
 	// spiritually it should be zero
@@ -211,13 +209,13 @@ static char spinner[4] = { '-', '\\', '|', '/' };
 int jobs_test(char** argc, int argv)
 {
 	/* #define TEST_LEN 2147483647 */
-#define TEST_LEN 2097152
 	printf("- sync abuse");
 	fflush(stdout);
-	CLOCKMESSAGE("", for (int32_t i = 0; i < 1024; ++i)
+	CLOCKMESSAGE("", for (int32_t i = 0; i < 128; ++i)
 	{
 		jobs_sync();
 	})
+	#define TEST_LEN 1048576
 	int32_t test_ints[TEST_LEN] = {0};
 	// dumbass, you need to allocate heap memory for this
 	struct _test_struct* worker_args = scratch_alloc(TEST_LEN * sizeof *worker_args);
