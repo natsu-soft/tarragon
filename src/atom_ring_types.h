@@ -6,8 +6,9 @@
 
 // NOTE: atom ring error enums are just the sync_addr errror enums
 
-enum atom_ring_errs
+enum atom_ring_results
 {
+	ATOM_RING_EVICT = 0, /* not an error, sometime I just gotta boot a fuccn transaction */
 	ATOM_RING_SIZE_CHECK_TIMEOUT = -32,
 	ATOM_RING_TIMEOUT,
 	ATOM_RING_INVALID_READ,
