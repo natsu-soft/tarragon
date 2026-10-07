@@ -517,6 +517,18 @@ int32_t atom_ring_concurrent_read(struct atom_ring* ring, void* dest, const int3
 	return ATOM_RING_TIMEOUT;
 }
 
+void atom_ring_evict_all(struct atom_ring* ring)
+{
+	if (swap_ex(&ring->write_state, EVICTED, acq_rel) & WAITING)
+	{
+		int res = sync_addr_wake_all(&ring->write_state);
+	}
+	if (swap_ex(&ring->read_state, EVICTED, acq_rel) & WAITING)
+	{
+		int res = sync_addr_wake_all(&ring->read_state);
+	}
+}
+
 #include "memery.h"
 #include <pthread.h>
 #include <stdlib.h>
@@ -525,8 +537,7 @@ int32_t atom_ring_concurrent_read(struct atom_ring* ring, void* dest, const int3
 
 // fuck it terabyte
 /* #define TOTAL_BYTES 1099511627776 */
-/* #define TOTAL_BYTES 1073741824 */
-#define TOTAL_BYTES 268435456
+#define TOTAL_BYTES 536870912
 
 
 static int32_t assert_write(struct atom_ring* ring, void* src, const int32_t size, const int32_t expected_writeable_size)
@@ -543,10 +554,18 @@ static int32_t assert_read(struct atom_ring* ring, void* dest, const int32_t siz
 	return atom_ring_read(ring, dest, size);
 }
 
+enum san_status
+{
+	OTHER = 0x00,
+	TRANSACTING,
+	FINISHED
+};
+
 struct san_struct
 {
 	struct atom_ring* ring;
 	_Atomic(int64_t)* cum;
+	enum san_status status;
 };
 
 static int64_t threaded_write(struct san_struct* args)
@@ -565,18 +584,30 @@ static int64_t threaded_write(struct san_struct* args)
 		const int64_t remaining = TOTAL_BYTES - load_ex(cumulative, acquire);
 		if (remaining <= 0)
 		{
+			args->status = FINISHED;
 			return bytes_written;
 		}
 		const int32_t size = (remaining > 64 ? rand() & 0x3f : rand() % remaining) + 1;
 		if (fetch_add_ex(cumulative, size, acq_rel) < TOTAL_BYTES)
 		{
 			struct tx_range range = {0};
+			args->status = TRANSACTING;
 			const int32_t res = atom_ring_concurrent_write(ring, src, size, &range);
+			args->status = OTHER;
+			if (res != ATOM_RING_EVICTED)
+			{
+				bytes_written += res;
+			}
+			else
+			{
+				args->status = FINISHED;
+				return bytes_written;
+			}
 			// lmao i stopped checking in write lmao
-			bytes_written += res;
 		}
 		else
 		{
+			args->status = FINISHED;
 			return bytes_written;
 		}
 	}
@@ -593,6 +624,7 @@ static int64_t threaded_read(struct san_struct* args)
 		const int64_t remaining = TOTAL_BYTES - load_ex(cumulative, acquire);
 		if (remaining <= 0)
 		{
+			args->status = FINISHED;
 			return bytes_read;
 		}
 		const int32_t size = (remaining > 64 ? rand() & 0x3f : rand() % remaining) + 1;
@@ -600,7 +632,14 @@ static int64_t threaded_read(struct san_struct* args)
 		{
 			uint8_t dest[64] = {0};
 			struct tx_range range = {0};
+			args->status = TRANSACTING;
 			int32_t res = atom_ring_concurrent_read(ring, dest, size, &range);
+			args->status = OTHER;
+			if (res == ATOM_RING_EVICTED)
+			{
+				args->status = FINISHED;
+				return bytes_read;
+			}
 			for (int32_t i = 0; i < size; ++i)
 			{
 				if (dest[i] != 0xff)
@@ -658,22 +697,12 @@ static int64_t threaded_read(struct san_struct* args)
 		}
 		else
 		{
+			args->status = FINISHED;
 			return bytes_read;
 		}
 	}
 }
 
-void atom_ring_evict_all(struct atom_ring* ring)
-{
-	if (fetch_or_ex(&ring->write_state, EVICTED, release) & WAITING)
-	{
-		int res = sync_addr_wake_all(&ring->write_state);
-	}
-	if (fetch_or_ex(&ring->read_state, EVICTED, release) & WAITING)
-	{
-		int res = sync_addr_wake_all(&ring->read_state);
-	}
-}
 
 int atom_ring_sancheck(void)
 {
@@ -730,7 +759,7 @@ int atom_ring_sancheck(void)
 	printf("DONE\n");
 	fflush(stdout);
 	// offset a scooch to check if the ring ACTUALL works
-	#ifndef LMAO
+	#ifdef LMAO
 	uint32_t temp = -1u;
 	atom_ring_write(&test_ring, &temp, sizeof temp);
 	assert(readable_size(&test_ring) >= sizeof temp);
@@ -813,15 +842,17 @@ int atom_ring_sancheck(void)
 	pthread_attr_init(&attr);
 	_Atomic(int64_t) bytes_written = 0;
 	_Atomic(int64_t) bytes_read = 0;
-	struct san_struct read_args = { .ring = &test_ring, .cum = &bytes_read };
-	struct san_struct write_args = { .ring = &test_ring, .cum = &bytes_written };
+	struct san_struct write_args[NUM_WRITERS];
+	struct san_struct read_args[NUM_READERS];
 	for (int32_t i = 0; i < NUM_WRITERS; ++i)
 	{
-		pthread_create(writers + i, &attr, threaded_write, &write_args);
+		write_args[i] = (struct san_struct){.ring = &test_ring, .cum = &bytes_written };
+		pthread_create(writers + i, &attr, threaded_write, write_args + i);
 	}
 	for (int32_t i = 0; i < NUM_READERS; ++i)
 	{
-		pthread_create(readers + i, &attr, threaded_read, &read_args);
+		read_args[i] = (struct san_struct){.ring = &test_ring, .cum = &bytes_read };
+		pthread_create(readers + i, &attr, threaded_read, read_args + i);
 	}
 	printf("- irregular concurrent read/write test ");
 	for (uint8_t i = 0;
@@ -846,6 +877,14 @@ int atom_ring_sancheck(void)
 	// They're NOT DEAD
 	/* #error rework the while logic in the threaded readers/writers; they stall.  Use a cheeky little spinlock tbqh. */
 	atom_ring_evict_all(&test_ring);
+	for (int32_t i = 0; i < NUM_WRITERS; ++i)
+	{
+		printf("  + w%d: %02x\n", i, write_args[i].status);
+	}
+	for (int32_t i = 0; i < NUM_READERS; ++i)
+	{
+		printf("  + r%d: %02x\n", i, read_args[i].status);
+	}
 	for (int32_t i = 0; i < NUM_WRITERS; ++i)
 	{
 		int64_t res;
