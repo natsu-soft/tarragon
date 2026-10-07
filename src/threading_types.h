@@ -12,7 +12,7 @@ struct futex
 
 struct barrier
 {
-	_Atomic(int32_t) state;
+	/* _Atomic(int32_t) state; */
 	_Atomic(int32_t) count;
 };
 

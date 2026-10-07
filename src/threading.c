@@ -54,9 +54,9 @@ void barrier_init(struct barrier* barrier, const int32_t count)
 
 void barrier_wait(struct barrier* bar)
 {
-	futex_lock((struct futex*)bar);
+	/* futex_lock((struct futex*)bar); */
 	int32_t value = fetch_sub_ex(&bar->count, 1, acq_rel);
-	futex_unlock((struct futex*)bar);
+	/* futex_unlock((struct futex*)bar); */
 	if (value == 1)
 	{
 		return;

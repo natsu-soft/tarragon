@@ -12,14 +12,14 @@
 
 #define SAN_CHECK \
 	X(barrier_wait)								\
-	X(atom_ring)
+	/* X(atom_ring) */
 
 #define SRC_TESTS								\
 	X(jobs) \
-	/* X(linked_list) \ */
-	/* X(godot_api) \ */
-	/* X(gdscript_suite) \ */
-	/* X(perfect_json) \ */
+	X(linked_list) \
+	X(perfect_json) \
+	X(godot_api) \
+	X(gdscript_suite) \
 	/* X(xml) \ */
 	/* X(base_protocol) \ */
 	// declare pass

@@ -61,7 +61,7 @@ static void worker_main(struct thread_context* ctx)
 	{
 		/* printf("%d-%d\n", ctx->sync_epoch, ctx->thread_num); */
 		/* fflush(stdout); */
-		res = atom_ring_read(&job_ring, &job, sizeof job);
+		res = atom_ring_concurrent_read(&job_ring, &job, sizeof job, NULL);
 		/* res = atom_ring_read(&job_ring, &job, sizeof job); */
 		if (res == sizeof job)
 		{
@@ -84,7 +84,7 @@ static void worker_main(struct thread_context* ctx)
 				initializer();
 			}
 		}
-		else
+		else if (res != ATOM_RING_EVICTED)
 		{
 			switch(res)
 			{
@@ -144,19 +144,19 @@ void jobs_add_initializer(init_func initializer)
 {
 	struct job j = { .fptr = initializer };
 	j.tag = INITIALIZER;
-	atom_ring_write(&job_ring, &j, sizeof j);
+	atom_ring_concurrent_write(&job_ring, &j, sizeof j, NULL);
 }
 
 void jobs_add_noarg(job_func job)
 {
 	struct job j = { .fptr = job };
-	atom_ring_write(&job_ring, &j, sizeof(j));
+	atom_ring_concurrent_write(&job_ring, &j, sizeof(j), NULL);
 }
 
 void jobs_add_arg(job_func job, void* args)
 {
 	struct job j = { .fptr = job, .args = args };
-	atom_ring_write(&job_ring, &j, sizeof(j));
+	atom_ring_concurrent_write(&job_ring, &j, sizeof(j), NULL);
 }
 
 static inline void worker_sync(struct barrier* barrier, struct thread_context* ctx)
@@ -173,6 +173,7 @@ void jobs_sync()
 	struct job sync = { .fptr = worker_sync, .args = &sync_barrier };
 	atom_ring_n_write(&job_ring, &sync, num_worker_threads, sizeof sync);
 	barrier_wait(&sync_barrier);
+	fflush(stdout);
 }
 
 void jobs_finish(void)
@@ -182,8 +183,9 @@ void jobs_finish(void)
 	atomic_store_explicit(&jobs_state, JOBS_DEAD, memory_order_release);
 	// you need to write data so that way threads waiting to READ actually READ & EXIT
 	// spiritually it should be zero
-	struct job kill_job = { .tag = KILL_WORKER };
-	atom_ring_n_write(&job_ring, &kill_job,  num_worker_threads, sizeof kill_job);
+	/* struct job kill_job = { .tag = KILL_WORKER }; */
+	/* atom_ring_n_write(&job_ring, &kill_job,  num_worker_threads, sizeof kill_job); */
+	atom_ring_evict_all(&job_ring);
 	for (int32_t i = 0; i < num_worker_threads; ++i)
 	{
 		pthread_join(worker_threads[i], NULL);
@@ -208,20 +210,29 @@ static void worker_test(struct _test_struct* args, struct thread_context* ctx)
 static char spinner[4] = { '-', '\\', '|', '/' };
 int jobs_test(char** argc, int argv)
 {
-	#define TEST_LEN 1024
-	int32_t test_ints[TEST_LEN] = { 0 };
+	/* #define TEST_LEN 2147483647 */
+#define TEST_LEN 2097152
+	printf("- sync abuse");
+	fflush(stdout);
+	CLOCKMESSAGE("", for (int32_t i = 0; i < 1024; ++i)
+	{
+		jobs_sync();
+	})
+	int32_t test_ints[TEST_LEN] = {0};
 	// dumbass, you need to allocate heap memory for this
 	struct _test_struct* worker_args = scratch_alloc(TEST_LEN * sizeof *worker_args);
-	for (uint32_t i = 0; i < TEST_LEN; ++i)
+	printf("- assigning indices into array of size %d", TEST_LEN);
+	fflush(stdout);
+	CLOCKMESSAGE("", for (uint32_t i = 0; i < TEST_LEN; ++i)
 	{
 		worker_args[i] = (struct _test_struct){ .ints = test_ints, .idx = i};
 		jobs_add(worker_test, worker_args + i);
 	}
 	// xor a MASSIVE bit buffer EXACTLY ONCE.
 	// then sync
-	CLOCKTIME(jobs_sync();)
+	jobs_sync();)
+	fflush(stdout);
 	uint8_t check = 0;
-	printf("\n>> SYNC <<\n");
 	assert((0x01 ^ 0x01) == 0x00);
 	assert((0x01 ^ 0x01 ^ 0x01) != 0x00);
 	uint8_t res = 0;
@@ -234,5 +245,4 @@ int jobs_test(char** argc, int argv)
 		}
 	}
 	return res;
-	// check everything is ONE
 }
