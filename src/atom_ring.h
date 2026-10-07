@@ -17,4 +17,6 @@ int32_t atom_ring_n_write(struct atom_ring* ring, void* src, const int32_t n, co
 int32_t atom_ring_concurrent_write(struct atom_ring* ring, void* src, const int32_t size, struct tx_range* write_range);
 int32_t atom_ring_concurrent_read(struct atom_ring* ring, void* dest, const int32_t size, struct tx_range* read_range);
 
+void atom_ring_evict_all(struct atom_ring* ring);
+
 #endif /* End ATOM_RING_H */
