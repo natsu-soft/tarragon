@@ -99,6 +99,7 @@ static void worker_main(struct thread_context* ctx)
 void jobs_init(const int32_t num_threads, const int32_t min_job_ring_size)
 {
 	ring_map((struct ring_buffer*)&job_ring, min_job_ring_size, "jobring");
+	assert(job_ring.size == (1 << __builtin_ctz(job_ring.size)));
 	/* __uint128_t* ring_test =  job_ring.addr; */
 	/* *ring_test = 0xB16B00B5B00BCAFE; */
 	/* assert(strncmp(job_ring.addr, job_ring.addr + job_ring.size, 16) == 0); */
