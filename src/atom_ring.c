@@ -2,8 +2,9 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdint.h>
-#include "atomics.h"
 #include <string.h>
+#include <stdarg.h>
+#include "atomics.h"
 #include "sync_addr.h"
 #include "threading.h"
 
@@ -441,6 +442,54 @@ int32_t atom_ring_n_write(struct atom_ring* ring, void* src, const int32_t n, co
 	}
 	return ATOM_RING_EVICTED;
 }
+
+int32_t atom_ring_printf(struct atom_ring* ring, const char* format, ...)
+{
+	va_list va_args;
+	va_start(va_args, format);
+	const int32_t size = snprintf(NULL, 0, format, va_args);
+	assert(0 < size);
+	assert(size <= ring->size - 1);
+	_Atomic(int32_t)* const write_state = &ring->write_state;
+	int32_t state = load_ex(write_state, acquire);
+	while(!(state & EVICTED))
+	{
+		state &= ~(LOCKED | EVICTED);
+		if (comp_swap_ex(write_state, &state, LOCKED | state, acq_rel, acquire))
+		{
+			if (writeable_size(ring) < size)
+			{
+				atom_ring_flush(ring);
+			}
+			const int32_t tail = load_ex(&ring->writing_tail, acquire);
+			const int32_t tail1 = tail + size & ring->size - 1;
+			store_ex(&ring->writing_tail, tail1, release);
+			cache_write(tail, tail1);
+			if (write_range != NULL)
+			{
+				write_range->start = tail;
+				write_range->end = tail1;
+			}
+			// TODO: SANCHECK IN FLIGHT ERROR CHECKING
+			for (int32_t i = 0; i < size; ++i)
+			{
+				assert(ring->addr[tail + i] == 0x00);
+			}
+			sprintf((char*)(ring->addr + tail), format, va_args);
+			store_ex(&ring->tail, tail1, release);
+			unlock_and_wake(write_state);
+			wake_if_only_waiting(&ring->read_state);
+			return size;
+		}
+	}
+}
+
+// flush to stdout
+int32_t atom_ring_flush(struct atom_ring* ring)
+{
+	/* TODO */
+}
+
 
 // TODO: stop swapping for concurrent write/read
 int32_t atom_ring_concurrent_write(struct atom_ring* ring, void* src, const int32_t size, struct tx_range* write_range)
