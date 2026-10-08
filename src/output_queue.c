@@ -62,7 +62,6 @@ void output_queue_init(void)
 
 void output_queue_free(void)
 {
-	atom_ring_evict_all(&o_ring);
 	ring_unmap((struct ring_buffer*)&o_ring);
 }
 
