@@ -4,6 +4,7 @@
 #define LOG_FILE_HERE
 #include "logger.h"
 #undef LOG_FILE_HERE
+#include "output_queue.h"
 #include "allocators/scratch.h"
 #include "allocators/workpad.h"
 #include "gdscript/lex.h"
@@ -40,13 +41,12 @@ int main(int argc, char** argv)
 	jobs_init(4, 4096);
 	printf("worker threads initialized. Initializing other systems\n");
 	fflush(stdout);
-	jobs_add_initializer(scratch_init); printf("> queued scratch_init()\n");
-	jobs_add_initializer(workpad_init); printf("> queued workpad_init()\n");
-	jobs_add_initializer(lex_init); printf("> queued lex_init()\n");
-	jobs_add_initializer(flexer_init); printf("> queued flexer_init()--TODO: DELETE THIS\n");
-	printf("> synching\n");
-	fflush(stdout);
-	jobs_sync();
+	MICROMESSAGE("INITS", jobs_add_initializer(output_queue_init);
+	jobs_add_initializer(scratch_init);
+	jobs_add_initializer(workpad_init);
+	jobs_add_initializer(lex_init);
+	jobs_add_initializer(flexer_init); /* TODO: DELETE THIS */
+	jobs_sync();)
 	printf("\nrunning tests\n");
 	fflush(stdout);
 	log_fp = fopen("test.log", "w");
