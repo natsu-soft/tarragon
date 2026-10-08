@@ -24,7 +24,7 @@ struct tx_range
 // NOTE: alignment MATTERS
 struct atom_ring
 {
-	_Atomic(uint8_t)* addr;
+	uint8_t* addr;
 	// double-word
 	uint32_t size; // speed NOW
 	int32_t fd;
