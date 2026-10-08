@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include "memery.h"
 #include "sync_addr.h"
-#include "atom_ring.h"
+#include "atom_ring_types.h"
 #include "atomics.h"
 
 #define OUTPUT_QUEUE_SIZE 32768
