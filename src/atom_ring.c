@@ -269,7 +269,7 @@ static inline int32_t unlock_and_wake(_Atomic(int32_t)* state_ptr)
 	{
 		res = sync_addr_wake_all(state_ptr);
 	}
-	return 0;
+	return res;
 }
 
 static inline int32_t wake_if_only_waiting(_Atomic(int32_t)* state_ptr)
