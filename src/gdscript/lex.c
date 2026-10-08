@@ -421,8 +421,9 @@ static int8_t scan_lws(int32_t* cursor, uint8_t* lex_state, const char* src, con
 	return 0;
 }
 
-static void bad_lws_diagnostics(diagnostic* diagnostics, const char* src, const int32_t length)
+static void bad_lws_diagnostics(const char* src, const int32_t length)
 {
+	assert(0 && "TODO: implement this src/gdscript/lex.c:bad_lws_diagnostics()\n");
 	uint8_t lws_mask = LWS_NONE;
 	for (int i = 0; i < length; ++i)
 	{
@@ -640,7 +641,7 @@ static inline void next_token(struct token* token, int32_t* cursor, const char* 
 	token->id = GDSCRIPT_EOF;
 }
 
-int32_t lex(token_table_t* token_table, arena_t* backing_arena, arena_t* work_arena, const char* src, const int32_t length, diagnostic* diagnostics)
+int32_t lex(token_table_t* token_table, arena_t* backing_arena, arena_t* work_arena, const char* src, const int32_t length)
 {
 	token_table->src = src;
 	int32_t* offsets = arena_alloc(backing_arena, (length + 128) * sizeof *offsets);
@@ -720,7 +721,7 @@ int32_t lex(token_table_t* token_table, arena_t* backing_arena, arena_t* work_ar
 		}
 		else if (scan_lws(&cursor, &lws_state, src, length) == MIXED_LWS)
 		{
-			bad_lws_diagnostics(diagnostics, src, length);
+			bad_lws_diagnostics(src, length);
 			token_table->num_tokens = 0;
 			return 0;
 		}

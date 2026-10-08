@@ -11,7 +11,7 @@ typedef struct arena_t arena_t;
 void lex_init(void);
 
 // NOTE: passing in the backing & work arenas for the eventual multithreadening
-int32_t lex(token_table_t* token_table, arena_t* backing_arena, arena_t* work_arena, const char* src, const int32_t length, diagnostic* diagnostics);
+int32_t lex(token_table_t* token_table, arena_t* backing_arena, arena_t* work_arena, const char* src, const int32_t length);
 
 const int32_t lex_backing_size(const int32_t length);
 

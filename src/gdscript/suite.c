@@ -288,7 +288,7 @@ int gdscript_suite_test(int argc, char** argv)
 	arena_t* lex_work = workpad_checkout(lex_work_size(src_len));
 	virtual_buffer vb = memalloc(10 * MB);
 	diagnostic* diagnostics = vb.addr;
-	MICROTIME(num_tokens = lex(&new_table, lex_arena, lex_work, src, src_len, diagnostics);)
+	MICROTIME(num_tokens = lex(&new_table, lex_arena, lex_work, src, src_len);)
 	printf("tokens: %d, src size: %d, token_size: %d, max size: %d\n", num_tokens, src_len, num_tokens * 7, 8 * src_len + 4096);
 	scratch_alloc(4 * src_len);
 	MICROTIME(num_tokens = gdscript_flex(flex_arena, &table, src, src_len);)
