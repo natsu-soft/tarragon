@@ -16,15 +16,15 @@
 		/* fflush(stdout); */ \
 	}
 
-#define MICROMESSAGE(MSG, BODY)				\
+#define MICROMESSAGE(MSG, BODY, ...)				\
 	{ \
 		struct timeval micro_start; \
 		struct timeval micro_stop;	\
 		gettimeofday(&micro_start, NULL); \
-		do {BODY} while(0); \
+		do {BODY __VA_OPT__(,) __VA_ARGS__ } while(0);	  \
 		gettimeofday(&micro_stop, NULL); \
 		unsigned long long delta_ms = 1e6 * (micro_start.tv_sec - micro_stop.tv_sec) + micro_stop.tv_usec - micro_start.tv_usec; \
-		printf("[" MSG "] %06dus\n", delta_ms);	\
+		printf("[ " MSG " ] %06dus\n", delta_ms);	\
 		fflush(stdout); \
 	}
 
