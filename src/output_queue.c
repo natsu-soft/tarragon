@@ -7,6 +7,34 @@
 #include "atom_ring_types.h"
 #include "atomics.h"
 
+// NOTE: alignment MATTERS
+static struct
+{
+	uint8_t* addr;
+	// double-word
+	uint32_t size; // speed NOW
+	int32_t fd;
+	// double-word
+	// pre-transaction values
+	_Atomic(int32_t) head;
+	_Atomic(int32_t) tail;
+	// double-word
+	_Atomic(int32_t) write_state;
+	_Atomic(int32_t) read_state;
+	/* NOTE: ASPIRATIONAL
+	 * post-transaction values to accomodate EITHER concurrent readers OR concurrent writers
+	 * - this still doesnt accomodate multiple readers & writers
+	 * - I DONT THINK YOU CAN HAVE BOTH
+	 * - skill issue, I can have both >:^)
+	 * BUT you can QUEUE the other */
+	// double-word
+	_Atomic(int32_t) writing_tail;
+	// NOTE: NVM.  this is right: https://lo.calho.st/posts/black-magic-buffer/
+	// direction is actually a NECESSARY for size calculations--WRONG!
+	// double-word
+	/* _Atomic(int32_t) direction; */
+} o_ring = {0};
+
 #define OUTPUT_QUEUE_SIZE 32768
 
 enum
@@ -36,8 +64,6 @@ static inline int32_t wake_if_only_waiting(_Atomic(int32_t)* state_ptr)
 	return res;
 }
 
-static struct atom_ring o_ring = {0};
-
 static inline const int32_t writeable_size(void)
 {
 	const int32_t head = load_ex(&o_ring.head, acquire);
@@ -49,7 +75,7 @@ static inline const int32_t writeable_size(void)
 
 static inline const int32_t readable_size(void)
 {
-	const int32_t head = load_ex(&o_ring.reading_head, acquire);
+	const int32_t head = load_ex(&o_ring.head, acquire);
 	const int32_t tail = load_ex(&o_ring.tail, acquire);
 	return tail >= head ? tail - head : tail + OUTPUT_QUEUE_SIZE - head;
 }
@@ -80,6 +106,12 @@ int32_t output_queue_printf(char* format, ...)
 			state &= ~LOCKED;
 			if (comp_swap_ex(write_state, &state, LOCKED | state, acq_rel, acquire))
 			{
+				/* TODO: basically the interior of queue flush here
+				   while writeable_size < size
+				     try to acquire readlock
+				     if successful fwrite ring to stdout
+				     else sleep
+				 */
 				if (writeable_size() < size)
 				{
 					output_queue_flush();
