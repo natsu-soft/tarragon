@@ -209,13 +209,6 @@ static void worker_test(struct _test_struct* args, struct thread_context* ctx)
 static char spinner[4] = { '-', '\\', '|', '/' };
 int jobs_test(char** argc, int argv)
 {
-	/* #define TEST_LEN 2147483647 */
-	printf("- sync abuse");
-	fflush(stdout);
-	CLOCKMESSAGE("", for (int32_t i = 0; i < 128; ++i)
-	{
-		jobs_sync();
-	})
 	#define TEST_LEN 1048576
 	int32_t test_ints[TEST_LEN] = {0};
 	// dumbass, you need to allocate heap memory for this
