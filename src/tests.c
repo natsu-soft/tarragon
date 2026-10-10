@@ -4,7 +4,7 @@
 #define LOG_FILE_HERE
 #include "logger.h"
 #undef LOG_FILE_HERE
-#include "output_queue.h"
+#include "output_ring.h"
 #include "allocators/scratch.h"
 #include "allocators/workpad.h"
 #include "gdscript/lex.h"
@@ -41,7 +41,7 @@ int main(int argc, char** argv)
 	jobs_init(4, 4096);
 	printf("worker threads initialized. Initializing other systems\n");
 	fflush(stdout);
-	MICROMESSAGE("INITS", jobs_add_initializer(output_queue_init);
+	MICROMESSAGE("INITS", jobs_add_initializer(output_ring_init);
 	jobs_add_initializer(scratch_init);
 	jobs_add_initializer(workpad_init);
 	jobs_add_initializer(lex_init);
