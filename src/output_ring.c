@@ -1,4 +1,4 @@
-#include "output_queue.h"
+#include "output_ring.h"
 #include <string.h>
 #include <assert.h>
 #include <stdarg.h>
@@ -70,18 +70,18 @@ static inline const int32_t readable_size(void)
 	return tail >= head ? tail - head : tail + OUTPUT_RING_SIZE - head;
 }
 
-void output_queue_init(void)
+void output_ring_init(void)
 {
 	ring_map((struct ring_buffer*)&o_ring, OUTPUT_RING_SIZE, "outring");
 	assert(o_ring.size == OUTPUT_RING_SIZE);
 }
 
-void output_queue_free(void)
+void output_ring_free(void)
 {
 	ring_unmap((struct ring_buffer*)&o_ring);
 }
 
-int32_t output_queue_printf(char* format, ...)
+int32_t output_ring_printf(char* format, ...)
 {
 	va_list va_args;
 	va_start(va_args, format);
@@ -140,7 +140,7 @@ int32_t output_queue_printf(char* format, ...)
 	return size;
 }
 
-int32_t output_queue_puts(const string* str)
+int32_t output_ring_puts(const string* str)
 {
 	const int32_t size = str->length;
 	assert(0 < size);
@@ -196,7 +196,7 @@ int32_t output_queue_puts(const string* str)
 	return size;
 }
 
-int32_t output_queue_flush(void)
+int32_t output_ring_flush(void)
 {
 	_Atomic(int32_t)* const read_state = &o_ring.read_state;
 	int32_t state = load_ex(read_state, acquire);
