@@ -1,4 +1,4 @@
-#include "output_ring.h"
+#include "stdout_ring.h"
 #include <string.h>
 #include <assert.h>
 #include <stdarg.h>
@@ -25,7 +25,7 @@ static struct
 	_Atomic(int32_t) writing_tail;
 } o_ring = {0};
 
-#define OUTPUT_RING_SIZE 32768
+#define STDOUT_RING_SIZE 32768
 
 enum
 {
@@ -60,34 +60,34 @@ static inline const int32_t writeable_size(void)
 	const int32_t tail = load_ex(&o_ring.writing_tail, acquire);
 	/* const int32_t dir = load_ex(&o_ring->direction, acquire); */
 	/* return head <= size ? size - (tail - head) : head - tail; */
-	return  tail >= head ? OUTPUT_RING_SIZE - (tail - head) - 1 : head - tail - 1;
+	return  tail >= head ? STDOUT_RING_SIZE - (tail - head) - 1 : head - tail - 1;
 }
 
 static inline const int32_t readable_size(void)
 {
 	const int32_t head = load_ex(&o_ring.head, acquire);
 	const int32_t tail = load_ex(&o_ring.tail, acquire);
-	return tail >= head ? tail - head : tail + OUTPUT_RING_SIZE - head;
+	return tail >= head ? tail - head : tail + STDOUT_RING_SIZE - head;
 }
 
-void output_ring_init(void)
+void stdout_ring_init(void)
 {
-	ring_map((struct ring_buffer*)&o_ring, OUTPUT_RING_SIZE, "outring");
-	assert(o_ring.size == OUTPUT_RING_SIZE);
+	ring_map((struct ring_buffer*)&o_ring, STDOUT_RING_SIZE, "outring");
+	assert(o_ring.size == STDOUT_RING_SIZE);
 }
 
-void output_ring_free(void)
+void stdout_ring_free(void)
 {
 	ring_unmap((struct ring_buffer*)&o_ring);
 }
 
-int32_t output_ring_printf(char* format, ...)
+int32_t stdout_ring_printf(char* format, ...)
 {
 	va_list va_args;
 	va_start(va_args, format);
 	const int32_t size = snprintf(NULL, 0, format, va_args);
 	assert(0 < size);
-	if (size < OUTPUT_RING_SIZE)
+	if (size < STDOUT_RING_SIZE)
 	{
 		_Atomic(int32_t)* const write_state = &o_ring.write_state;
 		int32_t state = load_ex(write_state, acquire);
@@ -102,7 +102,7 @@ int32_t output_ring_printf(char* format, ...)
 					if (comp_swap_ex(&o_ring.read_state, &state, LOCKED | state, acq_rel, acquire))
 					{
 						const int32_t head = load_ex(&o_ring.head, acquire);
-						const int32_t head1 = head + size & OUTPUT_RING_SIZE - 1;
+						const int32_t head1 = head + size & STDOUT_RING_SIZE - 1;
 						assert(fwrite(o_ring.addr + head, 1, size, stdout) == size);
 						store_ex(&o_ring.head, head1, release);
 						unlock_and_wake(&o_ring.read_state);
@@ -115,7 +115,7 @@ int32_t output_ring_printf(char* format, ...)
 					}
 				}
 				const int32_t tail = load_ex(&o_ring.writing_tail, acquire);
-				const int32_t tail1 = tail + size & OUTPUT_RING_SIZE - 1;
+				const int32_t tail1 = tail + size & STDOUT_RING_SIZE - 1;
 				store_ex(&o_ring.writing_tail, tail1, release);
 				unlock_and_wake(write_state);
 				vsprintf((char*)(o_ring.addr + tail), format, va_args);
@@ -140,11 +140,11 @@ int32_t output_ring_printf(char* format, ...)
 	return size;
 }
 
-int32_t output_ring_puts(const string* str)
+int32_t stdout_ring_puts(const string* str)
 {
 	const int32_t size = str->length;
 	assert(0 < size);
-	if (size < OUTPUT_RING_SIZE)
+	if (size < STDOUT_RING_SIZE)
 	{
 		_Atomic(int32_t)* const write_state = &o_ring.write_state;
 		int32_t state = load_ex(write_state, acquire);
@@ -159,7 +159,7 @@ int32_t output_ring_puts(const string* str)
 					if (comp_swap_ex(&o_ring.read_state, &state, LOCKED | state, acq_rel, acquire))
 					{
 						const int32_t head = load_ex(&o_ring.head, acquire);
-						const int32_t head1 = head + size & OUTPUT_RING_SIZE - 1;
+						const int32_t head1 = head + size & STDOUT_RING_SIZE - 1;
 						assert(fwrite(o_ring.addr + head, 1, size, stdout) == size);
 						store_ex(&o_ring.head, head1, release);
 						unlock_and_wake(&o_ring.read_state);
@@ -172,7 +172,7 @@ int32_t output_ring_puts(const string* str)
 					}
 				}
 				const int32_t tail = load_ex(&o_ring.writing_tail, acquire);
-				const int32_t tail1 = tail + size & OUTPUT_RING_SIZE - 1;
+				const int32_t tail1 = tail + size & STDOUT_RING_SIZE - 1;
 				store_ex(&o_ring.writing_tail, tail1, release);
 				unlock_and_wake(write_state);
 				memcpy(o_ring.addr + tail, str->chars, size);
@@ -196,7 +196,7 @@ int32_t output_ring_puts(const string* str)
 	return size;
 }
 
-int32_t output_ring_flush(void)
+int32_t stdout_ring_flush(void)
 {
 	_Atomic(int32_t)* const read_state = &o_ring.read_state;
 	int32_t state = load_ex(read_state, acquire);
@@ -209,7 +209,7 @@ int32_t output_ring_flush(void)
 			if (size > 0)
 			{
 				const int32_t head = load_ex(&o_ring.head, acquire);
-				const int32_t head1 = head + size & OUTPUT_RING_SIZE - 1;
+				const int32_t head1 = head + size & STDOUT_RING_SIZE - 1;
 				assert(fwrite(o_ring.addr + head, 1, size, stdout) == size);
 				store_ex(&o_ring.head, head1, release);
 			}
