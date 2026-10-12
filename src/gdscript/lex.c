@@ -3,11 +3,12 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
+#include "../allocators/scratch.h"
 #include "../memery.h"
 #include "tokens_types.h"
 #include "token_ids_types.h"
 #include "token_id_map.h"
-#include "diagnostic_types.h"
+#include "print_diagnostics.h"
 /* #include "../cursor.h" */
 #include "../strings.h"
 #include "../allocators/arena.h"
@@ -395,7 +396,7 @@ enum
 	MIXED_LWS = -1
 };
 
-static int8_t scan_lws(int32_t* cursor, uint8_t* lex_state, const char* src, const int32_t length)
+static int8_t scan_lws(int32_t* cursor, uint8_t* lex_state, const char* src, const int32_t length, char* bad_lws)
 {
 	int32_t i = *cursor;
 	for (; *cursor < length; ++*cursor)
@@ -406,6 +407,7 @@ static int8_t scan_lws(int32_t* cursor, uint8_t* lex_state, const char* src, con
 			*lex_state |= c == ' ' ? LWS_SPACES : LWS_TABS;
 			if ((*lex_state & LWS_MASK) != LWS_BOTH_ERR)
 			{
+				*bad_lws = c;
 				continue;
 			}
 			else
@@ -421,15 +423,22 @@ static int8_t scan_lws(int32_t* cursor, uint8_t* lex_state, const char* src, con
 	return 0;
 }
 
-static void bad_lws_diagnostics(const char* src, const int32_t length)
+static void bad_lws_diagnostics(const char bad_lws, const char* src, const int32_t length)
 {
-	assert(0 && "TODO: implement this src/gdscript/lex.c:bad_lws_diagnostics()\n");
 	uint8_t lws_mask = LWS_NONE;
 	for (int i = 0; i < length; ++i)
 	{
 		const char c = src[i];
 		if (!(c == ' ' || c == '\t'))
 		{
+			for (; i < length && src[i] != '\n'; ++i);
+		}
+		else if (c == bad_lws)
+		{
+			const int32_t i0 = i;
+			for (; i < length && src[i] == bad_lws; ++i);
+			string temp = { .chars = scratch_alloc(4096) };
+			diagnostic_error(&temp, bad_lws == ' ' ? "Bad leading whitespace. Indent with tabs in <FILE>." : "Bad leading whitespace. Indent with spaces in <FILE>.", src, length, "<path>", i0, i - i0);
 		}
 	}
 }
@@ -648,6 +657,7 @@ int32_t lex(token_table_t* token_table, arena_t* backing_arena, arena_t* work_ar
 	int16_t* lens = arena_alloc(backing_arena, (length + 128) * sizeof *lens);
 	token_id_t* ids = arena_alloc(backing_arena, (length + 128) * sizeof *ids);
 	int32_t n = 0;
+	char bad_lws;
 	// NOTE: very memey setup
 	for (uint8_t i = 0; i < TOKEN_START; ++i)
 	{
@@ -719,9 +729,9 @@ int32_t lex(token_table_t* token_table, arena_t* backing_arena, arena_t* work_ar
 			ids[n++] = id + unary_diff + scope_diff;
 			prev_id= id;
 		}
-		else if (scan_lws(&cursor, &lws_state, src, length) == MIXED_LWS)
+		else if (scan_lws(&cursor, &lws_state, src, length, &bad_lws) == MIXED_LWS)
 		{
-			bad_lws_diagnostics(src, length);
+			bad_lws_diagnostics(bad_lws, src, length);
 			token_table->num_tokens = 0;
 			return 0;
 		}
