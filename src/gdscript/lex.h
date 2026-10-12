@@ -2,7 +2,6 @@
 #define GDSCRIPT_LEX_AND_SHUNT_H
 
 #include "tokens_types.h"
-#include "diagnostic_types.h"
 #include <stdint.h>
 
 typedef struct token_table_t token_table_t;
