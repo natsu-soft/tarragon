@@ -9,6 +9,7 @@
 #include "token_ids_types.h"
 #include "token_id_map.h"
 #include "print_diagnostics.h"
+#include "../stdout_ring.h"
 /* #include "../cursor.h" */
 #include "../strings.h"
 #include "../allocators/arena.h"
@@ -439,6 +440,7 @@ static void bad_lws_diagnostics(const char bad_lws, const char* src, const int32
 			for (; i < length && src[i] == bad_lws; ++i);
 			string temp = { .chars = scratch_alloc(4096) };
 			diagnostic_error(&temp, bad_lws == ' ' ? "Bad leading whitespace. Indent with tabs in <FILE>." : "Bad leading whitespace. Indent with spaces in <FILE>.", src, length, "<path>", i0, i - i0);
+			stdout_ring_puts(&temp);
 		}
 	}
 }
