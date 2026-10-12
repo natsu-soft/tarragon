@@ -7,7 +7,6 @@
 
 struct thread_context
 {
-	arena_t scratch;
 	int32_t thread_num;
 	uint32_t sync_epoch;
 	uint32_t thread_mask;

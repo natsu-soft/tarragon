@@ -55,6 +55,7 @@ static pthread_t* worker_threads;
 
 static void worker_main(struct thread_context* ctx)
 {
+	scratch_init();
 	int32_t res;
 	struct job job;
 	while (atomic_load_explicit(&jobs_state, memory_order_acquire) == JOBS_ALIVE)
@@ -131,11 +132,6 @@ void jobs_init(const int32_t num_threads, const int32_t min_job_ring_size)
 		{
 			.thread_num = i,
 			.thread_mask = 1 << i,
-			.scratch =
-			{
-				.addr = arena_alloc(&thread_mem_arena, 64 * KB),
-				.cap = 64 * KB
-			},
 		};
 		pthread_create(worker_threads + i, &attr, worker_main, ctx);
 	}
