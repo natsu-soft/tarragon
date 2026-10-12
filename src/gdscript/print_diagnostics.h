@@ -2,8 +2,7 @@
 #define PRINT_DIAGNOSTICS_H
 
 #include <stdint.h>
-
-typedef struct string string;
+#include "../strings.h"
 
 // NOTE: string* dest assumes sufficient size
 void diagnostic_note(string* dest, const char* msg, const char* src, const int32_t src_len, const char* path, const int32_t offset, const int16_t len);

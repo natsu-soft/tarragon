@@ -1,6 +1,5 @@
 #include "print_diagnostics.h"
 #include <stdio.h>
-#include "../strings.h"
 
 int32_t tab_depth = 4;
 
