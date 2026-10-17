@@ -19,13 +19,17 @@ LDFLAGS := -fuse-ld=mold -flto -static
 MAINS := src/tarragon.c src/tests.c src/builtin_generator.c src/massive_test.c
 IGNORE := src/gdscript/gdscript_ast.c src/gdscript/gdscript_tokenizer.c src/logger.c src/builtin.c src/allocators/devious.c src/fml.c src/api_generator.c src/godot_api.c src/massive_script_writer.c
 ALL_SRC := $(wildcard src/*.c) $(wildcard src/allocators/*.c) $(wildcard src/gdscript/*.c) $(wildcard src/hashmaps/*.c)
+PLATFORM :=
 ifeq ($(OS), Windows_NT)
+	PLATFORM=windows
 	ALL_SRC += $(wildcard src/windows/*.c)
 endif
 ifeq ($(OS), Linux)
+	PLATFORM=linux
 	ALL_SRC += $(wildcard src/linux/*.c)
 endif
 ifeq ($(OS), Darwin)
+	PLATFORM=osx
 	ALL_SRC += $(wildcard src/osx/*.c)
 endif
 SRC := $(filter-out $(IGNORE), $(filter-out $(MAINS), $(ALL_SRC)))
@@ -59,7 +63,7 @@ src/builtin.gen: builtin-generator extension_api.json
 builtin-generator: obj/builtin_generator.o obj/mem_sys.o obj/allocators/arena.o obj/allocators/scratch.o obj/allocators/workpad.o obj/gdscript/hashmaps.o obj/hashmaps/gid_map.o obj/perfect_json.o
 	$(CC) $(CFLAGS) -o $@ $^
 
-api-generator: obj/api_generator.o obj/mem_sys.o obj/allocators/arena.o obj/allocators/scratch.o obj/allocators/workpad.o obj/hashmaps/api_map.o obj/perfect_json.o obj/gdscript/token_ids.o obj/gdscript/token_id_map.o obj/api_structs.o obj/strings.o;
+api-generator: obj/api_generator.o obj/mem_sys.o obj/allocators/arena.o obj/allocators/scratch.o obj/allocators/workpad.o obj/hashmaps/api_map.o obj/perfect_json.o obj/gdscript/token_ids.o obj/gdscript/token_id_map.o obj/api_structs.o obj/strings.o obj/threading.o obj/$(PLATFORM)/sync_addr.o;
 	$(CC) $(CFLAGS) -o $@ $^
 
 extension_api.json:
