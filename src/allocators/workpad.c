@@ -3,6 +3,7 @@
 #include <assert.h>
 #include "arena.h"
 #include "../linked_list.h"
+#include "../threading.h"
 
 #define WORKPAD_OVERHEAD 4096
 #define INIT_NUM_WORKPADS 8
@@ -34,6 +35,8 @@ static struct fauxpad unavailable =
 	.next = (struct workpad*)&unavailable,
 	.prev = (struct workpad*)&unavailable
 };
+
+static struct futex workpad_ftx = {0};
 
 /* __attribute__((constructor)) */
 void workpad_init(void)
@@ -67,6 +70,7 @@ static void more_workpads(const int32_t size)
 
 arena_t* workpad_checkout(const int32_t size)
 {
+	futex_lock(&workpad_ftx);
 	if (available.next == (struct workpad*)&available)
 	{
 		more_workpads(size);
@@ -78,12 +82,14 @@ arena_t* workpad_checkout(const int32_t size)
 	struct workpad* workpad = available.next;
 	workpad_remove(workpad);
 	workpad_append((struct workpad*)&unavailable, workpad);
+	futex_unlock(&workpad_ftx);
 	workpad->arena.size = 0;
 	return &workpad->arena;
 }
 
 void* workpad_alloc(const int32_t size)
 {
+	futex_lock(&workpad_ftx);
 	if (available.next == (struct workpad*)&available)
 	{
 		more_workpads(size);
@@ -95,6 +101,7 @@ void* workpad_alloc(const int32_t size)
 	struct workpad* workpad = available.next;
 	workpad_remove(workpad);
 	workpad_append((struct workpad*)&unavailable, workpad);
+	futex_unlock(&workpad_ftx);
 	workpad->arena.size = 0;
 	return workpad->arena.addr;
 }
@@ -103,8 +110,10 @@ void workpad_checkin(arena_t* arena)
 {
 	struct workpad* workpad = (struct workpad*)((uint8_t*)arena  - offsetof(struct workpad, arena));
 	assert(workpad->magic_num == MAGIC_NUM);
+	futex_lock(&workpad_ftx);
 	workpad_remove(workpad);
 	workpad_append((struct workpad*)&available, workpad);
+	futex_unlock(&workpad_ftx);
 	/* for (struct workpad** w = &unavailable ; *w; *w = (*w)->next) */
 	/* { */
 	/* 	if (*w == workpad) */
@@ -121,6 +130,7 @@ void workpad_checkin_all(void)
 {
 	if (unavailable.next != (struct workpad*)&unavailable)
 	{
+		futex_lock(&workpad_ftx);
 		workpad_pair(unavailable.prev, available.next);
 		workpad_pair((struct workpad*)&available, unavailable.next);
 		unavailable = (struct fauxpad)
@@ -128,6 +138,7 @@ void workpad_checkin_all(void)
 			.next = (struct workpad*)&unavailable,
 			.prev = (struct workpad*)&unavailable,
 		};
+		futex_unlock(&workpad_ftx);
 	}
 	/* if (unavailable) */
 	/* { */
