@@ -14,7 +14,7 @@ void workpad_init(void);
 
 arena_t* workpad_checkout(const int32_t size);
 
-void* workpad(const int32_t size);
+void* workpad_alloc(const int32_t size);
 
 void workpad_checkin(arena_t* arena);
 
