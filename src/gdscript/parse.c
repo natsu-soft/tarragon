@@ -79,7 +79,7 @@ static inline uint8_t one_or_no_children_p(const struct parse_node* node)
 	return node->child == node->child->next || node->child->next == node->child->prev;
 }
 
-void parse_node_sexp(struct parse_node* node, const token_table_t* token_table)
+void parse_node_sexp(struct parse_node* node, const source_data_t* src_data)
 {
 	struct parse_node* n = node;
 	do
@@ -89,7 +89,7 @@ void parse_node_sexp(struct parse_node* node, const token_table_t* token_table)
 			putc('(', stdout);
 		}
 		const int32_t i = n->index;
-		switch(token_table->ids[i])
+		switch(src_data->token_ids[i])
 		{
 		case GDSCRIPT_NONE:  /* printf("NONE"); */ continue; break;
 		#define X(ID) case PARSE_##ID: printf("PARSE_" #ID); break;
@@ -103,12 +103,12 @@ void parse_node_sexp(struct parse_node* node, const token_table_t* token_table)
 		case GDSCRIPT_PAREN_OPEN: printf("'('"); break;
 		case GDSCRIPT_PAREN_CLOSE: printf("')'"); break;
 		default:
-			printf("%.*s",token_table->lens[i], token_table->src + token_table->offsets[i]);
+			printf("%.*s",src_data->token_lens[i], src_data->src + src_data->token_offsets[i]);
 		}
 		if (n->child != nil)
 		{
 			putc(' ', stdout);
-			parse_node_sexp(n->child, token_table);
+			parse_node_sexp(n->child, src_data);
 			putc(')', stdout);
 		}
 		if (n->next != node)
@@ -147,15 +147,16 @@ static enum parse_res parse_ternary_expr(struct parse_node* root, int32_t* curso
 static void parse_period_expr(struct parse_node** root, int32_t* cursor, struct context* ctx);
 static enum parse_length ingest_token(const token_id_t id, struct parse_node** current, struct parse_node** last, int32_t* cursor, struct context* ctx);
 
-struct parse_node* parse_node(arena_t* backing_arena, const parse_table_t* parse_table, const int32_t idx)
+
+struct parse_node* parse_node(arena_t* backing_arena, const source_data_t* src_data, const int32_t idx)
 {
 	struct parse_node* res = nil;
-	if (0 < idx && idx < parse_table->size)
+	if (0 < idx && idx < src_data->num_parse_nodes)
 	{
-		int16_t* depths = parse_table->depths;
+		int16_t* depths = src_data->parse_depths;
 		const int16_t depth0 = depths[idx];
 		res = alloc_node(backing_arena);
-		res->index = parse_table->token_indices[idx];
+		res->index = src_data->parse_to_token_indices[idx];
 		if (depths[idx - 1] > depth0)
 		{
 			res->child = alloc_jct(backing_arena);
@@ -163,7 +164,7 @@ struct parse_node* parse_node(arena_t* backing_arena, const parse_table_t* parse
 			{
 				if (depths[i] == depth0 + 1)
 				{
-					struct parse_node* node = parse_node(backing_arena, parse_table, i);
+					struct parse_node* node = parse_node(backing_arena, src_data, i);
 					node_append(res->child, node);
 				}
 			}
@@ -176,8 +177,42 @@ struct parse_node* parse_node(arena_t* backing_arena, const parse_table_t* parse
 	return res;
 }
 
+struct parse_node* shallow_parse_node(arena_t* backing_arena, const source_data_t* src_data, const int32_t idx)
+{
+	struct parse_node* res = nil;
+	if (0 < idx && idx < src_data->num_parse_nodes)
+	{
+		int16_t* depths = src_data->parse_depths;
+		const int16_t depth0 = depths[idx];
+		res = alloc_node(backing_arena);
+		res->index = src_data->parse_to_token_indices[idx];
+		if (depths[idx - 1] > depth0)
+		{
+			res->child = alloc_jct(backing_arena);
+			for (int32_t i = idx - 1; i > 0 && depths[i] > depth0; --i)
+			{
+				if (depths[i] == depth0 + 1)
+				{
+					struct parse_node* node = alloc_node(backing_arena);
+					node->index = src_data->parse_to_token_indices[i];
+					node->child = nil;
+					node_append(res->child, node);
+				}
+			}
+		}
+		else
+		{
+			res->child = nil;
+		}
+	}
+	return res;
+}
+
+
+
+
 // as a humble warmup
-int32_t shunt(parse_table_t* p_table, token_table_t* token_table, arena_t* backing_arena, arena_t* work_arena)
+int32_t shunt(source_data_t* src_data, arena_t* backing_arena, arena_t* work_arena)
 {
 	arena_free_all(work_arena);
 	struct i32_stack idx_stack =
@@ -185,8 +220,8 @@ int32_t shunt(parse_table_t* p_table, token_table_t* token_table, arena_t* backi
 		.buffer = arena_alloc(work_arena, work_arena->cap),
 		.cap = work_arena->cap >> 2
 	};
-	const int32_t num_tokens = token_table->num_tokens;
-	token_id_t* ids = token_table->ids;
+	const int32_t num_tokens = src_data->num_tokens;
+	token_id_t* ids = src_data->token_ids;
 	/* int32_t* indices = arena_alloc(backing_arena, (num_tokens << 2) * sizeof *indices); */
 	int32_t* indices = arena_alloc(backing_arena, 2 * num_tokens * sizeof *indices);
 	int32_t n = 0;
@@ -250,25 +285,25 @@ int32_t shunt(parse_table_t* p_table, token_table_t* token_table, arena_t* backi
 		}
 		#undef X
 	}
-	p_table->token_indices = indices;
-	p_table->size = n;
+	src_data->parse_to_token_indices = indices;
+	src_data->num_parse_nodes = n;
 	return n;
 }
 
 // just parse, warts & all
-int32_t parse(parse_table_t* p_table, token_table_t* token_table, arena_t* backing_arena, arena_t* work_arena)
+int32_t parse(source_data_t* src_data, arena_t* backing_arena, arena_t* work_arena)
 {
-	const int32_t num_tokens = token_table->num_tokens;
+	const int32_t num_tokens = src_data->num_tokens;
 	struct id_bitset default_bitset = {0};
 	struct context ctx =
 	{
 		.arena = work_arena,
 		.indices = arena_alloc(backing_arena, (num_tokens << 1) * sizeof(int32_t)),
 		.depths = arena_alloc(backing_arena, (num_tokens << 1) * sizeof(int16_t)),
-		.offsets = token_table->offsets,
-		.src = token_table->src,
-		.lens = token_table->lens,
-		.ids = token_table->ids,
+		.offsets = src_data->token_offsets,
+		.src = src_data->src,
+		.lens = src_data->token_lens,
+		.ids = src_data->token_ids,
 		.num_tokens = num_tokens,
 		.parent_tokens = &default_bitset
 	};
@@ -278,10 +313,10 @@ int32_t parse(parse_table_t* p_table, token_table_t* token_table, arena_t* backi
 	ctx.indices[n] = 0;
 	ctx.depths[n++] = 0;
 	parse_lines(&cursor, &n, 0, 0, &ctx);
-	p_table->token_indices = ctx.indices;
-	p_table->depths = ctx.depths;
+	src_data->parse_to_token_indices = ctx.indices;
+	src_data->parse_depths = ctx.depths;
 	// TODO: concat token_indices & depths
-	p_table->size = n;
+	src_data->num_parse_nodes = n;
 	ctx.indices[n + 1] = num_tokens + 1;
 	ctx.depths[n + 1] = 0;
 	return n;
@@ -309,22 +344,22 @@ static void dump_postorder(struct parse_node* node, int32_t* indices, int16_t* d
 	}
 }
 
-void print_postorder(struct parse_node* node, const int16_t depth, token_table_t* token_table)
+void print_postorder(struct parse_node* node, const int16_t depth, source_data_t* src_data)
 {
 	assert(node != NULL);
-	assertf(node->index == 0, "NON-JUNCTION: %d:%.*s\n", node->index, token_table->lens[node->index], token_table->src + token_table->offsets[node->index]);
+	assertf(node->index == 0, "NON-JUNCTION: %d:%.*s\n", node->index, src_data->token_lens[node->index], src_data->src + src_data->token_offsets[node->index]);
 	for(struct parse_node* p = node->next; p != node; p = p->next)
 	{
 		if (p->child != nil)
 		{
-			print_postorder(p->child, depth + 1, token_table);
+			print_postorder(p->child, depth + 1, src_data);
 		}
 		for (int16_t i = 0; i < 2 * depth; ++i)
 		{
 			putc(' ', stdout);
 		}
 		const int32_t i = p->index;
-		switch(token_table->ids[i])
+		switch(src_data->token_ids[i])
 		{
 		#define X(A,...) case GDSCRIPT_##A: printf("%d: GDSCRIPT_" #A "\n", i - TOKEN_START); break;
 		GDSCRIPT_BUILTIN_TOKENS
@@ -335,9 +370,9 @@ void print_postorder(struct parse_node* node, const int16_t depth, token_table_t
 		PARSE_IDS
 		#undef X
 		default:
-			printf("%d: %.*s\n", i - TOKEN_START, token_table->lens[i], token_table->src + token_table->offsets[i]);
+			printf("%d: %.*s\n", i - TOKEN_START, src_data->token_lens[i], src_data->src + src_data->token_offsets[i]);
 		}
-		assertf(p->child != NULL, "(%d:%.*s)'s child is NULL\n", i, token_table->lens[i], token_table->src + token_table->offsets[i]);
+		assertf(p->child != NULL, "(%d:%.*s)'s child is NULL\n", i, src_data->token_lens[i], src_data->src + src_data->token_offsets[i]);
 	}
 }
 

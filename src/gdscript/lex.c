@@ -5,7 +5,6 @@
 #include <stdbool.h>
 #include "../allocators/scratch.h"
 #include "../memery.h"
-#include "tokens_types.h"
 #include "token_ids_types.h"
 #include "token_id_map.h"
 #include "print_diagnostics.h"
@@ -652,9 +651,9 @@ static inline void next_token(struct token* token, int32_t* cursor, const char* 
 	token->id = GDSCRIPT_EOF;
 }
 
-int32_t lex(token_table_t* token_table, arena_t* backing_arena, arena_t* work_arena, const char* src, const int32_t length)
+int32_t lex(source_data_t* src_data, arena_t* backing_arena, arena_t* work_arena, const char* src, const int32_t length)
 {
-	token_table->src = src;
+	src_data->src = src;
 	int32_t* offsets = arena_alloc(backing_arena, (length + 128) * sizeof *offsets);
 	int16_t* lens = arena_alloc(backing_arena, (length + 128) * sizeof *lens);
 	token_id_t* ids = arena_alloc(backing_arena, (length + 128) * sizeof *ids);
@@ -734,7 +733,7 @@ int32_t lex(token_table_t* token_table, arena_t* backing_arena, arena_t* work_ar
 		else if (scan_lws(&cursor, &lws_state, src, length, &bad_lws) == MIXED_LWS)
 		{
 			bad_lws_diagnostics(bad_lws, src, length);
-			token_table->num_tokens = 0;
+			src_data->num_tokens = 0;
 			return 0;
 		}
 		else
@@ -766,10 +765,10 @@ int32_t lex(token_table_t* token_table, arena_t* backing_arena, arena_t* work_ar
 	lens[n] = 0;
 	ids[n] = GDSCRIPT_EOF;
 	backing_arena->size = (ids + n) - backing_arena->addr;
-	token_table->offsets = offsets;
-	token_table->lens = lens;
-	token_table->ids = ids;
-	token_table->num_tokens = n;
+	src_data->token_offsets = offsets;
+	src_data->token_lens = lens;
+	src_data->token_ids = ids;
+	src_data->num_tokens = n;
 	return n;
 }
 

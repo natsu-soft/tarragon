@@ -311,11 +311,10 @@
 	X(STRING_NAME)							\
 	X(RESOURCE)								\
 	X(NODE_PATH)
-
-
 #endif
 
 #define PARSE_IDS \
+	X(SCRIPT) \
 	X(SCOPE) \
 	X(ANNOTATION_PARAMS) \
 	X(LAMBDA) \

@@ -18,23 +18,23 @@
 #include "strings.h"
 #include "../memery.h"
 
-static void print_parse_table(const char* src, const parse_table_t* parse_table, const token_table_t* token_table)
+static void print_parse_table(const char* src, const source_data_t* src_data)
 {
-	int16_t* depths = parse_table->depths;
-	int32_t* index = parse_table->token_indices + 1;
-	for (int32_t i = 1; i < parse_table->size; ++i, ++index)
+	int16_t* depths = src_data->parse_depths;
+	int32_t* index = src_data->parse_to_token_indices + 1;
+	for (int32_t i = 1; i < src_data->num_parse_nodes; ++i, ++index)
 	{
 		if (depths[i] == 0)
 		{
-			struct parse_node* node = parse_node(scratch_arena(4096), parse_table, i);
+			struct parse_node* node = parse_node(scratch_arena(4096), src_data, i);
 			/* parse_node_sexp(node, token_table); */
-			parse_node_sexp(node, token_table);
+			parse_node_sexp(node, src_data);
 			printf("\n\n");
 		}
 		else if (0)
 		{
 				/* printf("%d:", depths[i]); */
-			switch(token_table->ids[*index])
+			switch(src_data->token_ids[*index])
 			{
 			case GDSCRIPT_NONE: printf("[ NONE ] "); break;
 			#define X(A) \
@@ -48,7 +48,7 @@ static void print_parse_table(const char* src, const parse_table_t* parse_table,
 			case GDSCRIPT_MISSING_BRACE_CLOSE: printf("missing:} "); break;
 			case GDSCRIPT_MISSING_BRACKET_CLOSE: printf("missing:] "); break;
 			default:
-				printf("%.*s ", token_table->lens[index[i]], src + token_table->offsets[index[i]]);
+				printf("%.*s ", src_data->token_lens[index[i]], src + src_data->token_offsets[index[i]]);
 			}
 		}
 	}
@@ -284,18 +284,18 @@ int gdscript_suite_test(int argc, char** argv)
 	token_table_t new_table = {};
 	arena_t* lex_arena = workpad_checkout(lex_backing_size(src_len));
 	arena_t* lex_work = workpad_checkout(lex_work_size(src_len));
+	source_data_t source_data = {.src = src, .path = "RewindAbility.gd", .src_len = src_len };
 	virtual_buffer vb = memalloc(10 * MB);
-	MICROTIME(num_tokens = lex(&new_table, lex_arena, lex_work, src, src_len);)
+	MICROTIME(num_tokens = lex(&source_data, lex_arena, lex_work, src, src_len);)
 	printf("tokens: %d, src size: %d, token_size: %d, max size: %d\n", num_tokens, src_len, num_tokens * 7, 8 * src_len + 4096);
 	scratch_alloc(4 * src_len);
 	MICROTIME(num_tokens = gdscript_flex(flex_arena, &table, src, src_len);)
 	printf("tokens: %d, src size: %d, token_size: %d, max size: %d\n", num_tokens, src_len, num_tokens * 7, 8 * src_len + 4096);
 	/* print_tokens(src, new_table.offsets, new_table.lens, new_table.num_tokens); */
 	/* print_ids(src, new_table.offsets, new_table.lens, new_table.ids, new_table.num_tokens); */
-	parse_table_t parse_table = {0};
 	arena_t* p_arena = workpad_checkout(parse_backing_size(num_tokens));
-	MICROTIME(num_tokens = parse(&parse_table, &new_table, p_arena, lex_work);)
+	MICROTIME(num_tokens = parse(&source_data, p_arena, lex_work);)
 	printf("parse num tokens: %d\n", num_tokens);
-	print_parse_table(src, &parse_table, &new_table);
+	print_parse_table(src, &source_data);
 	return 0;
 }
