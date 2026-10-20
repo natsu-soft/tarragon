@@ -1,33 +1,110 @@
 #include "syntax_check.h"
+#include <string.h>
+#define DEFINE_TOKEN_PREDICATES
+#include "token_ids_types.h"
+#undef DEFINE_TOKEN_PREDICATES
+#include "source_data.h"
+#include "parse.h"
+#include "print_diagnostics.h"
+#include "../allocators/arena.h"
+#include "../allocators/scratch.h"
 #include "../allocators/workpad.h"
 #include "../job.h"
 
-struct syntax_check_args
-{
-	parse_table_t* parse_table;
-	token_table_t* token_table;
-	struct syntax_check_args* args;
-	int32_t parse_index;
-};
+// NOTE: passing in ptrs to index because it also doubles as the offset - 1 to script_data
+static void check_top_node(int32_t* idx_ptr, struct thread_context* ctx);
+static void check_top_annotation(int32_t* idx_ptr, struct thread_context* ctx);
+static void check_annotation_node(int32_t* idx_ptr, struct thread_context* ctx);
 
-static void syntax_check_node(struct syntax_check_args* args, struct thread_context* ctx);
-
-void syntax_check(parse_table_t* parse_table, token_table_t* token_table)
+void syntax_check(source_data_t* src_data)
 {
-	struct syntax_check_args* args = workpad_alloc(parse_table->size * sizeof *args);
-	for (int32_t i = 0; parse_table->size; ++i)
+	arena_t* workpad = workpad_checkout(sizeof *src_data + src_data->num_parse_nodes * sizeof(int32_t));
+	source_data_t* job_data = arena_alloc(workpad, sizeof *src_data);
+	*job_data = *src_data;
+	int32_t* indices = arena_alloc(workpad, src_data->num_parse_nodes * sizeof *indices);
+	for (int32_t i = 0; src_data->num_parse_nodes; ++i)
 	{
-		args[i] = (struct syntax_check_args)
+		indices[i] = i;
+	}
+	for (int32_t i = 1; i < src_data->num_parse_nodes; ++i)
+	{
+		if (src_data->parse_depths[i] == 0)
 		{
-			.parse_table = parse_table,
-			.token_table = token_table,
-			.args = args,
-			.parse_index = i
-		};
-		if (parse_table->depths[i] == 0)
+			jobs_add(indices + i, check_top_node);
+		}
+	}
+}
+
+
+static void check_top_node(int32_t* idx_ptr, struct thread_context* ctx)
+{
+	const int32_t idx = *idx_ptr;
+	source_data_t* src_data = (source_data_t*)(idx_ptr - idx - 1);
+	/* if (source_data->token_ids[source_data->parse_to_token_indices[parse_idx]] != GDSCRIPT_LINE_END) */
+	if (parse_idx_to_token_id(src_data, idx) != GDSCRIPT_LINE_END)
+	{
+		int32_t offset;
+		int16_t len;
+		parse_subtree_source_offset_and_len(&offset, &len, src_data, idx);
+		string temp = { .chars = scratch_alloc(4096) };
+		diagnostic_error(&temp, "HOW????", src_data->src, src_data->src_len, src_data->path, offset, len);
+	}
+	int32_t child_idx = parse_node_first_child(src_data, idx);
+	token_id_t id = parse_idx_to_token_id(src_data, child_idx);
+	if (annotation_p(id))
+	{
+	}
+	else if (id == GDSCRIPT_VAR || id == GDSCRIPT_CONST)
+	{
+	}
+	else if (id == GDSCRIPT_FUNC)
+	{
+	}
+	else if (id == GDSCRIPT_EXTENDS)
+	{
+		int32_t num_children = parse_node_num_children(src_data, idx);
+		// check if either either an identifer or a string
+	}
+	else if (id == GDSCRIPT_CLASS_NAME || id == GDSCRIPT_CLASS)
+	{
+		child_idx = parse_node_sibling(src_data, child_idx);
+		if (parse_idx_to_token_id(src_data, child_idx) != GDSCRIPT_IDENTIFIER)
 		{
-			jobs_add(, )
-			syntax_check_node(args + i, )
+			int32_t offset;
+			int16_t len;
+			parse_subtree_source_offset_and_len(&offset, &len, src_data, child_idx);
+			string temp = { .chars = scratch_alloc(4096) };
+			diagnostic_error(&temp, "this must be an identifier!",src_data->src, src_data->src_len, src_data->path, offset, len);
+		}
+		if ((child_idx = parse_node_sibling(src_data, child_idx)) != 0)
+		{
+			const int32_t offset0 = parse_subtree_source_offset0(src_data, child_idx);
+			const int32_t offset1 = parse_idx_to_token_offset(src_data, idx);
+			string temp = { .chars = scratch_alloc(4096) };
+			diagnostic_error(&temp, "no additional tokens allowed after identifier!",src_data->src, src_data->src_len, src_data->path, offset0, offset1 - offset0);
+		}
+	}
+	else
+	{
+		int32_t offset;
+		int16_t len;
+		parse_subtree_source_offset_and_len(&offset, &len, src_data, idx);
+		string temp = { .chars = scratch_alloc(4096) };
+		switch(id)
+		{
+#define X(ID,...)				\
+			case GDSCRIPT_##ID: \
+				diagnostic_error(&temp, #ID " are an inappropriate top-level tokens", src_data->src, src_data->src_len, src_data->path, offset, len); \
+				break;
+			GDSCRIPT_BUILTIN_TOKENS
+			GDSCRIPT_NONKEYWORD_LITERALS
+#undef X
+		case GDSCRIPT_NUMBER:
+			diagnostic_error(&temp, "number literals are inappropriate top-level tokens", src_data->src, src_data->src_len, src_data->path, offset, len);
+			break;
+		case GDSCRIPT_IDENTIFIER:
+			diagnostic_error(&temp, "identifier are inappropriate top-level tokens", src_data->src, src_data->src_len, src_data->path, offset, len);
+			break;
 		}
 	}
 }

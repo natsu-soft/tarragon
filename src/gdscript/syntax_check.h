@@ -1,10 +1,9 @@
 #ifndef SYNTAX_CHECK_H
 #define SYNTAX_CHECK_H
 
-#include "tokens_types.h"
-#include "parse_types.h"
+#include "source_data_types.h"
 
-void syntax_check(parse_table_t* parse_table, token_table_t* token_table);
+void syntax_check(source_data_t* src_data);
 
 
 
