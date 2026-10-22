@@ -86,7 +86,6 @@ static void check_top_node(int32_t* idx_ptr, struct thread_context* ctx)
 		int32_t offset;
 		int16_t len;
 		parse_subtree_source_offset_and_len(&offset, &len, src_data, idx);
-		string temp = { .chars = scratch_alloc(4096) };
 		switch(id)
 		{
 #define X(ID,...)				\
