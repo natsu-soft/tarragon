@@ -4,7 +4,8 @@
 #include <stdint.h>
 #include <stdatomic.h>
 
-// NOTE: atom ring error enums are just the sync_addr errror enums
+struct atom_ring;
+typedef void (*atom_ring_flush_func)(void* addr0, const int32_t byte_len);
 
 enum atom_ring_results
 {
@@ -51,3 +52,4 @@ struct atom_ring
 };
 
 #endif /* End ATOM_RING_TYPES_H */
+

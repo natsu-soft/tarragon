@@ -14,11 +14,13 @@ int32_t atom_ring_read(struct atom_ring* ring, void* dest, const int32_t size);
 
 int32_t atom_ring_n_write(struct atom_ring* ring, void* src, const int32_t n, const int32_t elem_size);
 
-int32_t atom_ring_printf(struct atom_ring* ring, const char* format, ...);
-int32_t atom_ring_flush(struct atom_ring* ring);
+/* int32_t atom_ring_flush(struct atom_ring* ring, void (*flush)(struct atom_ring* ring)); */
+int32_t atom_ring_flush(struct atom_ring* ring, atom_ring_flush_func flush);
 
 int32_t atom_ring_concurrent_write(struct atom_ring* ring, void* src, const int32_t size, struct tx_range* write_range);
 int32_t atom_ring_concurrent_read(struct atom_ring* ring, void* dest, const int32_t size, struct tx_range* read_range);
+
+int32_t atom_ring_flushing_concurrent_write(struct atom_ring* ring, void* src, const int32_t size, atom_ring_flush_func flush);
 
 void atom_ring_evict_all(struct atom_ring* ring);
 

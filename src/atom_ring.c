@@ -160,7 +160,7 @@ enum
 	LOCKED		= 0x01,
 	WAITING		= 0x02,
 	ERR_STOP	= 0x04,
-	EVICTED   	= 0x08,
+	EVICTED		= 0x08,
 };
 
 static inline const int32_t writeable_size(struct atom_ring* ring)
@@ -442,6 +442,37 @@ int32_t atom_ring_n_write(struct atom_ring* ring, void* src, const int32_t n, co
 	return ATOM_RING_EVICTED;
 }
 
+
+int32_t atom_ring_flush(struct atom_ring* ring, atom_ring_flush_func flush)
+{
+	_Atomic(int32_t)* const read_state = &ring->read_state;
+	int32_t state = load_ex(read_state, acquire);
+	while (!(state & EVICTED))
+	{
+		state &= ~(LOCKED | EVICTED);
+		if (comp_swap_ex(read_state, &state, LOCKED | state, acq_rel, acquire))
+		{
+			const int32_t head = load_ex(&ring->reading_head, acquire);
+			const int32_t tail = load_ex(&ring->tail, acquire);
+			const int32_t size = tail > head ? tail - head : tail + ring->size - head;
+			store_ex(&ring->reading_head, tail, release);
+			flush(ring->addr + head, size);
+			cache_read(head, tail);
+			store_ex(&ring->head, tail, release);
+			unlock_and_wake(read_state);
+			wake_if_only_waiting(&ring->write_state);
+			return size;
+		}
+		int32_t wait_state = WAITING | state;
+		if (!(state & EVICTED) && comp_swap_ex(read_state, &state, wait_state, acq_rel, acquire))
+		{
+			sync_addr_wait(read_state, &wait_state);
+		}
+		state = load_ex(read_state, acquire);
+	}
+	return ATOM_RING_EVICTED;
+}
+
 int32_t atom_ring_concurrent_write(struct atom_ring* ring, void* src, const int32_t size, struct tx_range* write_range)
 {
 	assert(0 < size);
@@ -566,6 +597,74 @@ int32_t atom_ring_concurrent_read(struct atom_ring* ring, void* dest, const int3
 	}
 	return ATOM_RING_EVICTED;
 }
+
+// NOTE: flush is NOT concurrent
+int32_t atom_ring_flushing_concurrent_write(struct atom_ring* ring, void* src, const int32_t size, atom_ring_flush_func flush)
+{
+	assert(0 < size);
+	assert(size <= ring->size - 1);
+	_Atomic(int32_t)* const write_state = &ring->write_state;
+	int32_t state = load_ex(write_state, acquire);
+	while (!(state & EVICTED))
+	{
+		while (!(state & EVICTED) && size < writeable_size(ring))
+		{
+			state &= ~(LOCKED | EVICTED);
+			if (comp_swap_ex(write_state, &state, LOCKED | state, acq_rel, acquire))
+			{
+				atom_ring_flush(ring, flush);
+				unlock_and_wake(write_state);
+			}
+			int32_t wait_state = state | WAITING;
+			if (!(state & EVICTED) && comp_swap_ex(write_state, &state, wait_state, acq_rel, acquire))
+			{
+				sync_addr_wait(write_state, &wait_state);
+			}
+			state = load_ex(write_state, acquire);
+		}
+		state &= ~(LOCKED | EVICTED);
+		if (comp_swap_ex(write_state, &state, LOCKED | state, acq_rel, acquire))
+		{
+			if (writeable_size(ring) < size)
+			{
+				#ifndef NOFRAUD
+				unlock_and_wake(write_state);
+				state = load_ex(write_state, acquire);
+				continue;
+				#else
+				fetch_or(write_state, ERR_STOP);
+				fetch_or(&ring->read_state, ERR_STOP);
+				assert(0 && "writing: lol nvm");
+				#endif
+			}
+			const int32_t tail = load_ex(&ring->writing_tail, acquire);
+			const int32_t tail1 = tail + size & ring->size - 1;
+			store_ex(&ring->writing_tail, tail1, release);
+			unlock_and_wake(write_state);
+			cache_write(tail, tail1);
+			// TODO: SANCHECK IN FLIGHT ERROR CHECKING
+			for (int32_t i = 0; i < size; ++i)
+			{
+				assert(ring->addr[tail + i] == 0x00);
+			}
+			memcpy(ring->addr + tail, src, size);
+			// TODO: WAIT dont SPIN
+			while (load_ex(&ring->tail, acquire) != tail)
+			{ ; }
+			store_ex(&ring->tail, tail1, release);
+			wake_if_only_waiting(&ring->read_state);
+			return size;
+		}
+		int32_t wait_state = WAITING | state;
+		if (!(state & EVICTED) && comp_swap_ex(write_state, &state, wait_state, acq_rel, acquire))
+		{
+			sync_addr_wait(write_state, &wait_state);
+		}
+		state = load_ex(write_state, acquire);
+	}
+	return ATOM_RING_EVICTED;
+}
+
 
 void atom_ring_evict_all(struct atom_ring* ring)
 {
