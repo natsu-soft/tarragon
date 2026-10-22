@@ -1,10 +1,10 @@
 #include "syntax_check.h"
 #include <string.h>
+#include <stdatomic.h>
 #define DEFINE_TOKEN_PREDICATES
 #include "token_ids_types.h"
 #undef DEFINE_TOKEN_PREDICATES
 #include "source_data.h"
-#include "parse.h"
 #include "diagnostics.h"
 #include "../allocators/arena.h"
 #include "../allocators/scratch.h"
@@ -16,11 +16,28 @@ static void check_top_node(int32_t* idx_ptr, struct thread_context* ctx);
 static void check_top_annotation(int32_t* idx_ptr, struct thread_context* ctx);
 static void check_annotation_node(int32_t* idx_ptr, struct thread_context* ctx);
 
+enum
+{
+	NONE			= 0x00,
+	HAS_CLASS_NAME	= 0x01,
+	HAS_EXTENDS		= 0x02,
+	HAS_ABSTRACT	= 0x04,
+	HAS_TOOL		= 0x08,
+	BELOW_TOP		= 0x80
+};
+
+struct metadata_header
+{
+	source_data_t src_data;
+	_Atomic(uint8_t) src_flags;
+};
+
 void syntax_check(source_data_t* src_data)
 {
-	arena_t* workpad = workpad_checkout(sizeof *src_data + src_data->num_parse_nodes * sizeof(int32_t));
-	source_data_t* job_data = arena_alloc(workpad, sizeof *src_data);
-	*job_data = *src_data;
+	struct metadata_header* metadata;
+	arena_t* workpad = workpad_checkout(sizeof *metadata + src_data->num_parse_nodes * sizeof(int32_t));
+	metadata = arena_alloc(workpad, sizeof *metadata);
+	*metadata = (struct metadata_header){ .src_data = *src_data };
 	int32_t* indices = arena_alloc(workpad, src_data->num_parse_nodes * sizeof *indices);
 	for (int32_t i = 0; src_data->num_parse_nodes; ++i)
 	{
@@ -39,7 +56,8 @@ void syntax_check(source_data_t* src_data)
 static void check_top_node(int32_t* idx_ptr, struct thread_context* ctx)
 {
 	const int32_t idx = *idx_ptr;
-	source_data_t* src_data = (source_data_t*)(idx_ptr - idx - 1);
+	struct metadata_header* metadata = (struct metadata_header*)(idx_ptr - idx) - 1;
+	source_data_t* src_data = &metadata->src_data;
 	/* if (source_data->token_ids[source_data->parse_to_token_indices[parse_idx]] != GDSCRIPT_LINE_END) */
 	if (parse_idx_to_token_id(src_data, idx) != GDSCRIPT_LINE_END)
 	{
