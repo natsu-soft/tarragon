@@ -137,6 +137,7 @@ int32_t stdout_ring_printf(char* format, ...)
 		// NOTE: printf is thread-safe, so no need to do any lock tomfoolery here
 		vprintf(format, va_args);
 	}
+	va_end(va_args);
 	return size;
 }
 
