@@ -6,8 +6,8 @@
 typedef struct arena_t
 {
 	uint8_t* addr;
-	int32_t cap;
 	int32_t size;
+	int32_t cap;
 } arena_t;
 
 
