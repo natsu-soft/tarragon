@@ -38,8 +38,7 @@ void syntax_check(source_data_t* src_data)
 	arena_t* workpad = workpad_checkout(sizeof *metadata + src_data->num_parse_nodes * sizeof(int32_t) + 32);
 	metadata = arena_alloc(workpad, sizeof *metadata);
 	*metadata = (struct metadata_header){ .src_data = *src_data };
-	arena_align2(workpad, 32);
-	int32_t* indices = arena_alloc(workpad, src_data->num_parse_nodes * sizeof *indices);
+	int32_t* indices = arena_alloc_aligned(workpad, src_data->num_parse_nodes * sizeof *indices, 32);
 	for (int32_t i = 0; src_data->num_parse_nodes; ++i)
 	{
 		indices[i] = i;
