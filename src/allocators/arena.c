@@ -1,6 +1,7 @@
 #include "arena.h"
 #include <assert.h>
 #include <stdlib.h>
+#include <stdarg.h>
 #include "../error_macros.h"
 /* #include "../logger.h" */
 
@@ -95,6 +96,45 @@ void arena_free_all(arena_t* arena)
 {
 	arena->size = 0;
 }
+
+string* arena_build_string_puts(arena_t* arena, const string* str)
+{
+	if (arena->size + str->length > arena->cap)
+	{
+		arena_grow(arena, arena->size + str->length);
+	}
+	memcpy(arena->addr + arena->size, str->chars, str->length);
+	arena->size += str->length;
+	return (string*)arena;
+}
+
+string* arena_build_string_putc(arena_t* arena, const char c)
+{
+	if (arena->size + 1 > arena->cap)
+	{
+		arena_grow(arena, arena->size + 1);
+	}
+	arena->addr[arena->size++] = c;
+	return (string*)arena;
+}
+
+string* arena_build_string_vsprintf(arena_t* arena, char* format, ...)
+{
+	va_list va_args;
+	va_start(va_args, format);
+	const int32_t size = snprintf(NULL, 0, format, va_args);
+	if (size > 0)
+	{
+		if (arena->size + size > arena->cap)
+		{
+			arena_grow(arena, arena->size + size);
+		}
+		snprintf((char*)arena->addr + arena->size, size, format, va_args);
+	}
+	va_end(va_args);
+	return (string*)arena;
+}
+
 
 
 void* arena_pop(arena_t* arena, const int32_t bytes)

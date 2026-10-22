@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include "arena_types.h"
+#include "../strings_types.h"
 
 void arena_init(arena_t* arena, const int32_t bytes);
 
@@ -23,6 +24,12 @@ void arena_free(arena_t* arena, const int32_t bytes);
 
 void arena_free_all(arena_t* arena);
 
+string* arena_build_string_puts(arena_t* arena, const string* str);
+string* arena_build_string_putc(arena_t* arena, const char c);
+string* arena_build_string_vsprintf(arena_t* arena, char* format, ...);
+
+
+// TODO: check which of these are actually used
 // for stack-like behavior
 void* arena_pop(arena_t* arena, const int32_t bytes);
 
