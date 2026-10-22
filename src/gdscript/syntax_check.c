@@ -5,7 +5,7 @@
 #undef DEFINE_TOKEN_PREDICATES
 #include "source_data.h"
 #include "parse.h"
-#include "print_diagnostics.h"
+#include "diagnostics.h"
 #include "../allocators/arena.h"
 #include "../allocators/scratch.h"
 #include "../allocators/workpad.h"
@@ -46,8 +46,7 @@ static void check_top_node(int32_t* idx_ptr, struct thread_context* ctx)
 		int32_t offset;
 		int16_t len;
 		parse_subtree_source_offset_and_len(&offset, &len, src_data, idx);
-		string temp = { .chars = scratch_alloc(4096) };
-		diagnostic_error(&temp, "HOW????", src_data->src, src_data->src_len, src_data->path, offset, len);
+		diagnostics_add(DIAGNOSTIC_BAD_TOPNODE, src_data->src, src_data->src_len, src_data->path, offset, len);
 	}
 	int32_t child_idx = parse_node_first_child(src_data, idx);
 	token_id_t id = parse_idx_to_token_id(src_data, child_idx);
@@ -73,15 +72,13 @@ static void check_top_node(int32_t* idx_ptr, struct thread_context* ctx)
 			int32_t offset;
 			int16_t len;
 			parse_subtree_source_offset_and_len(&offset, &len, src_data, child_idx);
-			string temp = { .chars = scratch_alloc(4096) };
-			diagnostic_error(&temp, "this must be an identifier!",src_data->src, src_data->src_len, src_data->path, offset, len);
+			diagnostics_add(DIAGNOSTIC_BAD_CLASS_NAME,src_data->src, src_data->src_len, src_data->path, offset, len);
 		}
 		if ((child_idx = parse_node_sibling(src_data, child_idx)) != 0)
 		{
 			const int32_t offset0 = parse_subtree_source_offset0(src_data, child_idx);
 			const int32_t offset1 = parse_idx_to_token_offset(src_data, idx);
-			string temp = { .chars = scratch_alloc(4096) };
-			diagnostic_error(&temp, "no additional tokens allowed after identifier!",src_data->src, src_data->src_len, src_data->path, offset0, offset1 - offset0);
+			diagnostics_add(DIAGNOSTIC_TOKENS_AFTER_CLASS_NAME,src_data->src, src_data->src_len, src_data->path, offset0, offset1 - offset0);
 		}
 	}
 	else
@@ -94,16 +91,16 @@ static void check_top_node(int32_t* idx_ptr, struct thread_context* ctx)
 		{
 #define X(ID,...)				\
 			case GDSCRIPT_##ID: \
-				diagnostic_error(&temp, #ID " are an inappropriate top-level tokens", src_data->src, src_data->src_len, src_data->path, offset, len); \
+				diagnostics_add(DIAGNOSTIC_BAD_TOPNODE, src_data->src, src_data->src_len, src_data->path, offset, len); \
 				break;
 			GDSCRIPT_BUILTIN_TOKENS
 			GDSCRIPT_NONKEYWORD_LITERALS
 #undef X
 		case GDSCRIPT_NUMBER:
-			diagnostic_error(&temp, "number literals are inappropriate top-level tokens", src_data->src, src_data->src_len, src_data->path, offset, len);
+				diagnostics_add(DIAGNOSTIC_BAD_TOPNODE, src_data->src, src_data->src_len, src_data->path, offset, len);
 			break;
 		case GDSCRIPT_IDENTIFIER:
-			diagnostic_error(&temp, "identifier are inappropriate top-level tokens", src_data->src, src_data->src_len, src_data->path, offset, len);
+				diagnostics_add(DIAGNOSTIC_BAD_TOPNODE, src_data->src, src_data->src_len, src_data->path, offset, len);
 			break;
 		}
 	}
