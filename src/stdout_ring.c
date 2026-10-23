@@ -72,7 +72,7 @@ static inline const int32_t readable_size(void)
 
 void stdout_ring_init(void)
 {
-	ring_map((struct ring_buffer*)&o_ring, STDOUT_RING_SIZE, "outring");
+	ring_map((struct ring_buffer*)&o_ring, STDOUT_RING_SIZE, "stdout_ring");
 	assert(o_ring.size == STDOUT_RING_SIZE);
 }
 
