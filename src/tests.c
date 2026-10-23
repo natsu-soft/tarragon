@@ -8,6 +8,7 @@
 #include "allocators/scratch.h"
 #include "allocators/workpad.h"
 #include "gdscript/lex.h"
+#include "gdscript/diagnostics.h"
 #include "gdscript/flexer.h"
 #include "benchmark.h"
 
@@ -42,6 +43,7 @@ int main(int argc, char** argv)
 	printf("worker threads initialized. Initializing other systems\n");
 	fflush(stdout);
 	MICROMESSAGE("INITS", jobs_add_initializer(stdout_ring_init);
+	jobs_add_initializer(diagnostics_init);
 	jobs_add_initializer(scratch_init);
 	jobs_add_initializer(workpad_init);
 	jobs_add_initializer(lex_init);
