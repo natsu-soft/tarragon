@@ -20,10 +20,10 @@ int32_t sync_addr_wait(_Atomic(int32_t)* addr, int32_t* wait_val_ptr)
 
 int32_t sync_addr_wait_timed(_Atomic(int32_t)* addr, int32_t* wait_val_ptr, const int32_t milliseconds)
 {
-	struct timespec timeout
+	struct timespec timeout =
 	{
 		.tv_sec = milliseconds / 1000,
-		.tv_nsec = 1000000 * (millisecond - 1000 * (millisecond / 1000))
+		.tv_nsec = 1000000 * (milliseconds - 1000 * (milliseconds / 1000))
 	};
 	const int32_t res =  syscall(SYS_futex, addr, FUTEX_WAIT_PRIVATE, *wait_val_ptr, &timeout);
 	if (res == -1)
