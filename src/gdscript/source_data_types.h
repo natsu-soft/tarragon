@@ -8,7 +8,7 @@ typedef struct source_data_t
 	char* src;
 	char* path; // TODO
 	int32_t* token_offsets;
-	int16_t* token_lens;
+	int16_t* token_lens; // TODO: int32_t*
 	enum token_id_t* token_ids;
 	int32_t* parse_to_token_indices;
 	int16_t* parse_depths;
