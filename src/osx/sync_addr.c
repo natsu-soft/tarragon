@@ -18,10 +18,10 @@ int32_t sync_addr_wait(_Atomic(int32_t)* addr, int32_t* wait_val_ptr)
 	return res;
 }
 
-int32_t sync_addr_wait_timed(_Atomic(int32_t)* addr, int32_t* wait_val_ptr, struct timespec* timeout)
+int32_t sync_addr_wait_timed(_Atomic(int32_t)* addr, int32_t* wait_val_ptr, const int32_t milliseconds)
 {
-	uint64_t timeout_ns = (uint64_t)timeout->tv_sec * 1000000000ULL + (uint64_t)timeout->tv_nsec;
-	int32_t res = os_sync_wait_on_address_with_timeout(addr, *wait_val_ptr, sizeof *wait_val_ptr, OS_SYNC_WAIT_ON_ADDRESS_NONE, OS_CLOCK_MACH_ABSOLUTE_TIME, timeout_ns);
+	// NOTE: timeout in nanoseconds
+	int32_t res = os_sync_wait_on_address_with_timeout(addr, *wait_val_ptr, sizeof *wait_val_ptr, OS_SYNC_WAIT_ON_ADDRESS_NONE, OS_CLOCK_MACH_ABSOLUTE_TIME, 1000000ULL * milliseconds);
 	if (res == -1)
 	{
 		// ETIMEDOUT is a normal outcome; EINTR/EFAULT/ENOMEM are expected

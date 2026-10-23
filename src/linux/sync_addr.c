@@ -18,9 +18,14 @@ int32_t sync_addr_wait(_Atomic(int32_t)* addr, int32_t* wait_val_ptr)
 	return res;
 }
 
-int32_t sync_addr_wait_timed(_Atomic(int32_t)* addr, int32_t* wait_val_ptr, struct timespec* timeout)
+int32_t sync_addr_wait_timed(_Atomic(int32_t)* addr, int32_t* wait_val_ptr, const int32_t milliseconds)
 {
-	const int32_t res =  syscall(SYS_futex, addr, FUTEX_WAIT_PRIVATE, *wait_val_ptr, timeout);
+	struct timespec timeout
+	{
+		.tv_sec = milliseconds / 1000,
+		.tv_nsec = 1000000 * (millisecond - 1000 * (millisecond / 1000))
+	};
+	const int32_t res =  syscall(SYS_futex, addr, FUTEX_WAIT_PRIVATE, *wait_val_ptr, &timeout);
 	if (res == -1)
 	{
 		// ETIMEDOUT is a normal outcome; EAGAIN/EINTR are expected transient

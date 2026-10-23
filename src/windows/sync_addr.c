@@ -22,13 +22,10 @@ int32_t sync_addr_wait(_Atomic(int32_t)* addr, int32_t* wait_val_ptr)
 	return res;
 }
 
-int32_t sync_addr_wait_timed(_Atomic(int32_t)* addr, int32_t* wait_val_ptr, struct timespec* timeout)
+int32_t sync_addr_wait_timed(_Atomic(int32_t)* addr, int32_t* wait_val_ptr, const int32_t milliseconds)
 {
 	// conver timeout to milliseconds
-	uint64_t timeout_ms = timeout->tv_nsec / 1000000;
-	timeout_ms = timeout_ms == 0  && timeout->tv_nsec > 0 ? 1 : 0;
-	timeout_ms += 1000 * timeout->tv_sec;
-	int32_t res = WaitOnAddress(addr, wait_val_ptr, sizeof *wait_val_ptr, timeout_ms);
+	int32_t res = WaitOnAddress(addr, wait_val_ptr, sizeof *wait_val_ptr, milliseconds);
 	if (res == FALSE)
 	{
 		// ERROR_TIMEOUT is a normal outcome; anything else is a bug.
