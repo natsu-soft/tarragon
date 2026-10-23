@@ -5,6 +5,7 @@
 #include "../allocators/arena.h"
 #include "../allocators/scratch.h"
 #include "../strings.h"
+#include "../memery.h"
 #include "../stdout_ring.h"
 
 // TODO: finish using an atom_ring for diagnostics.  Also have to implement additional stuff in atom_ring.c
@@ -36,13 +37,15 @@ static void print_error(arena_t* dest, char* message, char* const src, const int
 static void print_warn(arena_t* dest, char* message, char* const src, const int32_t src_len, const char* path, const struct src_range* range);
 static void print_note(arena_t* dest, char* message, char* const src, const int32_t src_len, const char* path, const struct src_range* range);
 
+#define RING_SIZE 4096
 static struct atom_ring diagnostics_ring;
 
 void diagnostics_init(void)
 {
-	/* TODO */
+	ring_map((struct ring_buffer*)&diagnostics_ring, RING_SIZE, "diagnostics_ring");
+	assert(diagnostics_ring.size == (1 << __builtin_ctz(diagnostics_ring.size)));
+	assert(diagnostics_ring.size == RING_SIZE);
 }
-
 
 void diagnostics_add(const enum diagnostic_msg msg, const char* src, const int32_t src_len, const char* path, const int32_t offset, const int16_t len)
 {
