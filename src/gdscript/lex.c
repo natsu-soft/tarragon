@@ -17,7 +17,7 @@
 /* #include "../macro_ring.h" */
 // it's lite, it's fast; it'll do.
 
-// this mite be SLIGHTLY faster
+static void token_diagnostics(int32_t* n, int32_t* offsets, int16_t* lens, token_id_t* ids, source_data_t* src_data);
 
 enum __attribute__((packed))
 {
@@ -649,6 +649,7 @@ static inline void next_token(struct token* token, int32_t* cursor, const char* 
 	token->id = GDSCRIPT_EOF;
 }
 
+
 int32_t lex(source_data_t* src_data, arena_t* backing_arena, arena_t* work_arena, const char* src, const int32_t length)
 {
 	src_data->src = src;
@@ -757,11 +758,12 @@ int32_t lex(source_data_t* src_data, arena_t* backing_arena, arena_t* work_arena
 		lens[n] = 0;
 		ids[n++] = GDSCRIPT_LINE_END;
 	}
-	lens = memmove(offsets + n + 1, lens, n * sizeof *lens);
-	ids = memmove(lens  + n + 1, ids, n * sizeof *ids);
 	offsets[n] = length;
 	lens[n] = 0;
-	ids[n] = GDSCRIPT_EOF;
+	ids[n++] = GDSCRIPT_EOF;
+	token_diagnostics(&n, offsets, lens, ids, src_data);
+	lens = memmove(offsets + n + 1, lens, n * sizeof *lens);
+	ids = memmove(lens  + n + 1, ids, n * sizeof *ids);
 	backing_arena->size = (ids + n) - backing_arena->addr;
 	src_data->token_offsets = offsets;
 	src_data->token_lens = lens;
@@ -779,4 +781,70 @@ const int32_t lex_work_size(const int32_t length)
 {
 	/* return length * (sizeof(int16_t) + 2 * sizeof(token_id_t)); */
 	return length * (sizeof(struct stack_token) + sizeof(int16_t));
+}
+
+// trims open/excess parens/curlies/brackets
+static void token_diagnostics(int32_t* n, int32_t* offsets, int16_t* lens, token_id_t* ids, source_data_t* src_data)
+{
+	const char* src = src_data->src;
+	const char* path = src_data->path;
+	const int32_t src_len = src_data->src_len;
+	const uint8_t missing_delta = GDSCRIPT_MISSING_PAREN_CLOSE - GDSCRIPT_PAREN_CLOSE;
+	// NOTE: last token is GDSCRIPT_EOF, so skip it (ergo *n - 2)
+	for (int32_t i = *n - 2; i >= 0; --i)
+	{
+		switch(ids[i])
+		{
+		case GDSCRIPT_UNTERMINATED_STRING:
+			diagnostics_add(DIAGNOSTIC_UNTERMINATED_STRING, src, src_len, path, offsets[i], lens[i]);
+			ids[i] = GDSCRIPT_STRING;
+			break;
+		case GDSCRIPT_PERVERTED_NUMBER:
+			diagnostics_add(DIAGNOSTIC_PERVERTED_NUMBER, src, src_len, path, offsets[i], lens[i]);
+			ids[i] = GDSCRIPT_FLOAT;
+			break;
+		case GDSCRIPT_MISSING_EXPONENT:
+			diagnostics_add(DIAGNOSTIC_MISSING_EXPONENT, src, src_len, path, offsets[i], lens[i]);
+			ids[i] = GDSCRIPT_FLOAT;
+			break;
+		case GDSCRIPT_PERVERTED_BINARY:
+			diagnostics_add(DIAGNOSTIC_PERVERTED_BINARY, src, src_len, path, offsets[i], lens[i]);
+			ids[i] = GDSCRIPT_INTEGER;
+			break;
+		case GDSCRIPT_PERVERTED_HEXADECIMAL:
+			diagnostics_add(DIAGNOSTIC_PERVERTED_HEXADECIMAL, src, src_len, path, offsets[i], lens[i]);
+			ids[i] = GDSCRIPT_INTEGER;
+			break;
+		case GDSCRIPT_MISSING_PAREN_CLOSE:
+			diagnostics_add(DIAGNOSTIC_MISSING_PAREN_CLOSE, src, src_len, path, offsets[i], lens[i]);
+			ids[i] -= missing_delta;
+			break;
+		case GDSCRIPT_MISSING_BRACE_CLOSE:
+			diagnostics_add(DIAGNOSTIC_MISSING_BRACE_CLOSE, src, src_len, path, offsets[i], lens[i]);
+			ids[i] -= missing_delta;
+			break;
+		case GDSCRIPT_MISSING_BRACKET_CLOSE:
+			diagnostics_add(DIAGNOSTIC_MISSING_BRACKET_CLOSE, src, src_len, path, offsets[i], lens[i]);
+			ids[i] -= missing_delta;
+			break;
+		case GDSCRIPT_TOKENS_AFTER_CONTINUATION:
+			diagnostics_add(DIAGNOSTIC_TOKENS_AFTER_CONTINUATION, src, src_len, path, offsets[i], lens[i]);
+			goto remove_token;
+		case GDSCRIPT_EXTRA_PAREN_CLOSE:
+			diagnostics_add(DIAGNOSTIC_EXTRA_PAREN_CLOSE, src, src_len, path, offsets[i], lens[i]);
+			goto remove_token;
+		case GDSCRIPT_EXTRA_BRACE_CLOSE:
+			diagnostics_add(DIAGNOSTIC_EXTRA_BRACE_CLOSE, src, src_len, path, offsets[i], lens[i]);
+			goto remove_token;
+		case GDSCRIPT_EXTRA_BRACKET_CLOSE:
+			diagnostics_add(DIAGNOSTIC_EXTRA_BRACKET_CLOSE, src, src_len, path, offsets[i], lens[i]);
+			goto remove_token;
+		}
+		continue;
+	remove_token:
+		memmove(offsets + i, offsets + i + 1, (*n - i - 1) * sizeof *offsets);
+		memmove(lens + i, lens + i + 1, (*n - i - 1) * sizeof *lens);
+		memmove(ids + i, ids + i + 1, (*n - i - 1) * sizeof *ids);
+		--(*n);
+	}
 }
