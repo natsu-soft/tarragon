@@ -607,7 +607,7 @@ int32_t atom_ring_flushing_concurrent_write(struct atom_ring* ring, void* src, c
 	int32_t state = load_ex(write_state, acquire);
 	while (!(state & EVICTED))
 	{
-		while (!(state & EVICTED) && size < writeable_size(ring))
+		while (!(state & EVICTED) && writeable_size(ring) < size)
 		{
 			state &= ~(LOCKED | EVICTED);
 			if (comp_swap_ex(write_state, &state, LOCKED | state, acq_rel, acquire))
