@@ -1,4 +1,0 @@
-- finish program_memory.h to just initialize a few fat ass free-lists right off the RIP
-  - NOT A RED-BLACK TREE
-
-- new testing setup fuck test.c all my homies HATE test.c

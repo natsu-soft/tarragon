@@ -1,4 +1,5 @@
 #include "syntax_check.h"
+#include <assert.h>
 #include <string.h>
 #include <stdatomic.h>
 #define DEFINE_TOKEN_PREDICATES
@@ -16,6 +17,12 @@ static void check_top_node(int32_t* idx_ptr, struct thread_context* ctx);
 static void check_top_annotation(int32_t* idx_ptr, struct thread_context* ctx);
 static void check_annotation_node(int32_t* idx_ptr, struct thread_context* ctx);
 
+struct metadata_header
+{
+	source_data_t src_data;
+	uint32_t flags;
+};
+
 enum
 {
 	NONE			= 0x00,
@@ -26,24 +33,23 @@ enum
 	BELOW_TOP		= 0x80
 };
 
-struct metadata_header
-{
-	source_data_t src_data;
-	_Atomic(uint8_t) src_flags;
-};
-
 void syntax_check(source_data_t* src_data)
 {
-	struct metadata_header* metadata;
-	arena_t* workpad = workpad_checkout(sizeof *metadata + src_data->num_parse_nodes * sizeof(int32_t) + 32);
-	metadata = arena_alloc(workpad, sizeof *metadata);
-	*metadata = (struct metadata_header){ .src_data = *src_data };
+	arena_t* workpad = workpad_checkout(sizeof(struct metadata_header) + src_data->num_parse_nodes * sizeof(int32_t) + 32);
+	struct metadata_header* header = arena_alloc(workpad, sizeof *header);
+	header->src_data = *src_data;
 	int32_t* indices = arena_alloc_aligned(workpad, src_data->num_parse_nodes * sizeof *indices, 32);
-	for (int32_t i = 0; src_data->num_parse_nodes; ++i)
+	assert(((struct metadata_header*)indices) - 1 == header);
+	int32_t i = 1;
+	for (; src_data->num_parse_nodes; ++i)
 	{
-		indices[i] = i;
+		// serial checks while consuming @tool, @abstract, class_name, and extends
 	}
-	for (int32_t i = 1; i < src_data->num_parse_nodes; ++i)
+	for (int32_t j = i; j < src_data->num_parse_nodes; ++j)
+	{
+		indices[j] = j;
+	}
+	for (; i < src_data->num_parse_nodes; ++i)
 	{
 		if (src_data->parse_depths[i] == 0)
 		{
