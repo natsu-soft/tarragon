@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include "lex.h"
+#include "diagnostics.h"
 #include "parse.h"
 #include "token_ids.h"
 #include "token_ids_types.h"
@@ -287,12 +288,17 @@ int gdscript_suite_test(int argc, char** argv)
 	source_data_t source_data = {.src = src, .path = "RewindAbility.gd", .src_len = src_len };
 	virtual_buffer vb = memalloc(10 * MB);
 	MICROTIME(num_tokens = lex(&source_data, lex_arena, lex_work, src, src_len);)
+	if(num_tokens == 0)
+	{
+		flush_diagnostics();
+		return 0;
+	}
 	printf("tokens: %d, src size: %d, token_size: %d, max size: %d\n", num_tokens, src_len, num_tokens * 7, 8 * src_len + 4096);
+	/* print_tokens(src, source_data.token_offsets, source_data.token_lens, source_data.num_tokens); */
 	scratch_alloc(4 * src_len);
 	MICROTIME(num_tokens = gdscript_flex(flex_arena, &table, src, src_len);)
 	printf("tokens: %d, src size: %d, token_size: %d, max size: %d\n", num_tokens, src_len, num_tokens * 7, 8 * src_len + 4096);
-	/* print_tokens(src, new_table.offsets, new_table.lens, new_table.num_tokens); */
-	/* print_ids(src, new_table.offsets, new_table.lens, new_table.ids, new_table.num_tokens); */
+	/* print_tokens(src, table.offsets, table.lens, table.num_tokens); */
 	arena_t* p_arena = workpad_checkout(parse_backing_size(num_tokens));
 	MICROTIME(num_tokens = parse(&source_data, p_arena, lex_work);)
 	printf("parse num tokens: %d\n", num_tokens);
