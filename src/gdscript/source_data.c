@@ -1,4 +1,5 @@
 #include "source_data.h"
+#include <stdlib.h>
 
 
 const int32_t parse_node_num_children(const source_data_t* source_data, const int32_t idx)
@@ -55,6 +56,19 @@ const int32_t parse_node_sibling(const source_data_t* source_data, const int32_t
 	}
 	return res;
 }
+
+void parse_node_iterate_children(int32_t* child_idx, const source_data_t* src_data, const int32_t idx)
+{
+	if (child_idx > 0)
+	{
+		*child_idx = parse_node_first_child(src_data, idx);
+	}
+	else
+	{
+		*child_idx = parse_node_sibling(src_data, *child_idx);
+	}
+}
+
 
 const token_id_t parse_idx_to_token_id(const source_data_t* source_data, const int32_t idx)
 {
@@ -133,5 +147,27 @@ void parse_subtree_source_offset_and_len(int32_t* offset, int16_t* len, const so
 		}
 		*offset = offset0;
 		*len = offset1 - offset0 + len1;
+	}
+}
+
+void parse_subtree_source_offset_and_len_to_eol(int32_t* offset, int16_t* len, const source_data_t* src_data, const int32_t idx)
+{
+	*offset = 0;
+	*len = 0;
+	if (0 < idx && idx < src_data->num_parse_nodes)
+	{
+		const int32_t token_idx = src_data->parse_to_token_indices[idx];
+		*offset = src_data->token_offsets[token_idx];
+		int32_t i = token_idx;
+		for (int32_t i = token_idx; i < src_data->num_tokens; ++i)
+		{
+			if (src_data->token_ids[i] != GDSCRIPT_LINE_END) { ; }
+			else
+			{
+				*len = src_data->token_offsets[i] - *offset;
+				return;
+			}
+		}
+		*len = src_data->token_offsets[src_data->num_tokens - 1] - *offset;
 	}
 }
