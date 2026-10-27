@@ -1299,7 +1299,8 @@ static enum parse_length ingest_token(const token_id_t id, struct parse_node** c
 	case GDSCRIPT_NULL ... GDSCRIPT_NAN: __attribute__((fallthrough));
 	case GDSCRIPT_IDENTIFIER:
 		node->child = nil;
-		if (binary_operator_p(last_id) || unary_operator_p(last_id))
+		if (binary_operator_p(last_id) || unary_operator_p(last_id) ||
+			last_id == GDSCRIPT_CLASS_NAME || last_id == GDSCRIPT_EXTENDS || last_id == GDSCRIPT_CLASS)
 		{
 			node_prepend(node, (*last)->child);
 		}
@@ -1384,6 +1385,11 @@ static enum parse_length ingest_token(const token_id_t id, struct parse_node** c
 			goto append_to_current;
 		}
 		break;
+	case GDSCRIPT_CLASS: __attribute__((fallthrough));
+	case GDSCRIPT_EXTENDS: __attribute__((fallthrough));
+	case GDSCRIPT_CLASS_NAME:
+		node->child = alloc_jct(ctx->arena);
+		goto append_to_current;
 	default: node->child = nil; append_to_current:
 		node_append(*current, node);
 		*current = node;
