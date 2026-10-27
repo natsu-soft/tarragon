@@ -212,15 +212,15 @@
 	X(ELIF,		  "elif",			4) \
 	X(FUNC,		  "func",		 	4) \
 	X(FOR,		  "for",			3) \
-	X(WHEN,	  "when",			5) \
+	X(WHEN,	  "when",			4) \
 	X(WHILE,	  "while",			5) \
 	X(MATCH,	  "match",			5) \
 	X(BREAK,	  "break",			5) \
 	X(CONTINUE,	  "continue",		8) \
 	X(PASS,		  "pass",			4) \
 	X(RETURN,	  "return",			6) \
-	X(CLASS_NAME, "class_name",     10) \
 	X(CLASS,	  "class",			5) \
+	X(CLASS_NAME, "class_name",     10) \
 	X(EXTENDS,	  "extends",		7) \
 	X(SELF,		  "self",			4) \
 	X(SUPER,	  "super",			5) \
