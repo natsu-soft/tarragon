@@ -286,7 +286,6 @@ int gdscript_suite_test(int argc, char** argv)
 	arena_t* lex_arena = workpad_checkout(lex_backing_size(src_len));
 	arena_t* lex_work = workpad_checkout(lex_work_size(src_len));
 	source_data_t source_data = {.src = src, .path = "RewindAbility.gd", .src_len = src_len };
-	virtual_buffer vb = memalloc(10 * MB);
 	MICROTIME(num_tokens = lex(&source_data, lex_arena, lex_work, src, src_len);)
 	if(num_tokens == 0)
 	{
