@@ -1,4 +1,5 @@
 #include "diagnostics.h"
+#include <stdio.h>
 #include <stdint.h>
 #include <assert.h>
 #include "../atom_ring.h"
@@ -6,7 +7,6 @@
 #include "../allocators/scratch.h"
 #include "../strings.h"
 #include "../memery.h"
-#include "../stdout_ring.h"
 
 struct diagnostic
 {
@@ -63,7 +63,6 @@ void flush_diagnostics(void)
 	atom_ring_flush(&diagnostics_ring, atom_ring_flush_diagnostics);
 }
 
-#include <stdio.h>
 static void atom_ring_flush_diagnostics(void* addr0, int32_t byte_len)
 {
 	arena_t* scratch = scratch_arena(4096);
@@ -75,8 +74,8 @@ static void atom_ring_flush_diagnostics(void* addr0, int32_t byte_len)
 		switch(d->msg)
 		{
 		case DIAGNOSTIC_NONE:
-			#error ya this aint working, h0ss
-			assert(0 && "innapopriate value DIAGNOSTIC_NONE in atom_ring_flush_diagnostics()"); break;
+			assert(0 && "innapopriate value DIAGNOSTIC_NONE in atom_ring_flush_diagnostics()");
+			break;
 #define X(ID, PRINT_STR) case DIAGNOSTIC_##ID: print_error(scratch, PRINT_STR, d->src, d->src_len, d->path, &range); break;
 			ERROR_DIAGNOSTICS
 #undef X
@@ -88,6 +87,7 @@ static void atom_ring_flush_diagnostics(void* addr0, int32_t byte_len)
 #undef X
 		}
 	}
+	printf("%.*s", scratch->size, scratch->addr);
 }
 
 int32_t tab_depth = 4;
@@ -113,6 +113,8 @@ static void get_src_range(struct src_range* dest, const char* src, const int32_t
 	dest->line1 = line;
 	dest->col1 = col;
 }
+
+static char* test_src = "lol lmao even";
 
 static void print_src(arena_t* dest, char* const src, const int32_t src_len, const struct src_range* range)
 {
@@ -157,21 +159,50 @@ static void print_src(arena_t* dest, char* const src, const int32_t src_len, con
 
 static void print_error(arena_t* dest, char* message, char* const src, const int32_t src_len, const char* path, const struct src_range* range)
 {
-	arena_build_string_vsprintf(dest, "%s:%d:%d \e[31merror:\e[39m %s", path, range->line0, range->col0, message);
-	print_src(dest, src, src_len, range);
-	stdout_ring_puts((string*)dest);
+	if (src != test_src)
+	{
+		arena_build_string_vsprintf(dest, "%s:%d:%d \e[31merror:\e[39m %s\n", path, range->line0, range->col0, message);
+		print_src(dest, src, src_len, range);
+	}
+	else
+	{
+		arena_build_string_vsprintf(dest, "%s \e[31mtest error:\e[39m %s\n", path, message);
+	}
 }
 
 static void print_warn(arena_t* dest, char* message, char* const src, const int32_t src_len, const char* path, const struct src_range* range)
 {
-	arena_build_string_vsprintf(dest, "%s:%d:%d \e[31mwarning:\e[39m %s", path, range->line0, range->col0, message);
-	print_src(dest, src, src_len, range);
-	stdout_ring_puts((string*)dest);
+	if (src != test_src)
+	{
+		arena_build_string_vsprintf(dest, "%s:%d:%d \e[33mwarning:\e[39m %s\n", path, range->line0, range->col0, message);
+		print_src(dest, src, src_len, range);
+	}
+	else
+	{
+		arena_build_string_vsprintf(dest, "%s \e[33mtest warning:\e[39m %s\n", path, message);
+	}
 }
 
 static void print_note(arena_t* dest, char* message, char* const src, const int32_t src_len, const char* path, const struct src_range* range)
 {
-	arena_build_string_vsprintf(dest, "%s:%d:%d \e[31mnote:\e[39m %s", path, range->line0, range->col0, message);
-	print_src(dest, src, src_len, range);
-	stdout_ring_puts((string*)dest);
+	if (src != test_src)
+	{
+		arena_build_string_vsprintf(dest, "%s:%d:%d \e[32mnote:\e[39m %s\n", path, range->line0, range->col0, message);
+		print_src(dest, src, src_len, range);
+	}
+	else
+	{
+		arena_build_string_vsprintf(dest, "%s\e[32mtest note:\e[39m %s\n", path, message);
+	}
+}
+
+
+int diagnostics_test(char** argv, int argc)
+{
+	for (int32_t i = DIAGNOSTIC_NONE + 1; i < DIAGNOSTIC_SIZE; ++i)
+	{
+		diagnostics_add(i, test_src, 0, "src/gdscrit/diagnostics.c::diagnostics_test()", 0, 0);
+	}
+	flush_diagnostics();
+	return 0;
 }
