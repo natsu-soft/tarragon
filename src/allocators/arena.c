@@ -122,16 +122,19 @@ string* arena_build_string_vsprintf(arena_t* arena, char* format, ...)
 {
 	va_list va_args;
 	va_start(va_args, format);
-	const int32_t size = snprintf(NULL, 0, format, va_args);
-	if (size > 0)
+	const int32_t size = vsnprintf(NULL, 0, format, va_args) + 1;
+	va_end(va_args);
+	if (size > 1)
 	{
 		if (arena->size + size > arena->cap)
 		{
 			arena_grow(arena, arena->size + size);
 		}
-		snprintf((char*)arena->addr + arena->size, size, format, va_args);
+		va_start(va_args, format);
+		vsnprintf((char*)arena->addr + arena->size, size, format, va_args);
+		va_end(va_args);
+		arena->size += size - 1; // exclude '\0'
 	}
-	va_end(va_args);
 	return (string*)arena;
 }
 
