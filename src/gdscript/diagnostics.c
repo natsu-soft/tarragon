@@ -45,14 +45,15 @@ void diagnostics_init(void)
 
 void diagnostics_add(const enum diagnostic_msg msg, const char* src, const int32_t src_len, const char* path, const int32_t offset, const int16_t len)
 {
+	assert(msg != DIAGNOSTIC_NONE);
 	struct diagnostic diagnostic =
 	{
+		.msg = msg,
 		.src = src,
 		.path = path,
 		.src_len = src_len,
 		.offset = offset,
-		.len = len,
-		.msg = msg
+		.len = len
 	};
 	atom_ring_flushing_concurrent_write(&diagnostics_ring, &diagnostic, sizeof diagnostic, atom_ring_flush_diagnostics);
 }
@@ -62,6 +63,7 @@ void flush_diagnostics(void)
 	atom_ring_flush(&diagnostics_ring, atom_ring_flush_diagnostics);
 }
 
+#include <stdio.h>
 static void atom_ring_flush_diagnostics(void* addr0, int32_t byte_len)
 {
 	arena_t* scratch = scratch_arena(4096);
@@ -72,7 +74,9 @@ static void atom_ring_flush_diagnostics(void* addr0, int32_t byte_len)
 		get_src_range(&range, d->src, d->src_len, d->offset, d->len);
 		switch(d->msg)
 		{
-		case DIAGNOSTIC_NONE: assert(0 && "innapopriate value DIAGNOSTIC_NONE in atom_ring_flush_diagnostics()"); break;
+		case DIAGNOSTIC_NONE:
+			#error ya this aint working, h0ss
+			assert(0 && "innapopriate value DIAGNOSTIC_NONE in atom_ring_flush_diagnostics()"); break;
 #define X(ID, PRINT_STR) case DIAGNOSTIC_##ID: print_error(scratch, PRINT_STR, d->src, d->src_len, d->path, &range); break;
 			ERROR_DIAGNOSTICS
 #undef X
