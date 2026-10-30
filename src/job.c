@@ -170,7 +170,6 @@ void jobs_sync()
 	struct job sync = { .fptr = worker_sync, .args = &sync_barrier };
 	atom_ring_n_write(&job_ring, &sync, num_worker_threads, sizeof sync);
 	barrier_wait(&sync_barrier);
-	fflush(stdout);
 }
 
 void jobs_finish(void)
