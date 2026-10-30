@@ -1,3 +1,4 @@
+#define NOFRAUD
 #include "atom_ring.h"
 #include <assert.h>
 #include <stdio.h>
@@ -300,7 +301,7 @@ int32_t atom_ring_write(struct atom_ring* ring, void* src, const int32_t size)
 		/* } */
 		state &= ~(LOCKED | EVICTED);
 		if (size <= writeable_size(ring) &&
-			comp_swap_ex(write_state, &state, LOCKED | state, acq_rel, acquire))
+			comp_swap_ex(write_state, &state, LOCKED | state, acquire, relaxed))
 		{
 			if (writeable_size(ring) < size)
 			{
@@ -326,7 +327,7 @@ int32_t atom_ring_write(struct atom_ring* ring, void* src, const int32_t size)
 			return size;
 		}
 		int32_t wait_state = WAITING | state;
-		if (!(state & EVICTED) && comp_swap_ex(write_state, &state, wait_state, acq_rel, acquire))
+		if (!(state & EVICTED) && comp_swap_ex(write_state, &state, wait_state, acquire, relaxed))
 		{
 			sync_addr_wait(write_state, &wait_state);
 		}
@@ -351,7 +352,7 @@ int32_t atom_ring_read(struct atom_ring* ring, void* dest, const int32_t size)
 		/* } */
 		state &= ~(LOCKED | EVICTED);
 		if (size <= readable_size(ring) &&
-			comp_swap_ex(read_state, &state, LOCKED | state, acq_rel, acquire))
+			comp_swap_ex(read_state, &state, LOCKED | state, acquire, relaxed))
 		{
 			if (readable_size(ring) < size)
 			{
@@ -371,7 +372,7 @@ int32_t atom_ring_read(struct atom_ring* ring, void* dest, const int32_t size)
 			return size;
 		}
 		int32_t wait_state = WAITING | state;
-		if (!(state & EVICTED) && comp_swap_ex(read_state, &state, wait_state, acq_rel, acquire))
+		if (!(state & EVICTED) && comp_swap_ex(read_state, &state, wait_state, acquire, relaxed))
 		{
 			sync_addr_wait(read_state, &wait_state);
 		}
@@ -397,7 +398,7 @@ int32_t atom_ring_n_write(struct atom_ring* ring, void* src, const int32_t n, co
 		/* } */
 		state &= ~(LOCKED | EVICTED);
 		if (size <= writeable_size(ring) &&
-			comp_swap_ex(write_state, &state, LOCKED | state, acq_rel, acquire))
+			comp_swap_ex(write_state, &state, LOCKED | state, acquire, relaxed))
 		{
 			if (writeable_size(ring) < size)
 			{
@@ -433,7 +434,7 @@ int32_t atom_ring_n_write(struct atom_ring* ring, void* src, const int32_t n, co
 			return size;
 		}
 		int32_t wait_state = WAITING | state;
-		if (!(state & EVICTED) && comp_swap_ex(write_state, &state, wait_state, acq_rel, acquire))
+		if (!(state & EVICTED) && comp_swap_ex(write_state, &state, wait_state, acquire, relaxed))
 		{
 			sync_addr_wait(write_state, &wait_state);
 		}
@@ -450,7 +451,7 @@ int32_t atom_ring_flush(struct atom_ring* ring, atom_ring_flush_func flush)
 	while (!(state & EVICTED))
 	{
 		state &= ~(LOCKED | EVICTED);
-		if (comp_swap_ex(read_state, &state, LOCKED | state, acq_rel, acquire))
+		if (comp_swap_ex(read_state, &state, LOCKED | state, acquire, relaxed))
 		{
 			const int32_t head = load_ex(&ring->reading_head, acquire);
 			const int32_t tail = load_ex(&ring->tail, acquire);
@@ -464,7 +465,7 @@ int32_t atom_ring_flush(struct atom_ring* ring, atom_ring_flush_func flush)
 			return size;
 		}
 		int32_t wait_state = WAITING | state;
-		if (!(state & EVICTED) && comp_swap_ex(read_state, &state, wait_state, acq_rel, acquire))
+		if (!(state & EVICTED) && comp_swap_ex(read_state, &state, wait_state, acquire, relaxed))
 		{
 			sync_addr_wait(read_state, &wait_state);
 		}
@@ -489,7 +490,7 @@ int32_t atom_ring_concurrent_write(struct atom_ring* ring, void* src, const int3
 		/* 	state ^= WAITING; */
 		/* } */
 		if (size <= writeable_size(ring) &&
-			comp_swap_ex(write_state, &state, LOCKED | state, acq_rel, acquire))
+			comp_swap_ex(write_state, &state, LOCKED | state, acquire, relaxed))
 		{
 			if (writeable_size(ring) < size)
 			{
@@ -527,7 +528,7 @@ int32_t atom_ring_concurrent_write(struct atom_ring* ring, void* src, const int3
 			return size;
 		}
 		int32_t wait_state = WAITING | state;
-		if (!(state & EVICTED) && comp_swap_ex(write_state, &state, wait_state, acq_rel, acquire))
+		if (!(state & EVICTED) && comp_swap_ex(write_state, &state, wait_state, acquire, relaxed))
 		{
 			sync_addr_wait(write_state, &wait_state);
 		}
@@ -552,7 +553,7 @@ int32_t atom_ring_concurrent_read(struct atom_ring* ring, void* dest, const int3
 		/* 	state ^= WAITING; */
 		/* } */
 		if (size <= readable_size(ring) &&
-			comp_swap_ex(read_state, &state, LOCKED | state, acq_rel, acquire))
+			(comp_swap_ex(read_state, &state, LOCKED | state, acq_rel, relaxed)))
 		{
 			if (readable_size(ring) < size)
 			{
@@ -589,7 +590,7 @@ int32_t atom_ring_concurrent_read(struct atom_ring* ring, void* dest, const int3
 			return size;
 		}
 		int32_t waiting_state = WAITING | state;
-		if (!(state & EVICTED) && comp_swap_ex(read_state, &state, waiting_state, acq_rel, acquire))
+		if (!(state & EVICTED) && comp_swap_ex(read_state, &state, waiting_state, acquire, relaxed))
 		{
 			sync_addr_wait(read_state, &waiting_state);
 		}
@@ -610,20 +611,20 @@ int32_t atom_ring_flushing_concurrent_write(struct atom_ring* ring, void* src, c
 		while (!(state & EVICTED) && writeable_size(ring) < size)
 		{
 			state &= ~(LOCKED | EVICTED);
-			if (comp_swap_ex(write_state, &state, LOCKED | state, acq_rel, acquire))
+			if (comp_swap_ex(write_state, &state, LOCKED | state, acquire, relaxed))
 			{
 				atom_ring_flush(ring, flush);
 				unlock_and_wake(write_state);
 			}
 			int32_t wait_state = state | WAITING;
-			if (!(state & EVICTED) && comp_swap_ex(write_state, &state, wait_state, acq_rel, acquire))
+			if (!(state & EVICTED) && comp_swap_ex(write_state, &state, wait_state, acquire, relaxed))
 			{
 				sync_addr_wait(write_state, &wait_state);
 			}
 			state = load_ex(write_state, acquire);
 		}
 		state &= ~(LOCKED | EVICTED);
-		if (comp_swap_ex(write_state, &state, LOCKED | state, acq_rel, acquire))
+		if (comp_swap_ex(write_state, &state, LOCKED | state, acquire, relaxed))
 		{
 			if (writeable_size(ring) < size)
 			{
@@ -656,7 +657,7 @@ int32_t atom_ring_flushing_concurrent_write(struct atom_ring* ring, void* src, c
 			return size;
 		}
 		int32_t wait_state = WAITING | state;
-		if (!(state & EVICTED) && comp_swap_ex(write_state, &state, wait_state, acq_rel, acquire))
+		if (!(state & EVICTED) && comp_swap_ex(write_state, &state, wait_state, acquire, relaxed))
 		{
 			sync_addr_wait(write_state, &wait_state);
 		}
