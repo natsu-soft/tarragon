@@ -103,6 +103,7 @@ void unmap_file(virtual_file virt_file)
 
 // https://lo.calho.st/posts/black-magic-buffer/
 // https://fgiesen.wordpress.com/2012/07/21/the-magic-ring-buffer/
+// https://andreleite.com/posts/2025/nstl/virtual-memory-ring-buffer/
 int32_t ring_map(ring_buffer* rb, int32_t min_size, char* anon_filename)
 {
 	// TODO errchecking
