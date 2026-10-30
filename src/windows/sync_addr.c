@@ -15,8 +15,7 @@ int32_t sync_addr_wait(_Atomic(int32_t)* addr, int32_t* wait_val_ptr)
 	int32_t res = WaitOnAddress(addr, wait_val_ptr, sizeof *wait_val_ptr, INFINITE);
 	if (res == FALSE)
 	{
-		// INFINITE never times out, so any failure here is a bug (bad
-		// address or size), not a recoverable condition.
+		// INFINITE never times out, so any failure here is a bug.
 		assert(0);
 	}
 	return res;
