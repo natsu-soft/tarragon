@@ -1280,7 +1280,6 @@ static enum parse_length ingest_token(const token_id_t id, struct parse_node** c
 		}
 		else
 		{
-			printf(" -attn: APPENDING TO CURRENT!\n");
 			goto append_to_current;
 		}
 		break;
