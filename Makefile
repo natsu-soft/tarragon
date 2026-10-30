@@ -16,7 +16,7 @@ GODOT :=
 # LDADD := -lpthread
 LDADD := -lpthread
 LDFLAGS := -fuse-ld=mold -flto -static
-MAINS := src/tarragon.c src/tests.c src/builtin_generator.c src/massive_test.c
+MAINS := src/tarragon.c src/tests.c src/builtin_generator.c src/massive_test.c src/express.c
 IGNORE := src/gdscript/gdscript_ast.c src/gdscript/gdscript_tokenizer.c src/logger.c src/builtin.c src/allocators/devious.c src/fml.c src/api_generator.c src/godot_api.c src/massive_script_writer.c
 ALL_SRC := $(wildcard src/*.c) $(wildcard src/allocators/*.c) $(wildcard src/gdscript/*.c) $(wildcard src/hashmaps/*.c)
 PLATFORM :=
@@ -72,10 +72,16 @@ extension_api.json:
 tests: obj/tests.o $(OBJ) obj/godot_api.o obj/godot_api.gen.o
 	$(CC) $(CFLAGS) -o $@ $^ $(LDADD) $(LDFLAGS)
 
+express: obj/express.o $(OBJ) obj/godot_api.o obj/godot_api.gen.o
+	$(CC) $(CFLAGS) -o $@ $^ $(LDADD) $(LDFLAGS)
+
+atom-ring-bandwidth: src/atom_ring.c obj/$(PLATFORM)/sync_addr.o obj/threading.o obj/memery.o
+	$(CC) $(CFLAGS) -DATOM_RING_BANDWIDTH_TEST -o $@ $^ $(LDADD) $(LDFLAGS)
+
 %.h: ;
 
 # test: api-generator extension_api.json
-test: tests extension_api.json
+test: tests
 	${CURDIR}/$<
 
 

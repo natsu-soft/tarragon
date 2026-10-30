@@ -687,7 +687,9 @@ void atom_ring_evict_all(struct atom_ring* ring)
 // fuck it terabyte
 /* #define TOTAL_BYTES 1099511627776 */
 /* #define TOTAL_BYTES 268435456 */
-#define TOTAL_BYTES 1073741824
+/* #define TOTAL_BYTES 17179869184 /\* 16GB *\/ */
+// #define TOTAL_BYTES 8589934592 /* 8GB */
+#define TOTAL_BYTES (1024 * 1024 * 1024)
 
 
 static int32_t assert_write(struct atom_ring* ring, void* src, const int32_t size, const int32_t expected_writeable_size)
@@ -845,7 +847,11 @@ static int64_t threaded_read(struct san_struct* args)
 }
 
 
+#ifdef ATOM_RING_BANDWIDTH_TEST
+int main(int argc, char** argv)
+#else
 int atom_ring_sancheck(void)
+#endif
 {
 	const char spinner[4] = { '-', '/', '|', '\\' };
 	struct atom_ring test_ring = {0};
@@ -900,7 +906,6 @@ int atom_ring_sancheck(void)
 	printf("DONE\n");
 	fflush(stdout);
 	// offset a scooch to check if the ring ACTUALL works
-	#ifdef LMAO
 	uint32_t temp = -1u;
 	atom_ring_write(&test_ring, &temp, sizeof temp);
 	assert(readable_size(&test_ring) >= sizeof temp);
@@ -935,7 +940,6 @@ int atom_ring_sancheck(void)
 		putc('\b', stdout);
 	}
 	printf("DONE\n");
-	#endif
 	printf("- fuzzy strncmp check ");
 	fflush(stdout);
 	uint8_t src[64];
@@ -1040,7 +1044,7 @@ int atom_ring_sancheck(void)
 	while(load_ex(&bytes_written, acquire) < TOTAL_BYTES || load_ex(&bytes_read, acquire) < TOTAL_BYTES)
 	{ ; }
 	const size_t t1 = time(NULL);
-	printf("DONE in %zu seconds\n", t1 - t0);
+	printf("DONE in %zu seconds, total bytes read & write (& zeroed): %lld\n", t1 - t0, TOTAL_BYTES);
 	printf("- joining threads\n");
 	store_ex(&concurrent_test_status, 0, release);
 	fflush(stdout);
