@@ -59,11 +59,16 @@ void barrier_wait(struct barrier* bar)
 	/* futex_unlock((struct futex*)bar); */
 	if (value == 1)
 	{
+		sync_addr_wake_all(&bar->count);
 		return;
 	}
 	else if (value > 1)
 	{
-		while ((value = load_ex(&bar->count, acquire)) > 0) { ; }
+		// while ((value = load_ex(&bar->count, acquire)) > 0) { ; }
+		while ((value = load_ex(&bar->count, acquire)) > 0)
+		{
+			sync_addr_wait(&bar->count, &value);
+		}
 		return;
 	}
 	else
