@@ -22,7 +22,7 @@
 	X(perfect_json) \
 	X(godot_api) \
 	X(diagnostics) \
-	/* X(gdscript_suite) \ */
+	X(gdscript_suite) \
 	/* X(xml) \ */
 	/* X(base_protocol) \ */
 	// declare pass
@@ -53,6 +53,7 @@ int main(int argc, char** argv)
 	jobs_sync();)
 	printf("\nrunning tests\n");
 	fflush(stdout);
+	LOG_INIT("test.log");
 	log_fp = fopen("test.log", "w");
 	LOG("running unit tests");
 	unsigned int i = 1;
@@ -64,10 +65,10 @@ int main(int argc, char** argv)
 	SRC_TESTS
 	#undef X
 	LOG("finished unit tests");
-	ENDLOG;
 	printf("\n[CLEANUP] killing job threads\n");
 	/* jobs_sleep(); */
 	jobs_finish();
+	LOG_END();
 	printf("A-OK: all threads killed\n");
 	printf("\nATTN: ALL TESTS PASSED!\n");
 	return 0;
