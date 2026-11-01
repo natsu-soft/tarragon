@@ -163,7 +163,7 @@ static inline void worker_sync(struct barrier* barrier, struct thread_context* c
 }
 
 // IF YOU CRASH THAT'S A FEATURE
-void jobs_sync()
+void jobs_sync(void)
 {
 	struct barrier sync_barrier;
 	barrier_init(&sync_barrier, num_worker_threads + 1);
