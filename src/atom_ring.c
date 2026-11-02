@@ -262,20 +262,38 @@ static void print_ring(struct atom_ring* ring, const int32_t i0, const int32_t i
 	}
 }
 
-static inline int32_t unlock_and_wake(_Atomic(int32_t)* state_ptr)
+static inline int32_t unlock_and_wake(_Atomic(uint32_t)* state_ptr)
 {
 	int32_t res = 0;
 	if (fetch_and_ex(state_ptr, ~LOCKED, acq_rel) & WAITING)
+	{
+		res = sync_addr_wake_all((_Atomic(int32_t)*)state_ptr);
+	}
+	return res;
+}
+
+static inline int32_t bump_unlock_and_wake(_Atomic(uint32_t)* state_ptr)
+{
+	int32_t res = 0;
+	uint32_t current = load_ex(state_ptr, acquire);
+	uint32_t next;
+	do
+	{
+		const uint32_t count = (current >> 8) + 1;
+		next = (count << 8) | (current & EVICTED);
+	} while (!comp_swap_weak_ex(state_ptr, &current, next, acq_rel, acquire));
+	if (current & WAITING)
 	{
 		res = sync_addr_wake_all(state_ptr);
 	}
 	return res;
 }
 
-static inline int32_t wake_if_only_waiting(_Atomic(int32_t)* state_ptr)
+static inline int32_t wake_if_only_waiting(_Atomic(uint32_t)* state_ptr)
 {
 	int32_t res = 0;
-	if (fetch_and_ex(state_ptr, ~WAITING, acq_rel) == WAITING)
+	uint32_t current = load_ex(state_ptr, acquire) & ~(LOCKED | EVICTED);
+	if (comp_swap_ex(state_ptr, &current, current & ~WAITING, acquire, relaxed))
 	{
 		res = sync_addr_wake_all(state_ptr);
 	}
@@ -289,8 +307,8 @@ int32_t atom_ring_write(struct atom_ring* ring, void* src, const int32_t size)
 {
 	assert(0 < size);
 	assert(size <= ring->size - 1);
-	_Atomic(int32_t)* const write_state = &ring->write_state;
-	int32_t state = load(write_state);
+	_Atomic(uint32_t)* const write_state = &ring->write_state;
+	uint32_t state = load(write_state);
 	while (!(state & EVICTED))
 	{
 		/* while(writeable_size(ring) < size) */
@@ -326,10 +344,10 @@ int32_t atom_ring_write(struct atom_ring* ring, void* src, const int32_t size)
 			wake_if_only_waiting(&ring->read_state);
 			return size;
 		}
-		int32_t wait_state = WAITING | state;
+		uint32_t wait_state = WAITING | state;
 		if (!(state & EVICTED) && comp_swap_ex(write_state, &state, wait_state, acquire, relaxed))
 		{
-			sync_addr_wait(write_state, &wait_state);
+			sync_addr_wait((_Atomic(int32_t)*)write_state, (int32_t*)&wait_state);
 		}
 		state = load_ex(write_state, acquire);
 	}
@@ -340,8 +358,8 @@ int32_t atom_ring_read(struct atom_ring* ring, void* dest, const int32_t size)
 {
 	assert(0 < size);
 	assert(size <= ring->size - 1);
-	_Atomic(int32_t)* const read_state = &ring->read_state;
-	int32_t state = load_ex(read_state, acquire);
+	_Atomic(uint32_t)* const read_state = &ring->read_state;
+	uint32_t state = load_ex(read_state, acquire);
 	while (!(state & EVICTED))
 	{
 		/* whie (readable_size(ring) < size) */
@@ -371,10 +389,10 @@ int32_t atom_ring_read(struct atom_ring* ring, void* dest, const int32_t size)
 			wake_if_only_waiting(&ring->write_state);
 			return size;
 		}
-		int32_t wait_state = WAITING | state;
+		uint32_t wait_state = WAITING | state;
 		if (!(state & EVICTED) && comp_swap_ex(read_state, &state, wait_state, acquire, relaxed))
 		{
-			sync_addr_wait(read_state, &wait_state);
+			sync_addr_wait((_Atomic(int32_t)*)read_state, (int32_t*)&wait_state);
 		}
 		state = load_ex(read_state, acquire);
 	}
@@ -386,8 +404,8 @@ int32_t atom_ring_n_write(struct atom_ring* ring, void* src, const int32_t n, co
 	const int32_t size = n * elem_size;
 	assert(0 < size);
 	assert(size <= ring->size - 1);
-	_Atomic(int32_t)* const write_state = &ring->write_state;
-	int32_t state = load(write_state);
+	_Atomic(uint32_t)* const write_state = &ring->write_state;
+	uint32_t state = load(write_state);
 	while (!(state & EVICTED))
 	{
 		/* while(writeable_size(ring) < size) */
@@ -433,10 +451,10 @@ int32_t atom_ring_n_write(struct atom_ring* ring, void* src, const int32_t n, co
 			wake_if_only_waiting(&ring->read_state);
 			return size;
 		}
-		int32_t wait_state = WAITING | state;
+		uint32_t wait_state = WAITING | state;
 		if (!(state & EVICTED) && comp_swap_ex(write_state, &state, wait_state, acquire, relaxed))
 		{
-			sync_addr_wait(write_state, &wait_state);
+			sync_addr_wait((_Atomic(int32_t)*)write_state, (int32_t*)&wait_state);
 		}
 		state = load_ex(write_state, acquire);
 	}
@@ -446,8 +464,8 @@ int32_t atom_ring_n_write(struct atom_ring* ring, void* src, const int32_t n, co
 
 int32_t atom_ring_flush(struct atom_ring* ring, atom_ring_flush_func flush)
 {
-	_Atomic(int32_t)* const read_state = &ring->read_state;
-	int32_t state = load_ex(read_state, acquire);
+	_Atomic(uint32_t)* const read_state = &ring->read_state;
+	uint32_t state = load_ex(read_state, acquire);
 	while (!(state & EVICTED))
 	{
 		state &= ~(LOCKED | EVICTED);
@@ -464,10 +482,10 @@ int32_t atom_ring_flush(struct atom_ring* ring, atom_ring_flush_func flush)
 			wake_if_only_waiting(&ring->write_state);
 			return size;
 		}
-		int32_t wait_state = WAITING | state;
+		uint32_t wait_state = WAITING | state;
 		if (!(state & EVICTED) && comp_swap_ex(read_state, &state, wait_state, acquire, relaxed))
 		{
-			sync_addr_wait(read_state, &wait_state);
+			sync_addr_wait((_Atomic(int32_t)*)read_state, (int32_t*)&wait_state);
 		}
 		state = load_ex(read_state, acquire);
 	}
@@ -478,11 +496,12 @@ int32_t atom_ring_concurrent_write(struct atom_ring* ring, void* src, const int3
 {
 	assert(0 < size);
 	assert(size <= ring->size - 1);
-	_Atomic(int32_t)* const write_state = &ring->write_state;
-	int32_t state = load_ex(write_state, acquire);
+	_Atomic(uint32_t)* const write_state = &ring->write_state;
+	uint32_t state = load_ex(write_state, acquire);
 	while (!(state & EVICTED))
 	{
 		state &= ~(LOCKED | EVICTED);
+		/* const uint32_t gen = load_ex(&ring->write_gen, acquire); */
 		/* while (writeable_size(ring) < size) */
 		/* { */
 		/* 	state |= WAITING; */
@@ -492,6 +511,12 @@ int32_t atom_ring_concurrent_write(struct atom_ring* ring, void* src, const int3
 		if (size <= writeable_size(ring) &&
 			comp_swap_ex(write_state, &state, LOCKED | state, acquire, relaxed))
 		{
+			/* if (gen != load_ex(&ring->write_gen, acquire)) */
+			/* { */
+			/* 	unlock_and_wake(write_state); */
+			/* 	state = load_ex(write_state, acquire); */
+			/* 	continue; */
+			/* } */
 			if (writeable_size(ring) < size)
 			{
 				#ifndef NOFRAUD
@@ -507,7 +532,8 @@ int32_t atom_ring_concurrent_write(struct atom_ring* ring, void* src, const int3
 			const int32_t tail = load_ex(&ring->writing_tail, acquire);
 			const int32_t tail1 = tail + size & ring->size - 1;
 			store_ex(&ring->writing_tail, tail1, release);
-			unlock_and_wake(write_state);
+			/* fetch_add_ex(&ring->write_gen, 1, release); */
+			bump_unlock_and_wake(write_state);
 			cache_write(tail, tail1);
 			if (write_range != NULL)
 			{
@@ -527,10 +553,10 @@ int32_t atom_ring_concurrent_write(struct atom_ring* ring, void* src, const int3
 			wake_if_only_waiting(&ring->read_state);
 			return size;
 		}
-		int32_t wait_state = WAITING | state;
+		uint32_t wait_state = WAITING | state;
 		if (!(state & EVICTED) && comp_swap_ex(write_state, &state, wait_state, acquire, relaxed))
 		{
-			sync_addr_wait(write_state, &wait_state);
+			sync_addr_wait((_Atomic(int32_t)*)write_state, (int32_t*)&wait_state);
 		}
 		state = load_ex(write_state, acquire);
 	}
@@ -541,11 +567,12 @@ int32_t atom_ring_concurrent_read(struct atom_ring* ring, void* dest, const int3
 {
 	assert(size > 0);
 	assert(size <= ring->size - 1);
-	_Atomic(int32_t)* const read_state = &ring->read_state;
-	int32_t state = load_ex(read_state, acquire);
+	_Atomic(uint32_t)* const read_state = &ring->read_state;
+	uint32_t state = load_ex(read_state, acquire);
 	while (!(state & EVICTED))
 	{
 		state &= ~(LOCKED | EVICTED);
+		/* const uint32_t gen = load_ex(&ring->read_gen, acquire); */
 		/* while(readable_size(ring) < size) */
 		/* { */
 		/* 	state |= WAITING; */
@@ -555,6 +582,12 @@ int32_t atom_ring_concurrent_read(struct atom_ring* ring, void* dest, const int3
 		if (size <= readable_size(ring) &&
 			(comp_swap_ex(read_state, &state, LOCKED | state, acq_rel, relaxed)))
 		{
+			/* if (gen != load_ex(&ring->read_gen, acquire)) */
+			/* { */
+			/* 	unlock_and_wake(read_state); */
+			/* 	state = load_ex(read_state, acquire); */
+			/* 	continue; */
+			/* } */
 			if (readable_size(ring) < size)
 			{
 				#ifndef NOFRAUD
@@ -572,7 +605,8 @@ int32_t atom_ring_concurrent_read(struct atom_ring* ring, void* dest, const int3
 			const int32_t head = load_ex(&ring->reading_head, acquire);
 			const int32_t head1 = head + size & ring->size - 1;
 			store_ex(&ring->reading_head, head1, release);
-			unlock_and_wake(read_state);
+			/* fetch_add_ex(&ring->read_gen, 1, release); */
+			bump_unlock_and_wake(read_state);
 			cache_read(head, head1);
 			if (read_range != NULL)
 			{
@@ -589,10 +623,10 @@ int32_t atom_ring_concurrent_read(struct atom_ring* ring, void* dest, const int3
 			wake_if_only_waiting(&ring->write_state);
 			return size;
 		}
-		int32_t waiting_state = WAITING | state;
+		uint32_t waiting_state = WAITING | state;
 		if (!(state & EVICTED) && comp_swap_ex(read_state, &state, waiting_state, acquire, relaxed))
 		{
-			sync_addr_wait(read_state, &waiting_state);
+			sync_addr_wait((_Atomic(int32_t)*)read_state, (int32_t*)&waiting_state);
 		}
 		state = load_ex(read_state, acquire);
 	}
@@ -604,8 +638,8 @@ int32_t atom_ring_flushing_concurrent_write(struct atom_ring* ring, void* src, c
 {
 	assert(0 < size);
 	assert(size <= ring->size - 1);
-	_Atomic(int32_t)* const write_state = &ring->write_state;
-	int32_t state = load_ex(write_state, acquire);
+	_Atomic(uint32_t)* const write_state = &ring->write_state;
+	uint32_t state = load_ex(write_state, acquire);
 	while (!(state & EVICTED))
 	{
 		while (!(state & EVICTED) && writeable_size(ring) < size)
@@ -616,10 +650,10 @@ int32_t atom_ring_flushing_concurrent_write(struct atom_ring* ring, void* src, c
 				atom_ring_flush(ring, flush);
 				unlock_and_wake(write_state);
 			}
-			int32_t wait_state = state | WAITING;
+			uint32_t wait_state = state | WAITING;
 			if (!(state & EVICTED) && comp_swap_ex(write_state, &state, wait_state, acquire, relaxed))
 			{
-				sync_addr_wait(write_state, &wait_state);
+				sync_addr_wait((_Atomic(int32_t)*)write_state, (int32_t*)&wait_state);
 			}
 			state = load_ex(write_state, acquire);
 		}
@@ -656,10 +690,10 @@ int32_t atom_ring_flushing_concurrent_write(struct atom_ring* ring, void* src, c
 			wake_if_only_waiting(&ring->read_state);
 			return size;
 		}
-		int32_t wait_state = WAITING | state;
+		uint32_t wait_state = WAITING | state;
 		if (!(state & EVICTED) && comp_swap_ex(write_state, &state, wait_state, acquire, relaxed))
 		{
-			sync_addr_wait(write_state, &wait_state);
+			sync_addr_wait((_Atomic(int32_t)*)write_state, (int32_t*)&wait_state);
 		}
 		state = load_ex(write_state, acquire);
 	}
@@ -671,11 +705,11 @@ void atom_ring_evict_all(struct atom_ring* ring)
 {
 	if (swap_ex(&ring->write_state, EVICTED, acq_rel) & WAITING)
 	{
-		sync_addr_wake_all(&ring->write_state);
+		sync_addr_wake_all((_Atomic(int32_t)*)&ring->write_state);
 	}
 	if (swap_ex(&ring->read_state, EVICTED, acq_rel) & WAITING)
 	{
-		sync_addr_wake_all(&ring->read_state);
+		sync_addr_wake_all((_Atomic(int32_t)*)&ring->read_state);
 	}
 }
 
@@ -689,8 +723,7 @@ void atom_ring_evict_all(struct atom_ring* ring)
 /* #define TOTAL_BYTES 1099511627776 */
 /* #define TOTAL_BYTES 268435456 */
 /* #define TOTAL_BYTES 17179869184 /\* 16GB *\/ */
-// #define TOTAL_BYTES 8589934592 /* 8GB */
-#define TOTAL_BYTES (1024 * 1024 * 1024)
+#define TOTAL_BYTES 4294967296
 
 
 static int32_t assert_write(struct atom_ring* ring, void* src, const int32_t size, const int32_t expected_writeable_size)

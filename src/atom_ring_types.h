@@ -30,25 +30,19 @@ struct atom_ring
 	uint32_t size; // speed NOW
 	int32_t fd;
 	// double-word
-	// pre-transaction values
+	// post-transaction values
 	_Atomic(int32_t) head;
 	_Atomic(int32_t) tail;
 	// double-word
-	_Atomic(int32_t) write_state;
-	_Atomic(int32_t) read_state;
-	/* NOTE: ASPIRATIONAL
-	 * post-transaction values to accomodate EITHER concurrent readers OR concurrent writers
-	 * - this still doesnt accomodate multiple readers & writers
-	 * - I DONT THINK YOU CAN HAVE BOTH
-	 * - skill issue, I can have both >:^)
-	 * BUT you can QUEUE the other */
-	// double-word
+	// pre-transaction values
 	_Atomic(int32_t) reading_head;
 	_Atomic(int32_t) writing_tail;
-	// NOTE: NVM.  this is right: https://lo.calho.st/posts/black-magic-buffer/
-	// direction is actually a NECESSARY for size calculations--WRONG!
 	// double-word
-	/* _Atomic(int32_t) direction; */
+	_Atomic(uint32_t) write_state;
+	_Atomic(uint32_t) read_state;
+	// double-word
+	/* _Atomic(uint32_t) write_gen; */
+	/* _Atomic(uint32_t) read_gen; */
 };
 
 #endif /* End ATOM_RING_TYPES_H */
