@@ -81,8 +81,8 @@ atom-ring-bandwidth: src/atom_ring.c obj/$(PLATFORM)/sync_addr.o obj/threading.o
 %.h: ;
 
 # test: api-generator extension_api.json
-# test: tests
-test: atom-ring-bandwidth
+# test: atom-ring-bandwidth
+test: tests
 	${CURDIR}/$<
 
 
