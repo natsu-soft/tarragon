@@ -45,6 +45,7 @@ struct job
 		void* fptr;
 	};
 	void* args;
+	uint64_t __false_sharing_padding[6]; // noticeably faster
 };
 
 static _Atomic(enum jobs_state) jobs_state = JOBS_ALIVE;
