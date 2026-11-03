@@ -62,7 +62,7 @@ static void worker_main(struct thread_context* ctx)
 	{
 		/* printf("%d-%d\n", ctx->sync_epoch, ctx->thread_num); */
 		/* fflush(stdout); */
-		res = atom_ring_concurrent_read(&job_ring, &job, sizeof job, NULL);
+		res = atom_ring_concurrent_read(&job_ring, &job, sizeof job);
 		/* res = atom_ring_read(&job_ring, &job, sizeof job); */
 		if (res == sizeof job)
 		{
@@ -141,19 +141,19 @@ void jobs_add_initializer(init_func initializer)
 {
 	struct job j = { .fptr = initializer };
 	j.tag = INITIALIZER;
-	atom_ring_concurrent_write(&job_ring, &j, sizeof j, NULL);
+	atom_ring_concurrent_write(&job_ring, &j, sizeof j);
 }
 
 void jobs_add_noarg(job_func job)
 {
 	struct job j = { .fptr = job };
-	atom_ring_concurrent_write(&job_ring, &j, sizeof(j), NULL);
+	atom_ring_concurrent_write(&job_ring, &j, sizeof(j));
 }
 
 void jobs_add_arg(job_func job, void* args)
 {
 	struct job j = { .fptr = job, .args = args };
-	atom_ring_concurrent_write(&job_ring, &j, sizeof(j), NULL);
+	atom_ring_concurrent_write(&job_ring, &j, sizeof(j));
 }
 
 static inline void worker_sync(struct barrier* barrier, struct thread_context* ctx)
