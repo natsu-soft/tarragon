@@ -45,7 +45,7 @@ const int32_t parse_node_sibling(const source_data_t* source_data, const int32_t
 	{
 		const int16_t* depths = source_data->parse_depths;
 		const int16_t depth = depths[idx];
-		for (int32_t i = idx + 1; depths[i] <= depth && source_data->num_parse_nodes; ++i)
+		for (int32_t i = idx + 1; i < source_data->num_parse_nodes && depths[i] >= depth; ++i)
 		{
 			if (depths[i] == depth)
 			{
@@ -59,14 +59,8 @@ const int32_t parse_node_sibling(const source_data_t* source_data, const int32_t
 
 void parse_node_iterate_children(int32_t* child_idx, const source_data_t* src_data, const int32_t idx)
 {
-	if (child_idx > 0)
-	{
-		*child_idx = parse_node_first_child(src_data, idx);
-	}
-	else
-	{
-		*child_idx = parse_node_sibling(src_data, *child_idx);
-	}
+	*child_idx = *child_idx > 0 ? parse_node_sibling(src_data, *child_idx) :
+		parse_node_first_child(src_data, idx);
 }
 
 
