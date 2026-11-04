@@ -314,7 +314,7 @@
 #endif
 
 #define PARSE_IDS \
-	X(SCRIPT) \
+	X(HEADER) \
 	X(SCOPE) \
 	X(ANNOTATION_PARAMS) \
 	X(LAMBDA) \
@@ -385,6 +385,12 @@ typedef enum __attribute__((packed)) token_id_t
 
 #ifndef TOKEN_ID_PREDICATES
 #define TOKEN_ID_PREDICATES
+static inline uint8_t header_p(const token_id_t id)
+{
+	return GDSCRIPT_CLASS_NAME == id || GDSCRIPT_EXTENDS == id ||
+		GDSCRIPT_TOOL == id || GDSCRIPT_ABSTRACT == id;
+}
+
 static inline uint8_t assignment_p(const token_id_t id)
 {
 	return GDSCRIPT_ASSIGNMENT_POWER <= id && id <= GDSCRIPT_ASSIGNMENT;

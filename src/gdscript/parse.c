@@ -28,6 +28,7 @@ struct context
 	token_id_t* ids;
 	int32_t num_tokens;
 	int16_t lws;
+	int8_t has_header;
 };
 IMPL_LINKED_LIST_FUNCS(node, struct parse_node)
 
@@ -418,6 +419,15 @@ static int16_t parse_lines(int32_t* cursor, int32_t* n, const int16_t depth, con
 			arena_free_all(ctx->arena);
 			struct parse_node* root = alloc_jct(ctx->arena);
 			for (; *cursor < ctx->num_tokens && ctx->ids[*cursor] == GDSCRIPT_LINE_END; ++*cursor);
+			if (depth == 0 && !ctx->has_header && !header_p(ctx->ids[*cursor]))
+			{
+				printf("INSERTING HEADER BEFORE: %.*s\n", ctx->lens[*cursor], ctx->src + ctx->offsets[*cursor]);
+				for (int32_t i = 0; i < *n; ++i) { ++ctx->depths[i]; }
+				ctx->indices[*n] = PARSE_HEADER;
+				ctx->depths[*n] = 0;
+				++*n;
+				ctx->has_header = 0xff;
+			}
 			parse_line(&root, cursor, ctx);
 			// root is now a newline node so I have to prepend a jct before dumping
 			struct parse_node* temp = alloc_jct(ctx->arena);
