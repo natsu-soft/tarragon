@@ -5,7 +5,7 @@
 
 struct bitset
 {
-	uint8_t* bits;
+	_Atomic(uint8_t)* bits;
 };
 
 
