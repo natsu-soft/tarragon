@@ -75,8 +75,8 @@ tests: obj/tests.o $(OBJ) obj/godot_api.o obj/godot_api.gen.o
 express: obj/express.o $(OBJ) obj/godot_api.o obj/godot_api.gen.o
 	$(CC) $(CFLAGS) -o $@ $^ $(LDADD) $(LDFLAGS)
 
-atom-ring-bandwidth: src/atom_ring.c obj/$(PLATFORM)/sync_addr.o obj/threading.o obj/memery.o
-	$(CC) $(CFLAGS) -DATOM_RING_BANDWIDTH_TEST -o $@ $^ $(LDADD) $(LDFLAGS)
+atom-ring-test: src/atom_ring.c obj/$(PLATFORM)/sync_addr.o obj/threading.o obj/memery.o
+	$(CC) $(CFLAGS) -DATOM_RING_BANDWIDTH_TEST  -o $@ $^ $(LDADD) $(LDFLAGS)
 
 %.h: ;
 
