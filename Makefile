@@ -81,8 +81,8 @@ atom-ring-test: src/atom_ring.c obj/$(PLATFORM)/sync_addr.o obj/threading.o obj/
 %.h: ;
 
 # test: api-generator extension_api.json
-# test: atom-ring-bandwidth
-test: tests
+# test: express
+test: express
 	${CURDIR}/$<
 
 

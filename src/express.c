@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <unistd.h>
 #define LOG_FILE_HERE
 #include "logger.h"
 #include "job.h"
@@ -6,11 +7,13 @@
 #include "stdout_ring.h"
 #include "allocators/scratch.h"
 #include "allocators/workpad.h"
+#include "gdscript/source_data.h"
 #include "gdscript/token_ids_types.h"
 #include "gdscript/lex.h"
 #include "gdscript/parse.h"
 #include "gdscript/diagnostics.h"
 
+static void print_parse_arrays(const char* src, const source_data_t* src_data);
 static void print_parse_table(const char* src, const source_data_t* src_data);
 
 int main(int argc, char** argv)
@@ -38,12 +41,38 @@ int main(int argc, char** argv)
 	}
 	arena_t* p_arena = workpad_checkout(parse_backing_size(num));
 	num = parse(&src_data, p_arena, lex_work);
+	print_parse_arrays(src, &src_data);
 	print_parse_table(src, &src_data);
 exit:
+	return ret;
+	sleep(1);
 	jobs_finish();
 	LOG_END();
 	// cleanup all the rings PLEASE
 	return ret;
+}
+
+static void print_parse_arrays(const char* src, const source_data_t* src_data)
+{
+	int16_t* depths = src_data->parse_depths;
+	int32_t* index = src_data->parse_to_token_indices + 1;
+	for (int32_t i = 1; i < src_data->num_parse_nodes; ++i, ++index)
+	{
+		switch(parse_idx_to_token_id(src_data, i))
+		{
+#define X(ID) \
+			case PARSE_##ID:					\
+				printf("%d:<" #ID ">, ", depths[i]); \
+				break;
+			PARSE_IDS
+	#undef X
+		case GDSCRIPT_LINE_END:
+			printf("%d:\n", depths[i]);
+			break;
+		default:
+			printf("%d:%.*s, ", depths[i], parse_idx_to_token_len(src_data, i), src + parse_idx_to_token_offset(src_data, i));
+		}
+	}
 }
 
 static void print_parse_table(const char* src, const source_data_t* src_data)
