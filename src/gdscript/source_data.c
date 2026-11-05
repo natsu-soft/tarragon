@@ -61,8 +61,8 @@ void parse_node_iterate_children(int32_t* child_idx, const source_data_t* src_da
 {
 	*child_idx = *child_idx > 0 ? parse_node_sibling(src_data, *child_idx) :
 		parse_node_first_child(src_data, idx);
-}
 
+}
 
 const token_id_t parse_idx_to_token_id(const source_data_t* source_data, const int32_t idx)
 {
