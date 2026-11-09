@@ -18,3 +18,4 @@ builtin-generator
 extension_api.json
 *.log
 /.gdb_history
+Massive.gd
