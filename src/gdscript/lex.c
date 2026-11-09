@@ -17,7 +17,7 @@
 /* #include "../macro_ring.h" */
 // it's lite, it's fast; it'll do.
 
-static void token_diagnostics(int32_t* n, int32_t* offsets, int16_t* lens, token_id_t* ids, source_data_t* src_data);
+static void token_diagnostics(int32_t* n, int32_t* offsets, int32_t* lens, token_id_t* ids, source_data_t* src_data);
 
 enum __attribute__((packed))
 {
@@ -654,7 +654,7 @@ int32_t lex(source_data_t* src_data, arena_t* backing_arena, arena_t* work_arena
 {
 	src_data->src = src;
 	int32_t* offsets = arena_alloc(backing_arena, (length + 128) * sizeof *offsets);
-	int16_t* lens = arena_alloc(backing_arena, (length + 128) * sizeof *lens);
+	int32_t* lens = arena_alloc(backing_arena, (length + 128) * sizeof *lens);
 	token_id_t* ids = arena_alloc(backing_arena, (length + 128) * sizeof *ids);
 	int32_t n = 0;
 	char bad_lws;
@@ -774,7 +774,7 @@ int32_t lex(source_data_t* src_data, arena_t* backing_arena, arena_t* work_arena
 
 const int32_t lex_backing_size(const int32_t length)
 {
-	return (length + 128) * (sizeof(int32_t) + sizeof(int16_t) + sizeof(token_id_t));
+	return (length + 128) * (sizeof(int32_t) + sizeof(int32_t) + sizeof(token_id_t));
 }
 
 const int32_t lex_work_size(const int32_t length)
@@ -784,7 +784,7 @@ const int32_t lex_work_size(const int32_t length)
 }
 
 // trims open/excess parens/curlies/brackets
-static void token_diagnostics(int32_t* n, int32_t* offsets, int16_t* lens, token_id_t* ids, source_data_t* src_data)
+static void token_diagnostics(int32_t* n, int32_t* offsets, int32_t* lens, token_id_t* ids, source_data_t* src_data)
 {
 	const char* src = src_data->src;
 	const char* path = src_data->path;

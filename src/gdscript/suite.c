@@ -55,7 +55,7 @@ static void print_parse_table(const char* src, const source_data_t* src_data)
 	}
 }
 
-void print_tokens(const char* src, const int32_t* offsets, const int16_t* lens, const int32_t n)
+void print_tokens(const char* src, const int32_t* offsets, const int32_t* lens, const int32_t n)
 {
 	for (int32_t i = TOKEN_START; i < n; ++i)
 	{
@@ -63,7 +63,7 @@ void print_tokens(const char* src, const int32_t* offsets, const int16_t* lens, 
 	}
 }
 
-void print_allman(const char* src, const int32_t* offsets, const int16_t* lens, const token_id_t* ids, const int32_t num_tokens)
+void print_allman(const char* src, const int32_t* offsets, const int32_t* lens, const token_id_t* ids, const int32_t num_tokens)
 {
 	int8_t newline = 1;
 	int32_t depth = 0;
@@ -165,7 +165,7 @@ void print_allman(const char* src, const int32_t* offsets, const int16_t* lens, 
 	}
 }
 
-void print_ids(const char* src, const int32_t* offsets, const int16_t* lens, const token_id_t* ids, const int32_t num_tokens)
+void print_ids(const char* src, const int32_t* offsets, const int32_t* lens, const token_id_t* ids, const int32_t num_tokens)
 {
 	int8_t newline = 1;
 	int32_t depth = 0;
@@ -208,7 +208,7 @@ void print_ids(const char* src, const int32_t* offsets, const int16_t* lens, con
 					break;
 				default:
 					{
-						const int16_t len = lens[i];
+						const int32_t len = lens[i];
 						const char* token = src + offsets[i];
 						if (id == GDSCRIPT_IDENTIFIER)
 						{
@@ -232,7 +232,7 @@ void print_ids(const char* src, const int32_t* offsets, const int16_t* lens, con
 }
 
 
-void print_clarity(const char* src, const int32_t* offsets, const int16_t* lens, const token_id_t* ids, const int32_t num_tokens)
+void print_clarity(const char* src, const int32_t* offsets, const int32_t* lens, const token_id_t* ids, const int32_t num_tokens)
 {
 	/* uint8_t newline = 1; */
 	/* uint32_t depth = 0; */

@@ -24,7 +24,7 @@ struct context
 	int16_t* depths;
 	char* src;
 	int32_t* offsets;
-	int16_t* lens;
+	int32_t* lens;
 	token_id_t* ids;
 	int32_t num_tokens;
 	int16_t lws;

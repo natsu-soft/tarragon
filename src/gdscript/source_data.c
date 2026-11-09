@@ -84,9 +84,9 @@ const int32_t parse_idx_to_token_offset(const source_data_t* source_data, const 
 	return token_offset;
 }
 
-const int16_t parse_idx_to_token_len(const source_data_t* source_data, const int32_t idx)
+const int32_t parse_idx_to_token_len(const source_data_t* source_data, const int32_t idx)
 {
-	int16_t token_len = 0;
+	int32_t token_len = 0;
 	if (0 < idx && idx < source_data->num_parse_nodes)
 	{
 		token_len = source_data->token_lens[source_data->parse_to_token_indices[idx]];
@@ -115,7 +115,7 @@ const int32_t parse_subtree_source_offset0(const source_data_t* source_data, con
 }
 
 
-void parse_subtree_source_offset_and_len(int32_t* offset, int16_t* len, const source_data_t* source_data, const int32_t idx)
+void parse_subtree_source_offset_and_len(int32_t* offset, int32_t* len, const source_data_t* source_data, const int32_t idx)
 {
 	*offset = 0;
 	*len = 0;
@@ -125,7 +125,7 @@ void parse_subtree_source_offset_and_len(int32_t* offset, int16_t* len, const so
 		const int16_t depth = depths[idx];
 		int32_t offset0 = parse_idx_to_token_offset(source_data, idx);
 		int32_t offset1 = offset0;
-		int16_t len1 = parse_idx_to_token_len(source_data, idx);
+		int32_t len1 = parse_idx_to_token_len(source_data, idx);
 		for (int32_t i = idx - 1; i > 0 && depths[i] > depth; --i)
 		{
 			const int32_t offset = parse_idx_to_token_offset(source_data, i);
@@ -144,7 +144,7 @@ void parse_subtree_source_offset_and_len(int32_t* offset, int16_t* len, const so
 	}
 }
 
-void parse_subtree_source_offset_and_len_to_eol(int32_t* offset, int16_t* len, const source_data_t* src_data, const int32_t idx)
+void parse_subtree_source_offset_and_len_to_eol(int32_t* offset, int32_t* len, const source_data_t* src_data, const int32_t idx)
 {
 	*offset = 0;
 	*len = 0;

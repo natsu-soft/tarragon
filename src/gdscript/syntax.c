@@ -79,7 +79,7 @@ static void check_parse_header(struct metadata_header* header, const int32_t hea
 	source_data_t* src_data = header->src_data;
 	uint8_t flags = NONE;
 	int32_t offset;
-	int16_t len;
+	int32_t len;
 	while(parse_node_iterate_children(&endl_idx, src_data, header_idx), endl_idx)
 	{
 		if (endl_idx != GDSCRIPT_LINE_END)
@@ -143,7 +143,7 @@ static void check_parse_header(struct metadata_header* header, const int32_t hea
 		else
 		{
 			int32_t offset;
-			int16_t len;
+			int32_t len;
 			parse_subtree_source_offset_and_len(&offset, &len, src_data, idx);
 			diagnostics_add(DIAGNOSTIC_BAD_HEADER_NODE, src_data->src, src_data->src_len, src_data->path, offset, len);
 			check_all_children(header, endl_idx);
@@ -180,7 +180,7 @@ static void check_root_node(int32_t* idx_ptr)
 	else
 	{
 		int32_t offset;
-		int16_t len;
+		int32_t len;
 		parse_subtree_source_offset_and_len(&offset, &len, src_data, idx);
 		diagnostics_add(DIAGNOSTIC_BAD_TOPNODE, src_data->src, src_data->src_len, src_data->path, offset, len);
 		check_all_children(metadata, idx);
